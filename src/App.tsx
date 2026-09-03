@@ -250,8 +250,46 @@ export default function App() {
   const steel = barCount(selectedSection) * barAreaCm2(selectedSection.mainDia);
   const ratio = steelRatioPercent(selectedSection);
 
+  function newProject() {
+    persist(createSampleProject());
+    setSelectedColumnId("C1");
+    setSelectedFloorId(1);
+    setPdfUrl("");
+    setError(null);
+    setStatus("Đã tạo dự án mới.");
+  }
+
+  function saveProject() {
+    persist(project);
+    setStatus("Đã lưu trên trình duyệt.");
+  }
+
   return (
-    <div className="app-shell">
+    <div className="app-root">
+      <header className="site-header">
+        <div className="brand">
+          <a href="https://www.giahuy.net/" target="_blank" rel="noopener noreferrer" title="GiaHuy.Net">
+            <img src="/giahuy-logo.png" alt="GiaHuy" width={171} height={47} />
+          </a>
+          <div className="brand-copy">
+            <div className="brand-title">Shop drawing thép cột</div>
+            <div className="brand-sub">Nhập tầng, tiết diện cột và thép, bấm Xuất PDF để xem bản vẽ.</div>
+          </div>
+        </div>
+        <div className="header-actions">
+          <button type="button" className="hdr-btn hdr-new" onClick={newProject}>
+            <FilePlus size={16} /> Mới
+          </button>
+          <button type="button" className="hdr-btn hdr-save" onClick={saveProject}>
+            <Save size={16} /> Lưu
+          </button>
+          <button type="button" className="hdr-btn hdr-pdf" onClick={exportPdf} disabled={busy}>
+            <Download size={16} /> {busy ? "Đang xuất…" : "Xuất PDF"}
+          </button>
+        </div>
+      </header>
+
+      <div className="app-shell">
       <aside className="sidebar">
         <div className="icon-grid">
           <button type="button" className="tool-button" onClick={openJson}>
@@ -343,17 +381,6 @@ export default function App() {
       </aside>
 
       <main className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Shop drawing thép cột</p>
-            <h1>Nhập tầng / cột, bố trí thép rồi xuất PDF A0.</h1>
-          </div>
-          <button type="button" className="primary-button" onClick={exportPdf} disabled={busy}>
-            <Download size={18} />
-            {busy ? "Đang xuất…" : "Xuất PDF"}
-          </button>
-        </header>
-
         {error ? <div className="banner error">{error}</div> : null}
         {status ? <div className="banner">{status}</div> : null}
 
@@ -835,6 +862,7 @@ export default function App() {
           </div>
         </Modal>
       ) : null}
+      </div>
     </div>
   );
 }

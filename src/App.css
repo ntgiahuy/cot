@@ -11,10 +11,116 @@
   font-display: swap;
 }
 
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #3f4854;
+  font-family: "Be Vietnam Pro", Arial, sans-serif;
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #18181b;
+  border-bottom: 1px solid #27272a;
+}
+
+.brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+}
+
+.brand img {
+  height: 40px;
+  width: auto;
+  display: block;
+}
+
+.brand-copy {
+  min-width: 0;
+  padding-left: 16px;
+  border-left: 1px solid #8b949e;
+}
+
+.brand-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #79b8ff;
+}
+
+.brand-sub {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #a1a1aa;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hdr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.hdr-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.hdr-new {
+  background: #27272a;
+  border-color: #3f3f46;
+}
+
+.hdr-new:hover {
+  background: #3f3f46;
+}
+
+.hdr-save {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.hdr-save:hover {
+  background: #16a34a;
+}
+
+.hdr-pdf {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.hdr-pdf:hover {
+  background: #3b82f6;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
   background: #3f4854;
   color: #fff;
   font-family: "Be Vietnam Pro", Arial, sans-serif;
@@ -499,6 +605,7 @@ legend {
 }
 
 @media (max-width: 720px) {
+  .site-header,
   .form-row,
   .topbar,
   .button-row,
@@ -506,6 +613,9 @@ legend {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+  }
+  .header-actions {
+    margin-left: 0;
   }
   .workspace {
     padding: 10px;
