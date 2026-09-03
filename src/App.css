@@ -345,29 +345,60 @@ h1 {
 
 .column-band-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 8px;
-  padding: 16px;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 12px;
 }
 
 .column-band-card {
-  text-align: center;
-  padding: 8px 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) auto;
+  grid-template-areas:
+    "name meta"
+    "dim dim"
+    "steel steel";
+  gap: 4px 12px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid #6d7784;
+  border-left: 5px solid #fff12d;
+  background: #2a323c;
+  border-radius: 6px;
+}
+
+.column-name {
+  grid-area: name;
+  color: #fff12d;
+  font-size: 20px;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.column-meta {
+  grid-area: meta;
+  justify-self: end;
+  align-self: center;
+  color: #cfd8e3;
+  font-size: 13px;
 }
 
 .dimension {
+  grid-area: dim;
   display: block;
   color: #fff12d;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
 }
 
-.dim-label,
 .annotation {
+  grid-area: steel;
   display: block;
   color: #fff;
-  margin-top: 8px;
-  font-size: 18px;
+  font-size: 16px;
+}
+
+.dim-label {
+  display: none;
 }
 
 .statusbar {

@@ -30,6 +30,7 @@ import { DIAMETERS, type Column, type Floor, type FloorSection, type Project } f
 import "./App.css";
 
 const STORE_KEY = "thep-cot-project-v1";
+const COLUMN_ACCENTS = ["#fff12d", "#73ff31", "#79b8ff", "#ff8c42", "#e879f9", "#ff6b6b"];
 
 type DialogId = "none" | "floors" | "floorEdit" | "column" | "rebar";
 
@@ -385,25 +386,31 @@ export default function App() {
                   <strong>{floor.heightMm}</strong>
                 </button>
                 <div className="column-band-grid">
-                  {project.columns.map((column) => {
+                  {project.columns.map((column, columnIndex) => {
                     const section = sectionFor(column, floor.id);
                     const active = column.id === selectedColumnId && floor.id === selectedFloorId;
+                    const accent = COLUMN_ACCENTS[columnIndex % COLUMN_ACCENTS.length];
                     return (
                       <button
                         key={`${floor.id}-${column.id}`}
                         type="button"
                         className={active ? "column-band-card active" : "column-band-card"}
+                        style={{ borderLeftColor: accent }}
                         onClick={() => {
                           setSelectedColumnId(column.id);
                           setSelectedFloorId(floor.id);
                           setDialog("rebar");
                         }}
                       >
-                        <span className="dim-label">T</span>
-                        <span className="dimension">
-                          {section.cx}x{section.cy}
+                        <span className="column-name" style={{ color: accent }}>
+                          Cột {column.name}
                         </span>
-                        <span className="dim-label">KT</span>
+                        <span className="column-meta">
+                          {column.shape} · SL {column.quantity}
+                        </span>
+                        <span className="dimension">
+                          {section.cx}×{section.cy}
+                        </span>
                         <span className="annotation">Thép {formatBarLabel(section)}</span>
                       </button>
                     );
@@ -417,11 +424,6 @@ export default function App() {
           <span>
             Tổng: {project.floors.length} tầng / {project.columns.length} cột
           </span>
-          <div className="legend">
-            {project.columns.map((column) => (
-              <em key={column.id}>Cột {column.name}</em>
-            ))}
-          </div>
         </footer>
 
         {pdfUrl ? (
