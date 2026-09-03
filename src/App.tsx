@@ -298,23 +298,7 @@ export default function App() {
           </button>
           <button type="button" className="tool-button" onClick={saveJson}>
             <Save size={18} />
-            Save
-          </button>
-          <button type="button" className="tool-button" onClick={saveJson}>
-            <Save size={18} />
             Save As
-          </button>
-          <button
-            type="button"
-            className="tool-button"
-            onClick={() => {
-              persist(createSampleProject());
-              setSelectedColumnId("C1");
-              setStatus("Đã tạo dự án mẫu mới.");
-            }}
-          >
-            <FilePlus size={18} />
-            New
           </button>
           <button type="button" className="tool-button" onClick={() => setDialog("floors")}>
             <Pencil size={18} />
@@ -331,10 +315,6 @@ export default function App() {
           <button type="button" className="tool-button" onClick={exportPdf} disabled={busy}>
             <Download size={18} />
             AutoCAD
-          </button>
-          <button type="button" className="tool-button accent" onClick={exportPdf} disabled={busy}>
-            <Check size={18} />
-            Draw
           </button>
         </div>
 
