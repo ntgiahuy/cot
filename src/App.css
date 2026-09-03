@@ -394,19 +394,30 @@ h1 {
 .modal-backdrop {
   position: fixed;
   inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background: rgba(0, 0, 0, 0.45);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  z-index: 20;
+  touch-action: pan-y;
 }
 
 .modal {
   width: min(560px, 100%);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100svh - 24px);
+  display: flex;
+  flex-direction: column;
   background: #3c444d;
   border: 1px solid #9aa3ad;
-  padding: 18px;
+  padding: 16px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
 }
 
 .modal.wide {
@@ -417,12 +428,23 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .modal-head h2 {
   margin: 0;
   font-size: 20px;
+}
+
+.modal-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding-bottom: 8px;
 }
 
 .form-row {
@@ -474,6 +496,9 @@ h1 {
 .table-like {
   background: #fff;
   border: 1px solid #d5d5d5;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: min(280px, 40vh);
 }
 
 .table-head,

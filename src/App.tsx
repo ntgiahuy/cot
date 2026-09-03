@@ -858,6 +858,14 @@ function Modal({
   onClose: () => void;
   wide?: boolean;
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className={wide ? "modal wide" : "modal"} onClick={(e) => e.stopPropagation()}>
@@ -867,7 +875,7 @@ function Modal({
             <X size={16} />
           </button>
         </div>
-        {children}
+        <div className="modal-body">{children}</div>
       </div>
     </div>
   );
