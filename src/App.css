@@ -13,10 +13,13 @@
 
 .app-root {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   background: #3f4854;
   font-family: "Be Vietnam Pro", Arial, sans-serif;
+  overflow-x: hidden;
 }
 
 .site-header {
@@ -24,6 +27,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 8px 12px;
   background: #18181b;
   border-bottom: 1px solid #27272a;
@@ -31,20 +36,24 @@
 
 .brand {
   display: flex;
+  flex: 1 1 240px;
   min-width: 0;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .brand img {
   height: 40px;
   width: auto;
+  max-width: 140px;
   display: block;
+  flex-shrink: 0;
 }
 
 .brand-copy {
   min-width: 0;
-  padding-left: 16px;
+  flex: 1;
+  padding-left: 12px;
   border-left: 1px solid #8b949e;
 }
 
@@ -66,6 +75,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -335,6 +345,7 @@ h1 {
 
 .column-band-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 8px;
   padding: 16px;
 }
@@ -602,10 +613,38 @@ legend {
   .list-wrap {
     grid-template-columns: 1fr;
   }
+
+  .elevation-board {
+    overflow-x: auto;
+  }
 }
 
 @media (max-width: 720px) {
-  .site-header,
+  .site-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .brand {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .header-actions {
+    margin-left: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .hdr-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
   .form-row,
   .topbar,
   .button-row,
@@ -614,9 +653,7 @@ legend {
     flex-direction: column;
     align-items: stretch;
   }
-  .header-actions {
-    margin-left: 0;
-  }
+
   .workspace {
     padding: 10px;
   }

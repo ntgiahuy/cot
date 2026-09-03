@@ -384,7 +384,7 @@ export default function App() {
                   <span>H (mm)</span>
                   <strong>{floor.heightMm}</strong>
                 </button>
-                <div className="column-band-grid" style={{ gridTemplateColumns: `repeat(${Math.max(project.columns.length, 1)}, minmax(120px, 1fr))` }}>
+                <div className="column-band-grid">
                   {project.columns.map((column) => {
                     const section = sectionFor(column, floor.id);
                     const active = column.id === selectedColumnId && floor.id === selectedFloorId;
