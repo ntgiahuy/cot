@@ -712,6 +712,10 @@ legend {
   margin-left: 22px;
 }
 
+.form-row.nested {
+  margin-left: 22px;
+}
+
 .tie-c-fields {
   margin: 0 0 4px;
 }

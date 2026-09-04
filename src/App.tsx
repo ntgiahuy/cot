@@ -21,12 +21,19 @@ import {
   barAreaCm2,
   barCount,
   canUseTieC,
+  canUseTieNested,
   cTieAlongX,
   cTieAlongY,
   columnFloors,
   floorElevations,
   formatBarLabel,
   hasMainStirrup,
+  nestedAlongX,
+  nestedAlongY,
+  nestedBoxX,
+  nestedBoxY,
+  nestedWrapCount,
+  nestedWrapOptions,
   normalizeColumn,
   sectionFor,
   steelRatioPercent,
@@ -759,6 +766,7 @@ export default function App() {
                     onChange={(e) => {
                       const barsX = Number(e.target.value);
                       const evenBoth = barsX % 2 === 0 && selectedSection.barsY % 2 === 0;
+                      const nestOk = barsX >= 4 || selectedSection.barsY >= 4;
                       patchSection(
                         {
                           barsX,
@@ -767,6 +775,12 @@ export default function App() {
                             enabled: evenBoth ? false : selectedSection.tieC.enabled,
                             alongX: barsX % 2 === 1 ? selectedSection.tieC.alongX !== false : false,
                             alongY: selectedSection.barsY % 2 === 1 ? selectedSection.tieC.alongY !== false : false,
+                          },
+                          tieNested: {
+                            ...selectedSection.tieNested,
+                            enabled: nestOk ? selectedSection.tieNested.enabled : false,
+                            alongX: barsX >= 4 ? (selectedSection.barsX >= 4 ? selectedSection.tieNested.alongX : true) : false,
+                            alongY: selectedSection.barsY >= 4 ? selectedSection.tieNested.alongY : false,
                           },
                         },
                         applyUpper,
@@ -787,6 +801,7 @@ export default function App() {
                     onChange={(e) => {
                       const barsY = Number(e.target.value);
                       const evenBoth = selectedSection.barsX % 2 === 0 && barsY % 2 === 0;
+                      const nestOk = selectedSection.barsX >= 4 || barsY >= 4;
                       patchSection(
                         {
                           barsY,
@@ -795,6 +810,12 @@ export default function App() {
                             enabled: evenBoth ? false : selectedSection.tieC.enabled,
                             alongX: selectedSection.barsX % 2 === 1 ? selectedSection.tieC.alongX !== false : false,
                             alongY: barsY % 2 === 1 ? selectedSection.tieC.alongY !== false : false,
+                          },
+                          tieNested: {
+                            ...selectedSection.tieNested,
+                            enabled: nestOk ? selectedSection.tieNested.enabled : false,
+                            alongX: selectedSection.barsX >= 4 ? selectedSection.tieNested.alongX : false,
+                            alongY: barsY >= 4 ? (selectedSection.barsY >= 4 ? selectedSection.tieNested.alongY : true) : false,
                           },
                         },
                         applyUpper,
@@ -902,6 +923,7 @@ export default function App() {
                 />
                 <TieOptionFields
                   title="Đai lồng"
+                  variant="nested"
                   kind="nested"
                   section={selectedSection}
                   blocked={selectedSection.tieDouble.enabled}
@@ -991,15 +1013,21 @@ function TieOptionFields({
   title: string;
   value: TieOption;
   onChange: (partial: Partial<TieOption>) => void;
-  variant?: "c" | "box";
+  variant?: "c" | "nested" | "box";
   kind?: "nested" | "double";
   section?: FloorSection;
   blocked?: boolean;
   blockedHint?: string;
 }) {
   const allowC = variant !== "c" || (section ? canUseTieC(section) : false);
-  const allow = allowC && !blocked;
+  const allowNested = variant !== "nested" || (section ? canUseTieNested(section) : false);
+  const allow = allowC && allowNested && !blocked;
   const aligned = section && variant === "box" ? alignedClosedTie(section, value, kind) : null;
+  const axes = variant === "c" || variant === "nested";
+  const xOk = section ? (variant === "c" ? section.barsX % 2 === 1 : section.barsX >= 4) : false;
+  const yOk = section ? (variant === "c" ? section.barsY % 2 === 1 : section.barsY >= 4) : false;
+  const wrapX = section ? nestedWrapOptions(section.barsX) : [];
+  const wrapY = section ? nestedWrapOptions(section.barsY) : [];
 
   return (
     <div className="tie-option">
@@ -1028,6 +1056,17 @@ function TieOptionFields({
               });
               return;
             }
+            if (variant === "nested" && section) {
+              onChange({
+                enabled: true,
+                alongX: section.barsX >= 4,
+                alongY: section.barsY >= 4,
+                spacingMm: value.spacingMm || 200,
+                wrapBarsX: nestedWrapCount(section.barsX, value.wrapBarsX),
+                wrapBarsY: nestedWrapCount(section.barsY, value.wrapBarsY),
+              });
+              return;
+            }
             onChange({ enabled: true });
           }}
         />
@@ -1037,7 +1076,7 @@ function TieOptionFields({
       {value.enabled && allow && kind === "double" ? (
         <p className="splice-hint">Đai nhánh thay đai đơn — không vẽ và không thống kê đai đơn.</p>
       ) : null}
-      {value.enabled && allow && variant === "c" && section ? (
+      {value.enabled && allow && axes && section ? (
         <div className="tie-c-fields">
           <div className="form-row">
             <label>Khoảng cách (mm):</label>
@@ -1048,24 +1087,54 @@ function TieOptionFields({
               onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 200 })}
             />
           </div>
-          <label className={section.barsX % 2 === 1 ? "checkbox-row nested" : "checkbox-row nested disabled"}>
+          <label className={xOk ? "checkbox-row nested" : "checkbox-row nested disabled"}>
             <input
               type="checkbox"
-              checked={Boolean(value.alongX) && section.barsX % 2 === 1}
-              disabled={section.barsX % 2 === 0}
+              checked={Boolean(value.alongX) && xOk}
+              disabled={!xOk}
               onChange={(e) => onChange({ alongX: e.target.checked })}
             />
             Bố trí theo phương Cx
           </label>
-          <label className={section.barsY % 2 === 1 ? "checkbox-row nested" : "checkbox-row nested disabled"}>
+          {variant === "nested" && value.alongX && xOk ? (
+            <div className="form-row nested">
+              <label>Bo ngoài Cx (sắt chủ):</label>
+              <select
+                value={nestedWrapCount(section.barsX, value.wrapBarsX)}
+                onChange={(e) => onChange({ wrapBarsX: Number(e.target.value) })}
+              >
+                {wrapX.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <label className={yOk ? "checkbox-row nested" : "checkbox-row nested disabled"}>
             <input
               type="checkbox"
-              checked={Boolean(value.alongY) && section.barsY % 2 === 1}
-              disabled={section.barsY % 2 === 0}
+              checked={Boolean(value.alongY) && yOk}
+              disabled={!yOk}
               onChange={(e) => onChange({ alongY: e.target.checked })}
             />
             Bố trí theo phương Cy
           </label>
+          {variant === "nested" && value.alongY && yOk ? (
+            <div className="form-row nested">
+              <label>Bo ngoài Cy (sắt chủ):</label>
+              <select
+                value={nestedWrapCount(section.barsY, value.wrapBarsY)}
+                onChange={(e) => onChange({ wrapBarsY: Number(e.target.value) })}
+              >
+                {wrapY.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {value.enabled && variant === "box" && aligned ? (
@@ -1177,13 +1246,13 @@ function ExtraTiesPreview({
   const outerH = innerH - stirrupOffset * 2;
   const nodes: ReactNode[] = [];
 
-  if (section.tieNested.enabled && !section.tieDouble.enabled) {
-    const box = alignedClosedTie(section, section.tieNested, "nested");
+  if (nestedAlongX(section) && !section.tieDouble.enabled) {
+    const box = nestedBoxX(section);
     const nw = outerW * (box.xMm / a);
     const nh = outerH * (box.yMm / b);
     nodes.push(
       <rect
-        key="nested"
+        key="nested-x"
         x={outerX + (outerW - nw) / 2}
         y={outerY + (outerH - nh) / 2}
         width={nw}
@@ -1191,6 +1260,24 @@ function ExtraTiesPreview({
         rx="10"
         fill="none"
         stroke="#4dabf7"
+        strokeWidth="5"
+      />,
+    );
+  }
+  if (nestedAlongY(section) && !section.tieDouble.enabled) {
+    const box = nestedBoxY(section);
+    const nw = outerW * (box.xMm / a);
+    const nh = outerH * (box.yMm / b);
+    nodes.push(
+      <rect
+        key="nested-y"
+        x={outerX + (outerW - nw) / 2}
+        y={outerY + (outerH - nh) / 2}
+        width={nw}
+        height={nh}
+        rx="10"
+        fill="none"
+        stroke="#74c0fc"
         strokeWidth="5"
       />,
     );

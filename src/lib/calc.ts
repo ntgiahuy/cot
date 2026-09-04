@@ -109,6 +109,53 @@ export function cTieAlongY(section: FloorSection) {
   return Boolean(section.tieC.enabled && section.tieC.alongY && section.barsY % 2 === 1);
 }
 
+export function canUseTieNested(section: FloorSection) {
+  return section.barsX >= 4 || section.barsY >= 4;
+}
+
+export function nestedAlongX(section: FloorSection) {
+  return Boolean(section.tieNested.enabled && section.tieNested.alongX && section.barsX >= 4);
+}
+
+export function nestedAlongY(section: FloorSection) {
+  return Boolean(section.tieNested.enabled && section.tieNested.alongY && section.barsY >= 4);
+}
+
+export function nestedWrapOptions(bars: number) {
+  const max = Math.max(2, bars - 2);
+  const opts: number[] = [];
+  for (let n = 2; n <= max; n += 1) opts.push(n);
+  return opts;
+}
+
+export function nestedWrapCount(bars: number, requested: number) {
+  const opts = nestedWrapOptions(bars);
+  if (opts.includes(requested)) return requested;
+  return opts[opts.length - 1] ?? 2;
+}
+
+export function nestedShortMm(innerSpan: number, bars: number, wrapCount: number, mainDia: number) {
+  const spacing = innerSpan / Math.max(bars - 1, 1);
+  const n = nestedWrapCount(bars, wrapCount);
+  return Math.max(40, Math.round((n - 1) * spacing + mainDia));
+}
+
+export function nestedBoxX(section: FloorSection) {
+  const { a, b } = stirrupInner(section);
+  return {
+    xMm: nestedShortMm(a, section.barsX, section.tieNested.wrapBarsX, section.mainDia),
+    yMm: b,
+  };
+}
+
+export function nestedBoxY(section: FloorSection) {
+  const { a, b } = stirrupInner(section);
+  return {
+    xMm: a,
+    yMm: nestedShortMm(b, section.barsY, section.tieNested.wrapBarsY, section.mainDia),
+  };
+}
+
 export function cTieLengthMm(spanMm: number) {
   return Math.max(spanMm, 0) + 2 * STIRRUP_HOOK_MM;
 }
@@ -177,20 +224,36 @@ function extraTieSpecs(section: FloorSection) {
       yMm: 0,
     });
   }
-  const nested = alignedClosedTie(section, section.tieNested, "nested");
   const branch = alignedClosedTie(section, section.tieDouble, "double");
   if (!section.tieDouble.enabled) {
-    specs.push({
-      key: "Lồng",
-      label: "Đai lồng",
-      tie: section.tieNested,
-      lengthMm: closedTieLengthMm(nested.xMm, nested.yMm),
-      copies: 1,
-      derived: false,
-      spanMm: 0,
-      xMm: nested.xMm,
-      yMm: nested.yMm,
-    });
+    if (nestedAlongX(section)) {
+      const box = nestedBoxX(section);
+      specs.push({
+        key: "Lồng-X",
+        label: "Đai lồng phương Cx",
+        tie: section.tieNested,
+        lengthMm: closedTieLengthMm(box.xMm, box.yMm),
+        copies: 1,
+        derived: false,
+        spanMm: 0,
+        xMm: box.xMm,
+        yMm: box.yMm,
+      });
+    }
+    if (nestedAlongY(section)) {
+      const box = nestedBoxY(section);
+      specs.push({
+        key: "Lồng-Y",
+        label: "Đai lồng phương Cy",
+        tie: section.tieNested,
+        lengthMm: closedTieLengthMm(box.xMm, box.yMm),
+        copies: 1,
+        derived: false,
+        spanMm: 0,
+        xMm: box.xMm,
+        yMm: box.yMm,
+      });
+    }
   }
   if (!section.tieNested.enabled) {
     specs.push({
@@ -339,7 +402,8 @@ export function buildSchedule(project: Project): {
 
       extraTieSpecs(section).forEach((spec, specIndex) => {
         if (!spec.tie.enabled) return;
-        const spacingMm = spec.derived ? spec.tie.spacingMm || 200 : spec.tie.spacingMm;
+        const spacingMm =
+          spec.derived || spec.key.startsWith("Lồng") ? spec.tie.spacingMm || 200 : spec.tie.spacingMm;
         if (spacingMm <= 0) return;
         const nExtra = extraTieCount(floor, spacingMm) * spec.copies;
         const extraTotal = nExtra * column.quantity;

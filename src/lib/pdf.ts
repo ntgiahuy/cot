@@ -11,6 +11,10 @@ import {
   cTieAlongX,
   cTieAlongY,
   hasMainStirrup,
+  nestedAlongX,
+  nestedAlongY,
+  nestedBoxX,
+  nestedBoxY,
   sectionFor,
   stockBars,
   stirrupInner,
@@ -135,8 +139,15 @@ function drawSection(
     const sBottom = sTop + sH;
     const hook = 5;
     const ret = 3;
-    if (section.tieNested.enabled && !section.tieDouble.enabled) {
-      const box = alignedClosedTie(section, section.tieNested, "nested");
+    if (nestedAlongX(section) && !section.tieDouble.enabled) {
+      const box = nestedBoxX(section);
+      const { a, b } = stirrupInner(section);
+      const nw = sW * (box.xMm / a);
+      const nh = sH * (box.yMm / b);
+      rect(ctx, sLeft + (sW - nw) / 2, sTop + (sH - nh) / 2, nw, nh, 0.8);
+    }
+    if (nestedAlongY(section) && !section.tieDouble.enabled) {
+      const box = nestedBoxY(section);
       const { a, b } = stirrupInner(section);
       const nw = sW * (box.xMm / a);
       const nh = sH * (box.yMm / b);
