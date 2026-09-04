@@ -1,4 +1,4 @@
-import { COVER_MM, EMBED_MM, STOCK_M, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor } from "./types";
+import { COVER_MM, EMBED_MM, STOCK_M, STIRRUP_HOOK_MM, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
 
 export function barCount(section: FloorSection) {
   const edge = section.barsX * 2 + section.barsY * 2 - 4;
@@ -34,13 +34,21 @@ export function floorElevations(floors: Floor[]) {
   return result;
 }
 
+export function normalizeSection(section: FloorSection): FloorSection {
+  return {
+    ...section,
+    tieC: normalizeTie(section.tieC),
+    tieNested: normalizeTie(section.tieNested),
+    tieDouble: normalizeTie(section.tieDouble),
+  };
+}
+
 export function sectionFor(column: Column, floorId: number): FloorSection {
   const ids = Object.keys(column.sections)
     .map(Number)
     .sort((a, b) => a - b);
-  if (column.sections[floorId]) return column.sections[floorId];
-  const fallback = ids.find((id) => id <= floorId) ?? ids[0];
-  return column.sections[fallback];
+  const raw = column.sections[floorId] ?? column.sections[ids.find((id) => id <= floorId) ?? ids[0]];
+  return normalizeSection(raw);
 }
 
 export function columnFloors(column: Column, floors: Floor[]) {
@@ -83,6 +91,39 @@ export function stirrupLengthMm(section: FloorSection) {
   return 2 * (a + b) + 2 * STIRRUP_HOOK_MM;
 }
 
+function closedTieLengthMm(xMm: number, yMm: number) {
+  return 2 * (Math.max(xMm, 40) + Math.max(yMm, 40)) + 2 * STIRRUP_HOOK_MM;
+}
+
+function cTieLengthMm(xMm: number, yMm: number) {
+  return Math.max(xMm, 0) + 2 * Math.max(yMm, 0) + 2 * STIRRUP_HOOK_MM;
+}
+
+function extraTieCount(floor: Floor, spacingMm: number) {
+  if (spacingMm <= 0) return 0;
+  return Math.max(1, Math.round(floor.heightMm / spacingMm));
+}
+
+function extraTieSpecs(section: FloorSection) {
+  return [
+    { key: "C", label: "Đai C", tie: section.tieC, lengthMm: cTieLengthMm(section.tieC.xMm, section.tieC.yMm), copies: 1 },
+    {
+      key: "Lồng",
+      label: "Đai lồng",
+      tie: section.tieNested,
+      lengthMm: closedTieLengthMm(section.tieNested.xMm, section.tieNested.yMm),
+      copies: 1,
+    },
+    {
+      key: "Kép",
+      label: "Đai kép",
+      tie: section.tieDouble,
+      lengthMm: closedTieLengthMm(section.tieDouble.xMm, section.tieDouble.yMm),
+      copies: 2,
+    },
+  ] satisfies Array<{ key: string; label: string; tie: TieOption; lengthMm: number; copies: number }>;
+}
+
 export function denseZones(floor: Floor, index: number) {
   const top = floor.beamHeightMm;
   const bot = 610 - 40 * index;
@@ -119,7 +160,7 @@ export function buildSchedule(project: Project): {
   for (const column of project.columns.map(normalizeColumn)) {
     const active = columnFloors(column, project.floors);
     active.forEach((floor, floorIndex) => {
-      const section = sectionFor(column, floor.id);
+      const section = normalizeSection(sectionFor(column, floor.id));
       const nBars = barCount(section);
       const isTop = floor.id === lastFloorId;
       const member = `${column.name} (TẦNG ${floor.name})`;
@@ -208,6 +249,32 @@ export function buildSchedule(project: Project): {
         totalBars,
         totalLengthM,
         weightKg,
+      });
+
+      extraTieSpecs(section).forEach((spec, specIndex) => {
+        if (!spec.tie.enabled || spec.tie.spacingMm <= 0 || (spec.tie.xMm <= 0 && spec.tie.yMm <= 0)) return;
+        const nExtra = extraTieCount(floor, spec.tie.spacingMm) * spec.copies;
+        const extraTotal = nExtra * column.quantity;
+        const extraLengthM = (spec.lengthMm / 1000) * extraTotal;
+        const extraWeight = extraLengthM * kgPerMeter(section.tieDia);
+        pushTotal(byDia, section.tieDia, extraLengthM, extraWeight);
+        const extraKey = `${spec.label} Ø${section.tieDia} ${spec.tie.xMm} x ${spec.tie.yMm}`;
+        stirrupCounts.set(extraKey, (stirrupCounts.get(extraKey) ?? 0) + extraTotal);
+        rows.push({
+          member,
+          floorName: floor.name,
+          quantity: column.quantity,
+          stt: 3 + specIndex,
+          dia: section.tieDia,
+          kind: "stirrup",
+          shapeLabel: spec.key,
+          segs: [STIRRUP_HOOK_MM, spec.tie.xMm, spec.tie.yMm],
+          lengthMm: spec.lengthMm,
+          perMember: nExtra,
+          totalBars: extraTotal,
+          totalLengthM: extraLengthM,
+          weightKg: extraWeight,
+        });
       });
     });
   }

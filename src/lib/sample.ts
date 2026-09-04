@@ -1,14 +1,29 @@
 import type { Column, Floor, FloorSection, Project } from "./types";
+import { emptyTie } from "./types";
 
 function section(partial: Partial<FloorSection> & Pick<FloorSection, "cx" | "cy" | "barsX" | "barsY" | "mainDia">): FloorSection {
-  return {
+  const base: FloorSection = {
     tieDia: 6,
     extraSteel: false,
     extraDia: 16,
     extraTieDia: 8,
     extraTieX: 0,
     extraTieY: 0,
+    tieC: emptyTie(),
+    tieNested: emptyTie(),
+    tieDouble: emptyTie(),
     ...partial,
+    cx: partial.cx,
+    cy: partial.cy,
+    barsX: partial.barsX,
+    barsY: partial.barsY,
+    mainDia: partial.mainDia,
+  };
+  return {
+    ...base,
+    tieC: { ...emptyTie(), ...partial.tieC },
+    tieNested: { ...emptyTie(), ...partial.tieNested },
+    tieDouble: { ...emptyTie(), ...partial.tieDouble },
   };
 }
 

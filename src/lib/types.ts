@@ -7,6 +7,13 @@ export type Floor = {
   beamHeightMm: number;
 };
 
+export type TieOption = {
+  enabled: boolean;
+  xMm: number;
+  yMm: number;
+  spacingMm: number;
+};
+
 export type FloorSection = {
   cx: number;
   cy: number;
@@ -19,6 +26,9 @@ export type FloorSection = {
   extraTieDia: number;
   extraTieX: number;
   extraTieY: number;
+  tieC: TieOption;
+  tieNested: TieOption;
+  tieDouble: TieOption;
 };
 
 export type SpliceFactor = 30 | 35 | 40;
@@ -64,3 +74,16 @@ export const COVER_MM = 25;
 export const STIRRUP_HOOK_MM = 50;
 export const STOCK_M = 11.7;
 export const EMBED_MM = 600;
+
+export function emptyTie(): TieOption {
+  return { enabled: false, xMm: 0, yMm: 0, spacingMm: 0 };
+}
+
+export function normalizeTie(value?: Partial<TieOption> | null): TieOption {
+  return {
+    enabled: Boolean(value?.enabled),
+    xMm: Number(value?.xMm) || 0,
+    yMm: Number(value?.yMm) || 0,
+    spacingMm: Number(value?.spacingMm) || 0,
+  };
+}

@@ -27,7 +27,7 @@ import {
   steelRatioPercent,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
-import { DIAMETERS, SPLICE_FACTORS, type Column, type Floor, type FloorSection, type Project, type SpliceFactor } from "./lib/types";
+import { DIAMETERS, SPLICE_FACTORS, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
 import "./App.css";
 
 const STORE_KEY = "thep-cot-project-v1";
@@ -858,6 +858,30 @@ export default function App() {
                   </div>
                 </div>
               </fieldset>
+              <fieldset>
+                <legend>Đai bổ sung</legend>
+                <TieOptionFields
+                  title="Đai C"
+                  value={selectedSection.tieC}
+                  onChange={(partial) =>
+                    patchSection({ tieC: { ...selectedSection.tieC, ...partial } }, applyUpper)
+                  }
+                />
+                <TieOptionFields
+                  title="Đai lồng"
+                  value={selectedSection.tieNested}
+                  onChange={(partial) =>
+                    patchSection({ tieNested: { ...selectedSection.tieNested, ...partial } }, applyUpper)
+                  }
+                />
+                <TieOptionFields
+                  title="Đai kép"
+                  value={selectedSection.tieDouble}
+                  onChange={(partial) =>
+                    patchSection({ tieDouble: { ...selectedSection.tieDouble, ...partial } }, applyUpper)
+                  }
+                />
+              </fieldset>
             </div>
             <div className="preview-panel">
               <ColumnPreview section={selectedSection} shape={selectedColumn.shape} />
@@ -901,6 +925,61 @@ export default function App() {
   );
 }
 
+function TieOptionFields({
+  title,
+  value,
+  onChange,
+}: {
+  title: string;
+  value: TieOption;
+  onChange: (partial: Partial<TieOption>) => void;
+}) {
+  return (
+    <div className="tie-option">
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          checked={value.enabled}
+          onChange={(e) => onChange({ enabled: e.target.checked })}
+        />
+        {title}
+      </label>
+      <div className={value.enabled ? "" : "disabled-block"}>
+        <div className="form-row">
+          <label>Phương X (mm):</label>
+          <input
+            type="number"
+            min={0}
+            disabled={!value.enabled}
+            value={value.xMm}
+            onChange={(e) => onChange({ xMm: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="form-row">
+          <label>Phương Y (mm):</label>
+          <input
+            type="number"
+            min={0}
+            disabled={!value.enabled}
+            value={value.yMm}
+            onChange={(e) => onChange({ yMm: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="form-row">
+          <label>Khoảng cách (mm):</label>
+          <input
+            type="number"
+            min={0}
+            disabled={!value.enabled}
+            value={value.spacingMm}
+            onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 0 })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Modal({
   title,
   children,
@@ -933,6 +1012,85 @@ function Modal({
       </div>
     </div>
   );
+}
+
+function ExtraTiesPreview({
+  section,
+  margin,
+  innerW,
+  innerH,
+  stirrupOffset,
+}: {
+  section: FloorSection;
+  margin: number;
+  innerW: number;
+  innerH: number;
+  stirrupOffset: number;
+}) {
+  const sx = section.cx > 0 ? innerW / section.cx : 1;
+  const sy = section.cy > 0 ? innerH / section.cy : 1;
+  const outerX = margin + stirrupOffset;
+  const outerY = margin + stirrupOffset;
+  const outerW = innerW - stirrupOffset * 2;
+  const outerH = innerH - stirrupOffset * 2;
+  const nodes: ReactNode[] = [];
+
+  if (section.tieNested.enabled) {
+    const nw = Math.max(24, Math.min(outerW - 36, (section.tieNested.xMm || section.cx * 0.42) * sx));
+    const nh = Math.max(24, Math.min(outerH - 36, (section.tieNested.yMm || section.cy * 0.72) * sy));
+    nodes.push(
+      <rect
+        key="nested"
+        x={margin + (innerW - nw) / 2}
+        y={margin + (innerH - nh) / 2}
+        width={nw}
+        height={nh}
+        rx="10"
+        fill="none"
+        stroke="#4dabf7"
+        strokeWidth="5"
+      />,
+    );
+  }
+
+  if (section.tieDouble.enabled) {
+    const dw = Math.max(40, Math.min(outerW * 0.72, (section.tieDouble.xMm || section.cx * 0.72) * sx));
+    const dh = Math.max(40, Math.min(outerH - 8, (section.tieDouble.yMm || section.cy * 0.92) * sy));
+    const dy = outerY + (outerH - dh) / 2;
+    nodes.push(
+      <rect key="double-a" x={outerX + 4} y={dy} width={dw} height={dh} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
+      <rect
+        key="double-b"
+        x={outerX + outerW - dw - 4}
+        y={dy}
+        width={dw}
+        height={dh}
+        rx="12"
+        fill="none"
+        stroke="#4dabf7"
+        strokeWidth="4"
+      />,
+    );
+  }
+
+  if (section.tieC.enabled) {
+    const cw = Math.max(20, Math.min(outerW - 20, (section.tieC.xMm || section.cx * 0.55) * sx));
+    const ch = Math.max(20, Math.min(outerH - 20, (section.tieC.yMm || section.cy * 0.55) * sy));
+    const x0 = margin + (innerW - cw) / 2;
+    const y0 = margin + (innerH - ch) / 2;
+    nodes.push(
+      <path
+        key="c"
+        d={`M ${x0 + cw} ${y0} H ${x0} V ${y0 + ch} H ${x0 + cw}`}
+        fill="none"
+        stroke="#ffa94d"
+        strokeWidth="5"
+        strokeLinecap="round"
+      />,
+    );
+  }
+
+  return nodes.length ? <>{nodes}</> : null;
 }
 
 function ColumnPreview({ section, shape }: { section: FloorSection; shape: Column["shape"] }) {
@@ -996,6 +1154,13 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
             fill="none"
             stroke="#b0db34"
             strokeWidth={stirrupStroke}
+          />
+          <ExtraTiesPreview
+            section={section}
+            margin={margin}
+            innerW={innerW}
+            innerH={innerH}
+            stirrupOffset={stirrupOffset}
           />
         </>
       )}

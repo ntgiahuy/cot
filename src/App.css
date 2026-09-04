@@ -710,6 +710,14 @@ legend {
   font-size: 13px;
 }
 
+.tie-option {
+  margin-bottom: 8px;
+}
+
+.tie-option:last-child {
+  margin-bottom: 0;
+}
+
 .checkbox-row.highlight {
   background: #1e3a5f;
   padding: 10px 12px;
