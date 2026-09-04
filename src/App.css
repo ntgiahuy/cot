@@ -143,6 +143,13 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.icon-grid,
+.mini-actions {
+  flex-shrink: 0;
 }
 
 .icon-grid {
@@ -220,15 +227,18 @@
   flex-direction: column;
   gap: 8px;
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .column-list {
   background: #f4f4f4;
   border: 1px solid #cfcfcf;
-  overflow: auto;
-  flex: 1;
-  min-height: 120px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
 }
 
 .column-row {
