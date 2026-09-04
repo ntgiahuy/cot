@@ -200,16 +200,26 @@
   gap: 4px;
 }
 
+.reorder {
+  grid-template-columns: 1fr;
+  flex-shrink: 0;
+}
+
+.reorder button {
+  width: 100%;
+  min-height: 34px;
+}
+
 .mini-actions .danger {
   color: #ffb4b4;
   border-color: #ff7a7a;
 }
 
 .list-wrap {
-  display: grid;
-  grid-template-columns: 1fr 72px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  min-height: 280px;
+  min-height: 0;
   flex: 1;
 }
 
@@ -217,6 +227,8 @@
   background: #f4f4f4;
   border: 1px solid #cfcfcf;
   overflow: auto;
+  flex: 1;
+  min-height: 120px;
 }
 
 .column-row {
@@ -665,8 +677,7 @@ legend {
   .app-shell,
   .split,
   .reinforcement-layout,
-  .floor-band,
-  .list-wrap {
+  .floor-band {
     grid-template-columns: 1fr;
   }
 
