@@ -29,7 +29,7 @@ import {
 } from "./calc";
 import { EMBED_MM, STOCK_M, type Column, type Floor, type FloorSection, type Project } from "./types";
 
-/** A1 ngang — 841 × 594 mm (2384 × 1684 pt). Một cột / trang. */
+/** A1 ngang — 841 × 594 mm (2384 × 1684 pt). Nhiều cột / trang. */
 const PAGE_W = 2384;
 const PAGE_H = 1684;
 const BLACK = rgb(0, 0, 0);
@@ -733,11 +733,11 @@ function drawSectionDetail(
   const marks = sectionMarks(section);
   const tableRows = uniqueSectionMarks(section);
   const tableH = tableRows.length * 19;
-  const leftAnno = 108;
+  const leftAnno = 92;
   const topAnno = 32;
   const botDim = 44;
-  const dimGap = 36;
-  const isoCol = 188;
+  const dimGap = 28;
+  const isoCol = 132;
   const availH = Math.max(58, maxH - topAnno - botDim - tableH - 14);
   const availW = Math.max(52, maxW - leftAnno - dimGap - isoCol - 8);
   const aspect = section.cy / Math.max(section.cx, 1);
@@ -814,9 +814,9 @@ function drawSectionDetail(
   });
 
   const isoMarks = tableRows.filter((row) => row.kind !== "long");
-  const isoW = 28;
-  const isoGap = 12;
-  const isoX = x + w + dimGap + 14;
+  const isoW = 24;
+  const isoGap = 8;
+  const isoX = x + w + dimGap + 10;
   const isoY = y + 6;
   const maxIsoX = Math.max(1, ...isoMarks.map((row) => row.xMm || 1));
   isoMarks.forEach((row, i) => {
@@ -865,10 +865,17 @@ function drawColumnSheet(
   const scale = (workBot - workTop) / Math.max(totalMm, 1);
 
   const xA = gx;
-  const xB = gx + 52;
-  const xC = gx + 118;
-  const xD = gx + Math.min(gw * 0.62, gw - 340);
+  const xB = gx + 48;
+  const xC = gx + 104;
   const xE = gx + gw;
+  const firstSec = sectionFor(col, col.startFloor);
+  const shaftW = Math.max(22, Math.min(34, firstSec.cx * scale));
+  const dimLeftX = xC + 18;
+  const shaftX = xC + 88;
+  const explodedX = shaftX + shaftW + 12;
+  const dimSpliceX = explodedX + 62;
+  const dimTotalX = dimSpliceX + 20;
+  const xD = Math.min(dimTotalX + 16, xE - 320);
 
   rect(ctx, gx, gy, gw, gh, 1.05);
   line(ctx, xB, gy, xB, workBot, 0.65);
@@ -889,13 +896,6 @@ function drawColumnSheet(
   const elevations = floorElevations(project.floors);
   const bands = floorBandYs(project.floors, scale, workBot);
   const active = new Set(columnFloors(col, project.floors).map((f) => f.id));
-  const firstSec = sectionFor(col, col.startFloor);
-  const shaftW = Math.max(24, Math.min(40, firstSec.cx * scale));
-  const dimLeftX = xC + 40;
-  const shaftX = xC + 175;
-  const explodedX = shaftX + shaftW + 36;
-  const dimSpliceX = explodedX + 108;
-  const dimTotalX = dimSpliceX + 26;
 
   bands.forEach(({ floor, index, yTop, yBot }) => {
     line(ctx, xA, yTop, xE, yTop, 0.5);
@@ -922,7 +922,7 @@ function drawColumnSheet(
         const mid = (zTop + zy) / 2;
         const mark = markOf(section, "main") ?? 2;
         const tag = `Ø${section.tieDia}${zone.label}`;
-        leaderCallout(ctx, dimLeftX + 54, mid, shaftX - 2, mid, mark, tag, 6.8, 8);
+        leaderCallout(ctx, dimLeftX + 22, mid, shaftX - 2, mid, mark, tag, 6.4, 7.5);
       }
       zoneEdges.push(zTop);
       zy = zTop;
@@ -966,12 +966,12 @@ function drawColumnSheet(
         crankBarV(ctx, x, yTop + 2, yOffsetBot - 1, crankY, -amp, 1.15);
       });
       const calloutY = yTop + (yBot - yTop) * 0.28;
-      leaderCallout(ctx, explodedX + 61, calloutY, explodedX + 16, calloutY, 1, formatBarLabel(section), 6.6, 8);
+      leaderCallout(ctx, explodedX + 44, calloutY, explodedX + 14, calloutY, 1, formatBarLabel(section), 6.2, 7.5);
     } else {
       line(ctx, explodedX, yTop + 2, explodedX, yBot - 2, 1.15);
       line(ctx, explodedX + 14, yTop + 2, explodedX + 14, yBot - 2, 1.15);
       const calloutY = yTop + (yBot - yTop) * 0.28;
-      leaderCallout(ctx, explodedX + 61, calloutY, explodedX + 16, calloutY, 1, formatBarLabel(section), 6.6, 8);
+      leaderCallout(ctx, explodedX + 44, calloutY, explodedX + 14, calloutY, 1, formatBarLabel(section), 6.2, 7.5);
     }
 
     const segs = spliceLens(floor, section, col, prevSection, isColumnBase);
@@ -1177,6 +1177,11 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   });
 }
 
+/** Chiều rộng một khung cột (mặt đứng ép sát mặt cắt). */
+const COLUMN_SHEET_W = 820;
+const COLUMN_SHEET_GAP = 8;
+const SCHEDULE_MIN_W = 400;
+
 export async function generateColumnPdf(
   project: Project,
   fonts: { regular: ArrayBuffer; bold: ArrayBuffer },
@@ -1186,35 +1191,61 @@ export async function generateColumnPdf(
   const font = await doc.embedFont(fonts.regular, { subset: true });
   const fontBold = await doc.embedFont(fonts.bold, { subset: true });
   const columns = project.columns.length ? project.columns : [];
+  const mx = 16;
+  const my = 14;
+  const frameW = PAGE_W - mx * 2;
+  const frameH = PAGE_H - my * 2;
+  const innerY = my + 40;
+  const innerH = frameH - 52;
+  const perPage = Math.max(1, Math.min(3, Math.floor((frameW + COLUMN_SHEET_GAP) / (COLUMN_SHEET_W + COLUMN_SHEET_GAP))));
+  const pages = Math.max(1, Math.ceil(columns.length / perPage));
 
-  columns.forEach((column, pageIndex) => {
-    const page = doc.addPage([PAGE_W, PAGE_H]);
-    const ctx: Ctx = { page, font, fontBold, W: PAGE_W, H: PAGE_H };
-    page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: WHITE });
-    const mx = 16;
-    const my = 14;
-    const frameW = PAGE_W - mx * 2;
-    const frameH = PAGE_H - my * 2;
+  const drawPageFrame = (ctx: Ctx, title: string, pageNo: number, pageCount: number) => {
+    ctx.page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: WHITE });
     rect(ctx, mx, my, frameW, frameH, 1.15);
-    text(ctx, `SHOP DRAWING CỘT  ·  ${column.name} (SL: ${column.quantity})`, mx + 12, my + 16, 12, true);
-    text(ctx, `A1 ngang  ·  trang ${pageIndex + 1}/${columns.length}`, mx + frameW - 12, my + 16, 9, false, "right");
+    text(ctx, title, mx + 12, my + 16, 12, true);
+    text(ctx, `A1 ngang  ·  trang ${pageNo}/${pageCount}`, mx + frameW - 12, my + 16, 9, false, "right");
     line(ctx, mx, my + 22, mx + frameW, my + 22, 0.7);
-
-    const innerY = my + 40;
-    const innerH = frameH - 52;
-    const drawW = 1380;
-    const gap = 10;
-    const schedW = frameW - drawW - gap;
-    drawColumnSheet(ctx, { x: mx, y: innerY, w: drawW, h: innerH }, project, column);
-    drawSchedulePanel(ctx, mx + drawW + gap, innerY, schedW, innerH, project, column);
-    text(ctx, "Một loại cột / trang — mặt đứng, cổ chai, DIM, mặt cắt theo mẫu shop drawing", mx + 10, my + frameH - 6, 7);
-    text(ctx, `${project.floors.length} tầng`, mx + frameW - 10, my + frameH - 6, 7, false, "right");
-  });
+  };
 
   if (!columns.length) {
     const page = doc.addPage([PAGE_W, PAGE_H]);
     const ctx: Ctx = { page, font, fontBold, W: PAGE_W, H: PAGE_H };
-    text(ctx, "Chưa có cột.", 40, 40, 14, true);
+    drawPageFrame(ctx, "SHOP DRAWING CỘT", 1, 1);
+    text(ctx, "Chưa có cột.", mx + 20, innerY + 20, 14, true);
+    return doc.save();
+  }
+
+  let placedSched = false;
+  for (let pageIndex = 0; pageIndex < pages; pageIndex += 1) {
+    const slice = columns.slice(pageIndex * perPage, (pageIndex + 1) * perPage);
+    const page = doc.addPage([PAGE_W, PAGE_H]);
+    const ctx: Ctx = { page, font, fontBold, W: PAGE_W, H: PAGE_H };
+    const names = slice.map((c) => c.name).join(", ");
+    drawPageFrame(ctx, `SHOP DRAWING CỘT  ·  ${names}`, pageIndex + 1, pages);
+    slice.forEach((column, i) => {
+      drawColumnSheet(
+        ctx,
+        { x: mx + i * (COLUMN_SHEET_W + COLUMN_SHEET_GAP), y: innerY, w: COLUMN_SHEET_W, h: innerH },
+        project,
+        column,
+      );
+    });
+    const used = slice.length * (COLUMN_SHEET_W + COLUMN_SHEET_GAP) - COLUMN_SHEET_GAP;
+    const rest = frameW - used - COLUMN_SHEET_GAP;
+    if (rest >= SCHEDULE_MIN_W) {
+      drawSchedulePanel(ctx, mx + used + COLUMN_SHEET_GAP, innerY, rest, innerH, project);
+      placedSched = true;
+    }
+    text(ctx, `${slice.length} cột / trang — mặt đứng ép sát mặt cắt`, mx + 10, my + frameH - 6, 7);
+    text(ctx, `${project.floors.length} tầng`, mx + frameW - 10, my + frameH - 6, 7, false, "right");
+  }
+
+  if (!placedSched) {
+    const page = doc.addPage([PAGE_W, PAGE_H]);
+    const ctx: Ctx = { page, font, fontBold, W: PAGE_W, H: PAGE_H };
+    drawPageFrame(ctx, "BẢNG THỐNG KÊ CỐT THÉP", pages + 1, pages + 1);
+    drawSchedulePanel(ctx, mx, innerY, frameW, innerH, project);
   }
 
   return doc.save();
