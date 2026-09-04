@@ -800,7 +800,6 @@ export default function App() {
                 </div>
               </fieldset>
               <fieldset>
-                <legend>Có thép bổ sung</legend>
                 <label className="checkbox-row">
                   <input
                     type="checkbox"
@@ -809,57 +808,52 @@ export default function App() {
                   />
                   Có thép bổ sung
                 </label>
-                <div className={selectedSection.extraSteel ? "" : "disabled-block"}>
-                  <div className="form-row">
-                    <label>Đường kính thép bổ sung:</label>
-                    <select
-                      value={selectedSection.extraDia}
-                      disabled={!selectedSection.extraSteel}
-                      onChange={(e) => patchSection({ extraDia: Number(e.target.value) }, applyUpper)}
-                    >
-                      {DIAMETERS.filter((d) => d >= 10).map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
+                {selectedSection.extraSteel ? (
+                  <div>
+                    <div className="form-row">
+                      <label>Đường kính thép bổ sung:</label>
+                      <select
+                        value={selectedSection.extraDia}
+                        onChange={(e) => patchSection({ extraDia: Number(e.target.value) }, applyUpper)}
+                      >
+                        {DIAMETERS.filter((d) => d >= 10).map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-row">
+                      <label>Thép đai (bổ sung):</label>
+                      <select
+                        value={selectedSection.extraTieDia}
+                        onChange={(e) => patchSection({ extraTieDia: Number(e.target.value) }, applyUpper)}
+                      >
+                        {[6, 8, 10].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-row">
+                      <label>Số đai phụ X:</label>
+                      <input
+                        type="number"
+                        value={selectedSection.extraTieX}
+                        onChange={(e) => patchSection({ extraTieX: Number(e.target.value) || 0 }, applyUpper)}
+                      />
+                    </div>
+                    <div className="form-row">
+                      <label>Số đai phụ Y:</label>
+                      <input
+                        type="number"
+                        value={selectedSection.extraTieY}
+                        onChange={(e) => patchSection({ extraTieY: Number(e.target.value) || 0 }, applyUpper)}
+                      />
+                    </div>
                   </div>
-                  <div className="form-row">
-                    <label>Thép đai (bổ sung):</label>
-                    <select
-                      value={selectedSection.extraTieDia}
-                      disabled={!selectedSection.extraSteel}
-                      onChange={(e) => patchSection({ extraTieDia: Number(e.target.value) }, applyUpper)}
-                    >
-                      {[6, 8, 10].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-row">
-                    <label>Số đai phụ X:</label>
-                    <input
-                      type="number"
-                      disabled={!selectedSection.extraSteel}
-                      value={selectedSection.extraTieX}
-                      onChange={(e) => patchSection({ extraTieX: Number(e.target.value) || 0 }, applyUpper)}
-                    />
-                  </div>
-                  <div className="form-row">
-                    <label>Số đai phụ Y:</label>
-                    <input
-                      type="number"
-                      disabled={!selectedSection.extraSteel}
-                      value={selectedSection.extraTieY}
-                      onChange={(e) => patchSection({ extraTieY: Number(e.target.value) || 0 }, applyUpper)}
-                    />
-                  </div>
-                </div>
-              </fieldset>
-              <fieldset>
-                <legend>Đai bổ sung</legend>
+                ) : null}
                 <TieOptionFields
                   title="Đai C"
                   value={selectedSection.tieC}
@@ -944,38 +938,37 @@ function TieOptionFields({
         />
         {title}
       </label>
-      <div className={value.enabled ? "" : "disabled-block"}>
-        <div className="form-row">
-          <label>Phương X (mm):</label>
-          <input
-            type="number"
-            min={0}
-            disabled={!value.enabled}
-            value={value.xMm}
-            onChange={(e) => onChange({ xMm: Number(e.target.value) || 0 })}
-          />
+      {value.enabled ? (
+        <div>
+          <div className="form-row">
+            <label>Phương X (mm):</label>
+            <input
+              type="number"
+              min={0}
+              value={value.xMm}
+              onChange={(e) => onChange({ xMm: Number(e.target.value) || 0 })}
+            />
+          </div>
+          <div className="form-row">
+            <label>Phương Y (mm):</label>
+            <input
+              type="number"
+              min={0}
+              value={value.yMm}
+              onChange={(e) => onChange({ yMm: Number(e.target.value) || 0 })}
+            />
+          </div>
+          <div className="form-row">
+            <label>Khoảng cách (mm):</label>
+            <input
+              type="number"
+              min={0}
+              value={value.spacingMm}
+              onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 0 })}
+            />
+          </div>
         </div>
-        <div className="form-row">
-          <label>Phương Y (mm):</label>
-          <input
-            type="number"
-            min={0}
-            disabled={!value.enabled}
-            value={value.yMm}
-            onChange={(e) => onChange({ yMm: Number(e.target.value) || 0 })}
-          />
-        </div>
-        <div className="form-row">
-          <label>Khoảng cách (mm):</label>
-          <input
-            type="number"
-            min={0}
-            disabled={!value.enabled}
-            value={value.spacingMm}
-            onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 0 })}
-          />
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }
