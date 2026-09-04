@@ -889,41 +889,66 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
   const margin = 48;
   const innerW = width - margin * 2;
   const innerH = height - margin * 2;
+  const barR = 14;
+  const stirrupStroke = 6;
+  const stirrupOffset = 24;
+  const cover = 5;
   const points: Array<{ x: number; y: number }> = [];
-  for (let i = 0; i < section.barsX; i += 1) {
-    const t = section.barsX === 1 ? 0.5 : i / (section.barsX - 1);
-    const x = margin + 18 + t * (innerW - 36);
-    points.push({ x, y: margin + 18 }, { x, y: height - margin - 18 });
+
+  if (shape === "TRON") {
+    const cx = width / 2;
+    const cy = height / 2;
+    const stirrupR = innerW / 2 - 28;
+    const ringR = Math.max(barR * 2, stirrupR - stirrupStroke / 2 - barR - cover);
+    const n = Math.max(4, section.barsX * 2 + section.barsY * 2 - 4);
+    for (let i = 0; i < n; i += 1) {
+      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+      points.push({ x: cx + ringR * Math.cos(angle), y: cy + ringR * Math.sin(angle) });
+    }
+  } else {
+    const inset = stirrupOffset + stirrupStroke / 2 + barR + cover;
+    const left = margin + inset;
+    const right = width - margin - inset;
+    const top = margin + inset;
+    const bottom = height - margin - inset;
+    const spanX = right - left;
+    const spanY = bottom - top;
+    for (let i = 0; i < section.barsX; i += 1) {
+      const t = section.barsX === 1 ? 0.5 : i / (section.barsX - 1);
+      const x = left + t * spanX;
+      points.push({ x, y: top }, { x, y: bottom });
+    }
+    for (let i = 1; i < section.barsY - 1; i += 1) {
+      const t = i / (section.barsY - 1);
+      const y = top + t * spanY;
+      points.push({ x: left, y }, { x: right, y });
+    }
   }
-  for (let i = 1; i < section.barsY - 1; i += 1) {
-    const t = i / (section.barsY - 1);
-    const y = margin + 18 + t * (innerH - 36);
-    points.push({ x: margin + 18, y }, { x: width - margin - 18, y });
-  }
+
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="column-preview" role="img" aria-label="Mặt cắt cột">
       {shape === "TRON" ? (
         <>
           <circle cx={width / 2} cy={height / 2} r={innerW / 2} fill="none" stroke="#f5f5f5" strokeWidth="3" />
-          <circle cx={width / 2} cy={height / 2} r={innerW / 2 - 28} fill="none" stroke="#b0db34" strokeWidth="6" />
+          <circle cx={width / 2} cy={height / 2} r={innerW / 2 - 28} fill="none" stroke="#b0db34" strokeWidth={stirrupStroke} />
         </>
       ) : (
         <>
           <rect x={margin} y={margin} width={innerW} height={innerH} fill="none" stroke="#f5f5f5" strokeWidth="3" />
           <rect
-            x={margin + 24}
-            y={margin + 24}
-            width={innerW - 48}
-            height={innerH - 48}
+            x={margin + stirrupOffset}
+            y={margin + stirrupOffset}
+            width={innerW - stirrupOffset * 2}
+            height={innerH - stirrupOffset * 2}
             rx="16"
             fill="none"
             stroke="#b0db34"
-            strokeWidth="6"
+            strokeWidth={stirrupStroke}
           />
         </>
       )}
       {points.map((point, index) => (
-        <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="14" fill="#ff2f2f" />
+        <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r={barR} fill="#ff2f2f" />
       ))}
     </svg>
   );

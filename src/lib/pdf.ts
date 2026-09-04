@@ -85,7 +85,8 @@ function circle(ctx: Ctx, cx: number, cy: number, r: number, fill = true) {
 }
 
 function barPoints(section: FloorSection, x: number, y: number, w: number, h: number) {
-  const m = 7;
+  const barR = 2.1;
+  const m = 6 + 0.45 + barR + 0.8;
   const pts: Array<[number, number]> = [];
   for (let i = 0; i < section.barsX; i += 1) {
     const t = section.barsX === 1 ? 0.5 : i / (section.barsX - 1);
