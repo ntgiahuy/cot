@@ -807,7 +807,7 @@ export default function App() {
                     checked={selectedSection.extraSteel}
                     onChange={(e) => patchSection({ extraSteel: e.target.checked }, applyUpper)}
                   />
-                  Thép cột bổ xung
+                  Thép cột
                 </label>
                 {selectedSection.extraSteel ? (
                   <div>
@@ -856,21 +856,21 @@ export default function App() {
                   </div>
                 ) : null}
                 <TieOptionFields
-                  title="Thép đai C bổ sung"
+                  title="Đai C"
                   value={selectedSection.tieC}
                   onChange={(partial) =>
                     patchSection({ tieC: { ...selectedSection.tieC, ...partial } }, applyUpper)
                   }
                 />
                 <TieOptionFields
-                  title="Đai lồng bổ sung"
+                  title="Đai lồng"
                   value={selectedSection.tieNested}
                   onChange={(partial) =>
                     patchSection({ tieNested: { ...selectedSection.tieNested, ...partial } }, applyUpper)
                   }
                 />
                 <TieOptionFields
-                  title="Đai nhánh bổ sung"
+                  title="Đai nhánh"
                   value={selectedSection.tieDouble}
                   onChange={(partial) =>
                     patchSection({ tieDouble: { ...selectedSection.tieDouble, ...partial } }, applyUpper)
