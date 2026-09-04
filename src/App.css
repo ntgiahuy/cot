@@ -408,7 +408,7 @@ h1 {
   grid-area: dim;
   display: block;
   color: #fff12d;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -416,7 +416,7 @@ h1 {
   grid-area: steel;
   display: block;
   color: #fff;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .dim-label {
