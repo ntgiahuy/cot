@@ -146,7 +146,14 @@ function tick(ctx: Ctx, x: number, y: number, s = 3.2) {
   line(ctx, x - s, y + s, x + s, y - s, 0.55);
 }
 
-function dimChainV(ctx: Ctx, x: number, yEdges: number[], labels: string[], size = 7.5) {
+function dimChainV(
+  ctx: Ctx,
+  x: number,
+  yEdges: number[],
+  labels: string[],
+  size = 7.5,
+  textSide: "left" | "right" = "left",
+) {
   if (yEdges.length < 2) return;
   line(ctx, x, yEdges[0], x, yEdges[yEdges.length - 1], 0.45);
   yEdges.forEach((y) => tick(ctx, x, y));
@@ -155,8 +162,9 @@ function dimChainV(ctx: Ctx, x: number, yEdges: number[], labels: string[], size
     const b = yEdges[i + 1];
     const mid = (a + b) / 2;
     const tw = ctx.font.widthOfTextAtSize(labels[i], size);
-    if (Math.abs(b - a) > tw + 10) vtext(ctx, labels[i], x - 8, mid, size);
-    else text(ctx, labels[i], x + 5, mid + 3, size);
+    const lx = textSide === "left" ? x - 8 : x + 8;
+    if (Math.abs(b - a) > tw + 10) vtext(ctx, labels[i], lx, mid, size);
+    else textVCenter(ctx, labels[i], textSide === "left" ? x - 5 : x + 5, mid, size, false, textSide === "left" ? "right" : "left");
   }
 }
 
@@ -167,14 +175,47 @@ function dimH(ctx: Ctx, x0: number, x1: number, y: number, label: string, size =
   text(ctx, label, (x0 + x1) / 2, above ? y - 2 : y + size + 2, size, false, "center");
 }
 
+/** Chữ căn giữa theo chiều dọc tại cy (tâm vòng tròn / đường dẫn). */
+function textVCenter(
+  ctx: Ctx,
+  str: string,
+  x: number,
+  cy: number,
+  size = 9,
+  bold = false,
+  align: "left" | "center" | "right" = "left",
+) {
+  const font = bold ? ctx.fontBold : ctx.font;
+  const width = font.widthOfTextAtSize(str, size);
+  let tx = x;
+  if (align === "center") tx = x - width / 2;
+  if (align === "right") tx = x - width;
+  ctx.page.drawText(str, {
+    x: tx,
+    y: ty(ctx, cy) - size * 0.35,
+    size,
+    font,
+    color: BLACK,
+  });
+}
+
 function balloon(ctx: Ctx, x: number, y: number, n: number, r = 7.4) {
   circle(ctx, x, y, r, false);
-  text(ctx, String(n), x, y + r * 0.7, 8.5, true, "center");
+  const str = String(n);
+  const size = Math.min(8.2, r * 1.05);
+  const nudgeX = str === "1" ? size * 0.26 : 0;
+  textVCenter(ctx, str, x + nudgeX, y, size, true, "center");
 }
 
 function elevTriangle(ctx: Ctx, x: number, y: number) {
   const py = ty(ctx, y);
   ctx.page.drawSvgPath("M 0 4 L 9 0 L 9 8 Z", { x, y: py - 4, color: BLACK });
+}
+
+/** Cao độ nằm trên đường phân tầng; tam giác vẫn ghim vào đường. */
+function elevMark(ctx: Ctx, xTri: number, yLine: number, label: string) {
+  elevTriangle(ctx, xTri, yLine);
+  textVCenter(ctx, label, xTri + 12, yLine - 12, 8);
 }
 
 function storyZones(floor: Floor, index: number, section: FloorSection, column: Column): Zone[] {
@@ -409,13 +450,18 @@ function drawSectionDetail(
   const b1x = x - 28;
   const b1y = y + h * 0.28;
   balloon(ctx, b1x, b1y, 1);
-  text(ctx, formatBarLabel(section), b1x + 11, b1y + 3, 9, true);
-  if (pts[0]) line(ctx, b1x + 8, b1y, pts[0][0] - 3, pts[0][1], 0.4);
+  const longLabel = formatBarLabel(section);
+  textVCenter(ctx, longLabel, b1x + 12, b1y, 9, true);
+  if (pts[0]) {
+    const fromX = b1x + 12 + ctx.fontBold.widthOfTextAtSize(longLabel, 9) + 2;
+    line(ctx, fromX, b1y, pts[0][0] - 3, pts[0][1], 0.4);
+  }
 
   const b2x = x + w * 0.72;
   const b2y = y - 16;
   balloon(ctx, b2x, b2y, 2);
-  text(ctx, `Ø${section.tieDia}a200(100)`, b2x + 12, b2y + 3, 8);
+  const tieLabel = `Ø${section.tieDia}a200(100)`;
+  textVCenter(ctx, tieLabel, b2x + 12, b2y, 8);
   line(ctx, b2x, b2y + 8, x + w * 0.55, y + pad, 0.4);
 
   const isoW = Math.max(22, w * 0.28);
@@ -502,18 +548,16 @@ function drawColumnSheet(
   const shaftW = Math.max(24, Math.min(40, firstSec.cx * scale));
   const dimLeftX = xC + 40;
   const shaftX = xC + 175;
-  const explodedX = shaftX + shaftW + 40;
-  const dimSpliceX = explodedX + 44;
-  const dimTotalX = dimSpliceX + 24;
+  const explodedX = shaftX + shaftW + 36;
+  const dimSpliceX = explodedX + 92;
+  const dimTotalX = dimSpliceX + 26;
 
   bands.forEach(({ floor, index, yTop, yBot }) => {
     line(ctx, xA, yTop, xE, yTop, 0.5);
     vtext(ctx, `TẦNG ${floor.name}`, (xA + xB) / 2, (yTop + yBot) / 2, 10, true);
-    elevTriangle(ctx, xB + 8, yBot);
-    text(ctx, `+${(elevations[floor.id - 1] ?? 0).toFixed(3)}`, xB + 20, yBot - 1, 8);
+    elevMark(ctx, xB + 8, yBot, `+${(elevations[floor.id - 1] ?? 0).toFixed(3)}`);
     if (index === project.floors.length - 1) {
-      elevTriangle(ctx, xB + 8, yTop);
-      text(ctx, `+${(elevations[floor.id] ?? 0).toFixed(3)}`, xB + 20, yTop - 1, 8);
+      elevMark(ctx, xB + 8, yTop, `+${(elevations[floor.id] ?? 0).toFixed(3)}`);
     }
     if (!active.has(floor.id)) return;
 
@@ -529,9 +573,11 @@ function drawColumnSheet(
       if (zone.label) {
         const mid = (zTop + zy) / 2;
         const bx = dimLeftX + 22;
-        balloon(ctx, bx, mid, 2, 6.6);
-        text(ctx, `Ø${section.tieDia}${zone.label}`, bx + 12, mid + 3, 8);
-        line(ctx, bx + 8, mid, shaftX - 2, mid, 0.35);
+        const tag = `Ø${section.tieDia}${zone.label}`;
+        balloon(ctx, bx, mid, 2, 6.8);
+        textVCenter(ctx, tag, bx + 12, mid - 7, 8);
+        const tagW = ctx.font.widthOfTextAtSize(tag, 8);
+        line(ctx, bx + 12 + tagW + 3, mid, shaftX - 2, mid, 0.35);
       }
       zoneEdges.push(zTop);
       zy = zTop;
@@ -578,9 +624,9 @@ function drawColumnSheet(
         crankBarV(ctx, explodedX + 18, yTop + 2, yBot - 2, kinks[1], -amp, 1.25);
         line(ctx, explodedX + 18, yBot - 2, explodedX + 18, kinks[1] - 4, 1.15);
       }
-      const midY = (yTop + yBot) / 2;
-      balloon(ctx, explodedX + 34, midY - 10, 1, 6.6);
-      text(ctx, formatBarLabel(section), explodedX + 44, midY - 7, 8, true);
+      const calloutY = yTop + (yBot - yTop) * 0.28;
+      balloon(ctx, explodedX + 32, calloutY, 1, 6.6);
+      textVCenter(ctx, formatBarLabel(section), explodedX + 44, calloutY, 8, true);
     }
 
     const segs = spliceLens(floor, section, col);
@@ -596,8 +642,9 @@ function drawColumnSheet(
       spliceEdges,
       segs.map((n) => String(Math.round(n))),
       7.5,
+      "right",
     );
-    dimChainV(ctx, dimTotalX, [yTop, yBot], [String(Math.round(floor.heightMm))], 8);
+    dimChainV(ctx, dimTotalX, [yTop, yBot], [String(Math.round(floor.heightMm))], 8, "right");
 
     const secPad = 18;
     drawSectionDetail(
@@ -808,8 +855,8 @@ export async function generateColumnPdf(
     text(ctx, `A1 ngang  ·  trang ${pageIndex + 1}/${columns.length}`, mx + frameW - 12, my + 16, 9, false, "right");
     line(ctx, mx, my + 22, mx + frameW, my + 22, 0.7);
 
-    const innerY = my + 28;
-    const innerH = frameH - 36;
+    const innerY = my + 40;
+    const innerH = frameH - 52;
     const drawW = 1380;
     const gap = 10;
     const schedW = frameW - drawW - gap;
