@@ -85,11 +85,14 @@ export function spliceFactor(value: unknown, fallback: SpliceFactor = 30): Splic
 }
 
 export function normalizeColumn(column: Column): Column {
+  let baseSplice = column.baseSplice ?? true;
+  let midSplice = Boolean(column.midSplice);
+  if (baseSplice && midSplice) midSplice = false;
   return {
     ...column,
-    baseSplice: column.baseSplice ?? true,
+    baseSplice,
     baseSpliceD: spliceFactor(column.baseSpliceD, 30),
-    midSplice: column.midSplice ?? false,
+    midSplice,
     midSpliceD: spliceFactor(column.midSpliceD, 35),
   };
 }

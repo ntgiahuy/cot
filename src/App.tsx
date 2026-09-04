@@ -663,12 +663,19 @@ export default function App() {
                 <p className="splice-hint">
                   Giữa cột: vị trí (H tầng − H dầm) / 2; 50% thép chủ tại đó, 50% lệch thêm nD.
                 </p>
+                <p className="splice-hint">Chỉ chọn một: chân cột hoặc giữa cột.</p>
                 <div className="form-row">
                   <label className="checkbox-row">
                     <input
                       type="checkbox"
                       checked={selectedColumn.baseSplice}
-                      onChange={(e) => patchColumn({ baseSplice: e.target.checked })}
+                      onChange={(e) =>
+                        patchColumn(
+                          e.target.checked
+                            ? { baseSplice: true, midSplice: false }
+                            : { baseSplice: false },
+                        )
+                      }
                     />
                     Nối so le tại chân cột
                   </label>
@@ -695,7 +702,13 @@ export default function App() {
                     <input
                       type="checkbox"
                       checked={selectedColumn.midSplice}
-                      onChange={(e) => patchColumn({ midSplice: e.target.checked })}
+                      onChange={(e) =>
+                        patchColumn(
+                          e.target.checked
+                            ? { midSplice: true, baseSplice: false }
+                            : { midSplice: false },
+                        )
+                      }
                     />
                     Nối so le tại giữa cột
                   </label>
