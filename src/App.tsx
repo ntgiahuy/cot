@@ -1254,6 +1254,29 @@ function NestedWrapNote({
   );
 }
 
+function svgRoundedStirrup(x: number, y: number, w: number, h: number) {
+  const r = Math.max(8, Math.min(w, h) * 0.12);
+  const hook = Math.max(16, Math.min(w, h) * 0.14);
+  const d = hook * 0.7071;
+  const gap = Math.max(5, hook * 0.28);
+  const k = 0.5522847498;
+  const rk = r * k;
+  const X = (px: number) => +(x + px).toFixed(2);
+  const Y = (pyUp: number) => +(y + h - pyUp).toFixed(2);
+  return [
+    `M ${X(gap + d)} ${Y(h - d)}`,
+    `L ${X(gap)} ${Y(h)}`,
+    `L ${X(w - r)} ${Y(h)}`,
+    `C ${X(w - r + rk)} ${Y(h)} ${X(w)} ${Y(h - r + rk)} ${X(w)} ${Y(h - r)}`,
+    `L ${X(w)} ${Y(r)}`,
+    `C ${X(w)} ${Y(r - rk)} ${X(w - r + rk)} ${Y(0)} ${X(w - r)} ${Y(0)}`,
+    `L ${X(r)} ${Y(0)}`,
+    `C ${X(r - rk)} ${Y(0)} ${X(0)} ${Y(r - rk)} ${X(0)} ${Y(r)}`,
+    `L ${X(0)} ${Y(h - gap)}`,
+    `L ${X(d)} ${Y(h - gap - d)}`,
+  ].join(" ");
+}
+
 function ExtraTiesPreview({
   section,
   originX,
@@ -1287,32 +1310,28 @@ function ExtraTiesPreview({
   if (nestedAlongX(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x");
     nodes.push(
-      <rect
+      <path
         key="nested-x"
-        x={box.x}
-        y={box.y}
-        width={box.w}
-        height={box.h}
-        rx="10"
+        d={svgRoundedStirrup(box.x, box.y, box.w, box.h)}
         fill="none"
         stroke="#4dabf7"
         strokeWidth="5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />,
     );
   }
   if (nestedAlongY(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y");
     nodes.push(
-      <rect
+      <path
         key="nested-y"
-        x={box.x}
-        y={box.y}
-        width={box.w}
-        height={box.h}
-        rx="10"
+        d={svgRoundedStirrup(box.x, box.y, box.w, box.h)}
         fill="none"
         stroke="#74c0fc"
         strokeWidth="5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />,
     );
   }
@@ -1322,8 +1341,8 @@ function ExtraTiesPreview({
     const leftBox = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x", wrap, "start");
     const rightBox = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x", wrap, "end");
     nodes.push(
-      <rect key="double-x-a" x={leftBox.x} y={leftBox.y} width={leftBox.w} height={leftBox.h} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
-      <rect key="double-x-b" x={rightBox.x} y={rightBox.y} width={rightBox.w} height={rightBox.h} rx="12" fill="none" stroke="#4dabf7" strokeWidth="4" />,
+      <path key="double-x-a" d={svgRoundedStirrup(leftBox.x, leftBox.y, leftBox.w, leftBox.h)} fill="none" stroke="#ff6b6b" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />,
+      <path key="double-x-b" d={svgRoundedStirrup(rightBox.x, rightBox.y, rightBox.w, rightBox.h)} fill="none" stroke="#4dabf7" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />,
     );
   }
   if (doubleAlongY(section) && !section.tieNested.enabled) {
@@ -1331,8 +1350,8 @@ function ExtraTiesPreview({
     const topBox = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y", wrap, "start");
     const botBox = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y", wrap, "end");
     nodes.push(
-      <rect key="double-y-a" x={topBox.x} y={topBox.y} width={topBox.w} height={topBox.h} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
-      <rect key="double-y-b" x={botBox.x} y={botBox.y} width={botBox.w} height={botBox.h} rx="12" fill="none" stroke="#74c0fc" strokeWidth="4" />,
+      <path key="double-y-a" d={svgRoundedStirrup(topBox.x, topBox.y, topBox.w, topBox.h)} fill="none" stroke="#ff6b6b" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />,
+      <path key="double-y-b" d={svgRoundedStirrup(botBox.x, botBox.y, botBox.w, botBox.h)} fill="none" stroke="#74c0fc" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />,
     );
   }
 
@@ -1491,15 +1510,18 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
         <>
           <rect x={originX} y={originY} width={innerW} height={innerH} fill="none" stroke="#f5f5f5" strokeWidth="3" />
           {hasMainStirrup(section) ? (
-            <rect
-              x={originX + stirrupOffset}
-              y={originY + stirrupOffset}
-              width={innerW - stirrupOffset * 2}
-              height={innerH - stirrupOffset * 2}
-              rx="16"
+            <path
+              d={svgRoundedStirrup(
+                originX + stirrupOffset,
+                originY + stirrupOffset,
+                innerW - stirrupOffset * 2,
+                innerH - stirrupOffset * 2,
+              )}
               fill="none"
               stroke="#b0db34"
               strokeWidth={stirrupStroke}
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
           ) : null}
           <ExtraTiesPreview

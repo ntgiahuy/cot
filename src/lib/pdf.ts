@@ -1,4 +1,4 @@
-import { PDFDocument, PDFFont, PDFPage, rgb, degrees } from "pdf-lib";
+import { PDFDocument, PDFFont, PDFPage, rgb, degrees, LineCapStyle } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import {
   buildSchedule,
@@ -13,14 +13,17 @@ import {
   doubleMinWrap,
   hasMainStirrup,
   lapMm,
+  markOf,
   midSplicePosMm,
   nestedAlongX,
   nestedAlongY,
   nestedTieRect,
   normalizeColumn,
   sectionFor,
+  sectionMarks,
   stockBars,
   summaryBuckets,
+  type SectionMark,
 } from "./calc";
 import { EMBED_MM, STOCK_M, type Column, type Floor, type FloorSection, type Project } from "./types";
 
@@ -153,6 +156,7 @@ function dimChainV(
   labels: string[],
   size = 7.5,
   textSide: "left" | "right" = "left",
+  textGap = 10,
 ) {
   if (yEdges.length < 2) return;
   line(ctx, x, yEdges[0], x, yEdges[yEdges.length - 1], 0.45);
@@ -162,9 +166,9 @@ function dimChainV(
     const b = yEdges[i + 1];
     const mid = (a + b) / 2;
     const tw = ctx.font.widthOfTextAtSize(labels[i], size);
-    const lx = textSide === "left" ? x - 8 : x + 8;
-    if (Math.abs(b - a) > tw + 10) vtext(ctx, labels[i], lx, mid, size);
-    else textVCenter(ctx, labels[i], textSide === "left" ? x - 5 : x + 5, mid, size, false, textSide === "left" ? "right" : "left");
+    const lx = textSide === "left" ? x - textGap : x + textGap;
+    if (Math.abs(b - a) > tw + 12) vtext(ctx, labels[i], lx, mid, size);
+    else textVCenter(ctx, labels[i], lx, mid, size, false, textSide === "left" ? "right" : "left");
   }
 }
 
@@ -192,7 +196,7 @@ function textVCenter(
   if (align === "right") tx = x - width;
   ctx.page.drawText(str, {
     x: tx,
-    y: ty(ctx, cy) - size * 0.35,
+    y: ty(ctx, cy) - size * 0.42,
     size,
     font,
     color: BLACK,
@@ -205,6 +209,111 @@ function balloon(ctx: Ctx, x: number, y: number, n: number, r = 7.4) {
   const size = Math.min(8.2, r * 1.05);
   const nudgeX = str === "1" ? size * 0.26 : 0;
   textVCenter(ctx, str, x + nudgeX, y, size, true, "center");
+}
+
+function leaderTo(ctx: Ctx, bx: number, by: number, tx: number, typt: number, r: number) {
+  const dx = tx - bx;
+  const dy = typt - by;
+  const len = Math.hypot(dx, dy) || 1;
+  line(ctx, bx + (dx / len) * (r + 0.5), by + (dy / len) * (r + 0.5), tx, typt, 0.4);
+}
+
+function n2(v: number) {
+  return Math.round(v * 100) / 100;
+}
+
+function strokeSvg(ctx: Ctx, d: string, originX: number, originPdfY: number, w = 0.85) {
+  ctx.page.drawSvgPath(d, {
+    x: originX,
+    y: originPdfY,
+    borderColor: BLACK,
+    borderWidth: w,
+    borderLineCap: LineCapStyle.Round,
+  });
+}
+
+/** Đai chữ nhật: 3 góc bo, móc 135° chồng tại góc trên-trái. (x,y) góc trên-trái, y xuống. */
+function drawRoundedStirrup(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  stroke = 0.85,
+  hookRatio = 0.22,
+) {
+  if (w < 8 || h < 8) {
+    rect(ctx, x, y, w, h, stroke);
+    return;
+  }
+  const r = Math.max(2.6, Math.min(Math.min(w, h) * 0.18, Math.min(w, h) / 2 - 1.1));
+  const hook = Math.max(5.5, Math.min(13, Math.min(w, h) * hookRatio));
+  const d = hook * 0.7071;
+  let gap = Math.max(1.8, Math.min(3.6, stroke * 2.2));
+  if (h - gap < r + 2) gap = Math.max(1.2, h - r - 2);
+  if (w - gap < r + 2) gap = Math.max(1.2, w - r - 2);
+  const k = 0.5522847498;
+  const rk = r * k;
+  const L = (px: number, py: number) => `${n2(px)} ${n2(py)}`;
+  // pdf-lib SVG: gốc trên-trái, y xuống (scale y = -1).
+  const path = [
+    `M ${L(gap + d, d)}`,
+    `L ${L(gap, 0)}`,
+    `L ${L(w - r, 0)}`,
+    `C ${L(w - r + rk, 0)} ${L(w, rk)} ${L(w, r)}`,
+    `L ${L(w, h - r)}`,
+    `C ${L(w, h - r + rk)} ${L(w - rk, h)} ${L(w - r, h)}`,
+    `L ${L(r, h)}`,
+    `C ${L(r - rk, h)} ${L(0, h - rk)} ${L(0, h - r)}`,
+    `L ${L(0, gap)}`,
+    `L ${L(d, gap + d)}`,
+  ].join(" ");
+  strokeSvg(ctx, path, x, ty(ctx, y), stroke);
+}
+
+/** Đai C / U: thân bo góc, hai đầu móc. */
+function drawCStirrup(
+  ctx: Ctx,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  open: "right" | "down",
+  stroke = 0.8,
+) {
+  const hook = Math.max(5, Math.min(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 0.18);
+  const ret = Math.max(3.2, hook * 0.55);
+  const r = Math.max(1.8, hook * 0.28);
+  const k = 0.5522847498;
+  const left = Math.min(x0, x1);
+  const top = Math.min(y0, y1);
+  const w = Math.abs(x1 - x0);
+  const h = Math.abs(y1 - y0);
+  const L = (px: number, py: number) => `${n2(px)} ${n2(py)}`;
+  const rk = r * k;
+  const path =
+    open === "right"
+      ? [
+          `M ${L(hook, ret)}`,
+          `L ${L(hook, 0)}`,
+          `L ${L(r, 0)}`,
+          `C ${L(r - rk, 0)} ${L(0, rk)} ${L(0, r)}`,
+          `L ${L(0, h - r)}`,
+          `C ${L(0, h - r + rk)} ${L(r - rk, h)} ${L(r, h)}`,
+          `L ${L(hook, h)}`,
+          `L ${L(hook, h - ret)}`,
+        ].join(" ")
+      : [
+          `M ${L(ret, hook)}`,
+          `L ${L(0, hook)}`,
+          `L ${L(0, r)}`,
+          `C ${L(0, r - rk)} ${L(rk, 0)} ${L(r, 0)}`,
+          `L ${L(w - r, 0)}`,
+          `C ${L(w - r + rk, 0)} ${L(w, rk)} ${L(w, r)}`,
+          `L ${L(w, hook)}`,
+          `L ${L(w - ret, hook)}`,
+        ].join(" ");
+  strokeSvg(ctx, path, left, ty(ctx, top), stroke);
 }
 
 function elevTriangle(ctx: Ctx, x: number, y: number) {
@@ -360,90 +469,145 @@ function drawSectionTies(
   const sH = h - 2 * pad;
   const sRight = sLeft + sW;
   const sBottom = sTop + sH;
-  const hook = Math.max(5, pad * 0.7);
-  const ret = Math.max(3, pad * 0.4);
   const barR = Math.max(2.2, Math.min(3.6, Math.min(w, h) / 14));
   const barInset = pad + 0.4 + barR + 0.8;
   const insetPad = barInset - pad;
   const xs = edgeBarCenters(section.barsX, x + barInset, w - 2 * barInset);
   const ys = edgeBarCenters(section.barsY, y + barInset, h - 2 * barInset);
+  if (hasMainStirrup(section)) {
+    drawRoundedStirrup(ctx, sLeft, sTop, sW, sH, 0.85, 0.26);
+  }
   if (nestedAlongX(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x");
-    rect(ctx, box.x, box.y, box.w, box.h, 0.7);
+    drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7);
   }
   if (nestedAlongY(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y");
-    rect(ctx, box.x, box.y, box.w, box.h, 0.7);
+    drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7);
   }
   if (doubleAlongX(section) && !section.tieNested.enabled) {
     const wrap = doubleMinWrap(section.barsX);
     const leftBox = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "start");
     const rightBox = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "end");
-    rect(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.7);
-    rect(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.7);
+    drawRoundedStirrup(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.7);
+    drawRoundedStirrup(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.7);
   }
   if (doubleAlongY(section) && !section.tieNested.enabled) {
     const wrap = doubleMinWrap(section.barsY);
     const topBox = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "start");
     const botBox = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "end");
-    rect(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.7);
-    rect(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.7);
+    drawRoundedStirrup(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.7);
+    drawRoundedStirrup(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.7);
   }
   if (cTieAlongX(section)) {
     const cx = sLeft + sW / 2;
-    line(ctx, cx + hook, sTop + ret, cx + hook, sTop, 0.8);
-    line(ctx, cx + hook, sTop, cx, sTop, 0.8);
-    line(ctx, cx, sTop, cx, sBottom, 0.8);
-    line(ctx, cx, sBottom, cx + hook, sBottom, 0.8);
-    line(ctx, cx + hook, sBottom, cx + hook, sBottom - ret, 0.8);
+    drawCStirrup(ctx, cx, sTop, cx + Math.max(8, pad * 0.9), sBottom, "right", 0.8);
   }
   if (cTieAlongY(section)) {
     const cy = sTop + sH / 2;
-    line(ctx, sLeft + ret, cy + hook, sLeft, cy + hook, 0.8);
-    line(ctx, sLeft, cy + hook, sLeft, cy, 0.8);
-    line(ctx, sLeft, cy, sRight, cy, 0.8);
-    line(ctx, sRight, cy, sRight, cy + hook, 0.8);
-    line(ctx, sRight, cy + hook, sRight - ret, cy + hook, 0.8);
+    drawCStirrup(ctx, sLeft, cy, sRight, cy + Math.max(8, pad * 0.9), "down", 0.8);
   }
 }
 
-function drawIsolatedStirrup(ctx: Ctx, x: number, y: number, w: number, h: number) {
-  rect(ctx, x, y, w, h, 0.9);
-  const hook = Math.max(6, h * 0.18);
-  line(ctx, x, y + 3, x - 3.5, y + 3, 0.9);
-  line(ctx, x - 3.5, y + 3, x - 3.5, y + 3 + hook, 0.9);
+function extraTieTarget(
+  section: FloorSection,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  pad: number,
+  kind: SectionMark["kind"],
+): { x: number; y: number; w: number; h: number } | null {
+  const sLeft = x + pad;
+  const sTop = y + pad;
+  const sW = w - 2 * pad;
+  const sH = h - 2 * pad;
+  const barR = Math.max(2.2, Math.min(3.6, Math.min(w, h) / 14));
+  const barInset = pad + 0.4 + barR + 0.8;
+  const insetPad = barInset - pad;
+  const xs = edgeBarCenters(section.barsX, x + barInset, w - 2 * barInset);
+  const ys = edgeBarCenters(section.barsY, y + barInset, h - 2 * barInset);
+  if (kind === "nested") {
+    if (nestedAlongX(section) && !section.tieDouble.enabled) {
+      return nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x");
+    }
+    if (nestedAlongY(section) && !section.tieDouble.enabled) {
+      return nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y");
+    }
+  }
+  if (kind === "double") {
+    if (doubleAlongX(section) && !section.tieNested.enabled) {
+      const wrap = doubleMinWrap(section.barsX);
+      return nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "start");
+    }
+    if (doubleAlongY(section) && !section.tieNested.enabled) {
+      const wrap = doubleMinWrap(section.barsY);
+      return nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "start");
+    }
+  }
+  if (kind === "c") {
+    if (cTieAlongX(section)) {
+      const cx = sLeft + sW / 2;
+      return { x: cx, y: sTop, w: Math.max(8, pad * 0.9), h: sH };
+    }
+    if (cTieAlongY(section)) {
+      const cy = sTop + sH / 2;
+      return { x: sLeft, y: cy, w: sW, h: Math.max(8, pad * 0.9) };
+    }
+  }
+  return null;
 }
 
-function extraTieRows(section: FloorSection): Array<[string, string]> {
-  const rows: Array<[string, string]> = [];
-  if (section.tieC.enabled) rows.push(["THÉP ĐAI C", `Ø${section.tieDia}`]);
-  if (section.tieNested.enabled && !section.tieDouble.enabled) rows.push(["THÉP ĐAI LỒNG", `Ø${section.tieDia}`]);
-  if (section.tieDouble.enabled) rows.push(["THÉP ĐAI KÉP", `Ø${section.tieDia}`]);
-  return rows;
+function drawMarkTable(ctx: Ctx, x: number, y: number, rows: SectionMark[]) {
+  const sttW = 22;
+  const nameW = 112;
+  const specW = 54;
+  const tw = sttW + nameW + specW;
+  const rh = 19;
+  rows.forEach((row, i) => {
+    const ry = y + i * rh;
+    rect(ctx, x, ry, sttW, rh, 0.45);
+    rect(ctx, x + sttW, ry, nameW, rh, 0.45);
+    rect(ctx, x + sttW + nameW, ry, specW, rh, 0.45);
+    const cy = ry + rh / 2;
+    textVCenter(ctx, String(row.mark), x + sttW / 2, cy, 8, true, "center");
+    textVCenter(ctx, row.name, x + sttW + 5, cy, 7, false, "left");
+    textVCenter(ctx, row.spec, x + sttW + nameW + specW / 2, cy, 7.5, true, "center");
+  });
+  rect(ctx, x, y, tw, rows.length * rh, 0.6);
+  return { w: tw, h: rows.length * rh };
 }
 
 function drawSectionDetail(
   ctx: Ctx,
-  x: number,
-  y: number,
+  boxX: number,
+  boxY: number,
   maxW: number,
   maxH: number,
   section: FloorSection,
   shape: Column["shape"],
 ) {
-  const tableH = 34 + extraTieRows(section).length * 15;
-  const availH = Math.max(70, maxH - tableH - 36);
-  const availW = Math.max(70, maxW * 0.42);
+  const marks = sectionMarks(section);
+  const tableH = marks.length * 19;
+  const leftAnno = 120;
+  const topAnno = 26;
+  const botDim = 44;
+  const dimGap = 36;
+  const isoCol = 108;
+  const availH = Math.max(58, maxH - topAnno - botDim - tableH - 14);
+  const availW = Math.max(52, maxW - leftAnno - dimGap - isoCol - 8);
   const aspect = section.cy / Math.max(section.cx, 1);
-  let w = Math.min(118, availW);
+  let w = Math.min(108, availW);
   let h = w * aspect;
   if (h > availH) {
     h = availH;
-    w = h / aspect;
+    w = h / Math.max(aspect, 0.35);
   }
-  w = Math.max(54, w);
-  h = Math.max(54, h);
-  const pad = Math.max(7, Math.min(w, h) * 0.12);
+  w = Math.max(52, w);
+  h = Math.max(52, h);
+  const x = boxX + leftAnno;
+  const y = boxY + topAnno;
+  const pad = Math.max(8, Math.min(w, h) * 0.13);
 
   if (shape === "TRON") {
     const r = Math.min(w, h) / 2 - 1;
@@ -451,57 +615,67 @@ function drawSectionDetail(
     if (hasMainStirrup(section)) circle(ctx, x + w / 2, y + h / 2, r - pad, false);
   } else {
     rect(ctx, x, y, w, h, 1.15);
-    if (hasMainStirrup(section)) rect(ctx, x + pad, y + pad, w - 2 * pad, h - 2 * pad, 0.85);
     drawSectionTies(ctx, section, x, y, w, h, pad);
   }
 
   const { pts, barR } = barPoints(section, x, y, w, h);
   pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
 
-  dimH(ctx, x, x + w, y + h + 12, String(section.cx), 8);
-  dimChainV(ctx, x + w + 12, [y, y + h], [String(section.cy)], 8);
+  dimH(ctx, x, x + w, y + h + 18, String(section.cx), 8);
+  dimChainV(ctx, x + w + 18, [y, y + h], [String(section.cy)], 8, "right", 13);
 
-  const b1x = x - 28;
-  const b1y = y + h * 0.28;
-  balloon(ctx, b1x, b1y, 1);
-  const longLabel = formatBarLabel(section);
-  textVCenter(ctx, longLabel, b1x + 12, b1y, 9, true);
-  if (pts[0]) {
-    const fromX = b1x + 12 + ctx.fontBold.widthOfTextAtSize(longLabel, 9) + 2;
-    line(ctx, fromX, b1y, pts[0][0] - 3, pts[0][1], 0.4);
+  const longBar = pts[0];
+  let mark1Y = y + 10;
+  if (longBar) {
+    const b1x = x - 50;
+    const b1y = longBar[1];
+    mark1Y = b1y;
+    balloon(ctx, b1x, b1y, 1);
+    textVCenter(ctx, formatBarLabel(section), b1x - 12, b1y, 9, true, "right");
+    leaderTo(ctx, b1x, b1y, longBar[0] - barR - 0.6, longBar[1], 7.4);
   }
 
-  const b2x = x + w * 0.72;
-  const b2y = y - 16;
-  balloon(ctx, b2x, b2y, 2);
-  const tieLabel = `Ø${section.tieDia}a200(100)`;
-  textVCenter(ctx, tieLabel, b2x + 12, b2y, 8);
-  line(ctx, b2x, b2y + 8, x + w * 0.55, y + pad, 0.4);
+  const mainMark = markOf(section, "main");
+  if (mainMark != null && hasMainStirrup(section)) {
+    const b2x = x + 8;
+    const b2y = y - 17;
+    balloon(ctx, b2x, b2y, mainMark);
+    textVCenter(ctx, `Ø${section.tieDia}a200(100)`, b2x + 12, b2y, 8);
+    leaderTo(ctx, b2x, b2y, x + w * 0.38, y + pad + 1, 7.4);
+  }
 
-  const isoW = Math.max(22, w * 0.28);
-  const isoH = isoW * aspect;
-  const isoX = x + w + 36;
-  const isoY = y + 8;
-  drawIsolatedStirrup(ctx, isoX, isoY, isoW, isoH);
-  balloon(ctx, isoX + isoW / 2, isoY + isoH + 14, 2);
-
-  const rows: Array<[string, string]> = [
-    ["THÉP DỌC", formatBarLabel(section)],
-    ["THÉP ĐAI CHÍNH", `Ø${section.tieDia}`],
-    ...extraTieRows(section),
-  ];
-  const tw = 188;
-  const c1 = 128;
-  const rh = 15;
-  const tx = Math.min(isoX - 4, x + maxW - tw - 4);
-  const ty0 = Math.min(y + maxH - rows.length * rh - 4, Math.max(isoY + isoH + 26, y + h + 28));
-  rows.forEach(([a, b], i) => {
-    const ry = ty0 + i * rh;
-    rect(ctx, tx, ry, c1, rh, 0.45);
-    rect(ctx, tx + c1, ry, tw - c1, rh, 0.45);
-    text(ctx, a, tx + 4, ry + rh * 0.78, 7);
-    text(ctx, b, tx + c1 + (tw - c1) / 2, ry + rh * 0.78, 7.5, true, "center");
+  const extraKinds: Array<SectionMark["kind"]> = ["nested", "double", "c"];
+  extraKinds.forEach((kind) => {
+    const mark = markOf(section, kind);
+    if (mark == null) return;
+    const box = extraTieTarget(section, x, y, w, h, pad, kind);
+    if (!box) return;
+    const b3x = x - 50;
+    let b3y = Math.min(y + h - 8, Math.max(y + 32, box.y + box.h * 0.55));
+    if (Math.abs(b3y - mark1Y) < 22) b3y = Math.min(y + h - 8, mark1Y + 26);
+    balloon(ctx, b3x, b3y, mark);
+    leaderTo(ctx, b3x, b3y, box.x + Math.max(4, box.w * 0.35), box.y + box.h * 0.4, 7.4);
   });
+
+  const isoMarks = marks.filter((row) => row.kind !== "long");
+  const isoW = 32;
+  const isoH = Math.max(26, isoW * Math.min(aspect, 1.2));
+  const isoX = x + w + dimGap + 18;
+  const isoY = y + 6;
+  isoMarks.forEach((row, i) => {
+    const scale = row.kind === "main" ? 1 : 0.84;
+    const iw = isoW * scale;
+    const ih = isoH * scale;
+    const dx = isoX + i * (isoW + 20);
+    const dy = isoY + (isoH - ih) / 2;
+    if (row.kind === "c") drawCStirrup(ctx, dx, dy, dx + iw, dy + ih, "right", 1.05);
+    else drawRoundedStirrup(ctx, dx, dy, iw, ih, 1.05, 0.4);
+    balloon(ctx, dx + iw / 2, dy + ih + 12, row.mark, 6.6);
+  });
+
+  const tx = x;
+  const ty0 = y + h + botDim;
+  drawMarkTable(ctx, tx, Math.min(ty0, boxY + maxH - tableH - 2), marks);
 }
 
 function floorBandYs(floors: Floor[], scale: number, elevBot: number) {
@@ -591,7 +765,7 @@ function drawColumnSheet(
         const mid = (zTop + zy) / 2;
         const bx = dimLeftX + 22;
         const tag = `Ø${section.tieDia}${zone.label}`;
-        balloon(ctx, bx, mid, 2, 6.8);
+        balloon(ctx, bx, mid, markOf(section, "main") ?? 2, 6.8);
         textVCenter(ctx, tag, bx + 12, mid - 7, 8);
         const tagW = ctx.font.widthOfTextAtSize(tag, 8);
         line(ctx, bx + 12 + tagW + 3, mid, shaftX - 2, mid, 0.35);
@@ -665,13 +839,13 @@ function drawColumnSheet(
     );
     dimChainV(ctx, dimTotalX, [yTop, yBot], [String(Math.round(floor.heightMm))], 8, "right");
 
-    const secPad = 18;
+    const secPad = 10;
     drawSectionDetail(
       ctx,
-      xD + secPad + 36,
-      yTop + 22,
-      xE - xD - secPad * 2 - 36,
-      yBot - yTop - 28,
+      xD + secPad,
+      yTop + 16,
+      xE - xD - secPad * 2,
+      yBot - yTop - 22,
       section,
       col.shape,
     );
@@ -690,7 +864,7 @@ function cellText(
   bold = false,
 ) {
   const cx = align === "left" ? x + 4 : align === "right" ? x + w - 4 : x + w / 2;
-  text(ctx, str, cx, y + h * 0.72, size, bold, align);
+  textVCenter(ctx, str, cx, y + h / 2, size, bold, align);
 }
 
 function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number, project: Project, focus?: Column) {
@@ -730,7 +904,7 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   const sumH = 168;
   const bodyTop = tableY + headH;
   const bodyH = h - (bodyTop - y) - sumH - 10;
-  const rowH = Math.min(20, Math.max(12, bodyH / Math.max(rows.length, 1)));
+  const rowH = Math.min(20, Math.max(14, bodyH / Math.max(rows.length, 1)));
   const xs: number[] = [];
   let acc = tableX;
   cols.forEach((c) => {

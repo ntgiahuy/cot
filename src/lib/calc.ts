@@ -64,6 +64,41 @@ export function hasMainStirrup(section: FloorSection) {
   return !section.tieDouble.enabled;
 }
 
+export type SectionMarkKind = "long" | "main" | "nested" | "double" | "c";
+
+export type SectionMark = {
+  mark: number;
+  kind: SectionMarkKind;
+  name: string;
+  spec: string;
+};
+
+/** Số hiệu mặt cắt / thống kê: 1 thép dọc, 2 đai chính, 3 đai lồng|kép, 4 đai C. */
+export function sectionMarks(section: FloorSection): SectionMark[] {
+  const rows: SectionMark[] = [{ mark: 1, kind: "long", name: "THÉP DỌC", spec: formatBarLabel(section) }];
+  let n = 2;
+  if (hasMainStirrup(section)) {
+    rows.push({ mark: n, kind: "main", name: "THÉP ĐAI CHÍNH", spec: `Ø${section.tieDia}` });
+    n += 1;
+  }
+  if ((nestedAlongX(section) || nestedAlongY(section)) && !section.tieDouble.enabled) {
+    rows.push({ mark: n, kind: "nested", name: "THÉP ĐAI LỒNG", spec: `Ø${section.tieDia}` });
+    n += 1;
+  }
+  if ((doubleAlongX(section) || doubleAlongY(section)) && !section.tieNested.enabled) {
+    rows.push({ mark: n, kind: "double", name: "THÉP ĐAI KÉP", spec: `Ø${section.tieDia}` });
+    n += 1;
+  }
+  if (cTieAlongX(section) || cTieAlongY(section)) {
+    rows.push({ mark: n, kind: "c", name: "THÉP ĐAI C", spec: `Ø${section.tieDia}` });
+  }
+  return rows;
+}
+
+export function markOf(section: FloorSection, kind: SectionMarkKind): number | undefined {
+  return sectionMarks(section).find((row) => row.kind === kind)?.mark;
+}
+
 export function sectionFor(column: Column, floorId: number): FloorSection {
   const ids = Object.keys(column.sections)
     .map(Number)
@@ -547,10 +582,10 @@ export function buildSchedule(project: Project): {
           member,
           floorName: floor.name,
           quantity: column.quantity,
-          stt: 2,
+          stt: markOf(section, "main") ?? 2,
           dia: section.tieDia,
           kind: "stirrup",
-          shapeLabel: "2",
+          shapeLabel: String(markOf(section, "main") ?? 2),
           segs: [STIRRUP_HOOK_MM, a, b],
           lengthMm: tieLen,
           perMember: nTie,
@@ -576,14 +611,20 @@ export function buildSchedule(project: Project): {
           ? `${spec.label} Ø${section.tieDia} L=${spec.lengthMm}`
           : `${spec.label} Ø${section.tieDia} ${spec.xMm} x ${spec.yMm}`;
         stirrupCounts.set(extraKey, (stirrupCounts.get(extraKey) ?? 0) + extraTotal);
+        const extraKind: SectionMarkKind = spec.key.startsWith("Lồng")
+          ? "nested"
+          : spec.key.startsWith("Kép")
+            ? "double"
+            : "c";
+        const extraMark = markOf(section, extraKind) ?? 3 + specIndex;
         rows.push({
           member,
           floorName: floor.name,
           quantity: column.quantity,
-          stt: 3 + specIndex,
+          stt: extraMark,
           dia: section.tieDia,
           kind: "stirrup",
-          shapeLabel: spec.key,
+          shapeLabel: String(extraMark),
           segs: spec.derived ? [STIRRUP_HOOK_MM, spec.spanMm, STIRRUP_HOOK_MM] : [STIRRUP_HOOK_MM, spec.xMm, spec.yMm],
           lengthMm: spec.lengthMm,
           perMember: nExtra,
