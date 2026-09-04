@@ -131,6 +131,19 @@ export default function App() {
     });
   }
 
+  function patchAllSplice(
+    partial: Partial<Pick<Column, "baseSplice" | "baseSpliceD" | "midSplice" | "midSpliceD">>,
+  ) {
+    persist({
+      ...project,
+      columns: project.columns.map((column) => {
+        const next = { ...column, ...partial };
+        if (next.baseSplice && next.midSplice) next.midSplice = false;
+        return next;
+      }),
+    });
+  }
+
   function applyFloorTemplate() {
     const count = Math.max(1, Math.min(20, draftFloorCount));
     const floors: Floor[] = Array.from({ length: count }, (_, index) => ({
@@ -173,10 +186,10 @@ export default function App() {
       endFloor: project.floors.length,
       shape: "HCN",
       sections,
-      baseSplice: true,
-      baseSpliceD: 30,
-      midSplice: false,
-      midSpliceD: 35,
+      baseSplice: selectedColumn.baseSplice,
+      baseSpliceD: selectedColumn.baseSpliceD,
+      midSplice: selectedColumn.midSplice,
+      midSpliceD: selectedColumn.midSpliceD,
     };
     persist({ ...project, columns: [...project.columns, column] });
     setSelectedColumnId(id);
@@ -663,7 +676,7 @@ export default function App() {
                       type="checkbox"
                       checked={selectedColumn.baseSplice}
                       onChange={(e) =>
-                        patchColumn(
+                        patchAllSplice(
                           e.target.checked
                             ? { baseSplice: true, midSplice: false }
                             : { baseSplice: false },
@@ -675,7 +688,7 @@ export default function App() {
                   <select
                     value={selectedColumn.baseSpliceD}
                     disabled={!selectedColumn.baseSplice}
-                    onChange={(e) => patchColumn({ baseSpliceD: Number(e.target.value) as SpliceFactor })}
+                    onChange={(e) => patchAllSplice({ baseSpliceD: Number(e.target.value) as SpliceFactor })}
                   >
                     {SPLICE_FACTORS.map((n) => (
                       <option key={n} value={n}>
@@ -696,7 +709,7 @@ export default function App() {
                       type="checkbox"
                       checked={selectedColumn.midSplice}
                       onChange={(e) =>
-                        patchColumn(
+                        patchAllSplice(
                           e.target.checked
                             ? { midSplice: true, baseSplice: false }
                             : { midSplice: false },
@@ -708,7 +721,7 @@ export default function App() {
                   <select
                     value={selectedColumn.midSpliceD}
                     disabled={!selectedColumn.midSplice}
-                    onChange={(e) => patchColumn({ midSpliceD: Number(e.target.value) as SpliceFactor })}
+                    onChange={(e) => patchAllSplice({ midSpliceD: Number(e.target.value) as SpliceFactor })}
                   >
                     {SPLICE_FACTORS.map((n) => (
                       <option key={n} value={n}>
