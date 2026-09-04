@@ -425,6 +425,7 @@ export default function App() {
             Tổng: {project.floors.length} tầng / {project.columns.length} cột
           </span>
         </footer>
+      </main>
 
         {pdfUrl ? (
           <section className="pdf-box">
@@ -437,7 +438,6 @@ export default function App() {
             <iframe title="PDF preview" src={pdfUrl} />
           </section>
         ) : null}
-      </main>
 
       {dialog === "floors" ? (
         <Modal title="Thiết lập tầng" onClose={() => setDialog("none")}>

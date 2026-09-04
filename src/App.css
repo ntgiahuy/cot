@@ -437,7 +437,15 @@ h1 {
   font-weight: 500;
 }
 
+.pdf-box {
+  grid-column: 1 / -1;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 16px 18px 24px;
+}
+
 .pdf-box iframe {
+  display: block;
   width: 100%;
   min-height: 720px;
   border: 1px solid #707985;
