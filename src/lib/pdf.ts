@@ -611,6 +611,17 @@ function drawSectionTies(
   }
 }
 
+/** Điểm chỉ vào phần đai không trùng đai chính: đứng → cạnh trái; ngang → cạnh trên phía trong. */
+function extraCalloutTip(
+  box: { x: number; y: number; w: number; h: number },
+  axis?: SectionMark["axis"],
+) {
+  if (axis === "y") {
+    return { tx: box.x + Math.max(10, box.w * 0.38), ty: box.y };
+  }
+  return { tx: box.x, ty: box.y + box.h / 2 };
+}
+
 function extraTieTargets(
   section: FloorSection,
   x: number,
@@ -756,12 +767,12 @@ function drawSectionDetail(
     if (labeled.has(row.mark)) return;
     labeled.add(row.mark);
     extraTieTargets(section, x, y, w, h, row.kind, row.axis).slice(0, 1).forEach((box) => {
-      const cy = box.y + box.h / 2;
-      let yL = Math.min(y + h - 10, Math.max(y + 14, cy));
-      if (Math.abs(yL - mark1Y) < 18) yL = Math.min(y + h - 10, mark1Y + 22);
-      if (Math.abs(yL - lastExtraY) < 16) yL = Math.min(y + h - 10, lastExtraY + 20);
-      lastExtraY = yL;
-      leaderCallout(ctx, leadX, yL, box.x, yL, row.mark, tieSpec(section, row.kind), 7.4, 8, specX);
+      const tip = extraCalloutTip(box, row.axis);
+      let balloonY = tip.ty;
+      if (Math.abs(balloonY - mark1Y) < 16) balloonY = Math.min(y + h - 10, Math.max(y + 14, mark1Y + 20));
+      if (Math.abs(balloonY - lastExtraY) < 16) balloonY = Math.min(y + h - 10, lastExtraY + 20);
+      lastExtraY = balloonY;
+      leaderCallout(ctx, leadX, balloonY, tip.tx, tip.ty, row.mark, tieSpec(section, row.kind), 7.4, 8, specX);
     });
   });
 
