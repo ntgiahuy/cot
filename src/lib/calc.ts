@@ -1,4 +1,4 @@
-import { COVER_MM, EMBED_MM, MIN_BAR_CLEAR_MM, STOCK_M, STIRRUP_HOOK_MM, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
+import { COVER_MM, EMBED_MM, MIN_BAR_CLEAR_MM, STOCK_M, STIRRUP_HOOK_MM, clampMainDia, clampTieDia, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
 
 export function barCount(section: FloorSection) {
   const edge = section.barsX * 2 + section.barsY * 2 - 4;
@@ -40,6 +40,10 @@ export function normalizeSection(section: FloorSection): FloorSection {
   const nested = tieDouble.enabled ? { ...tieNested, enabled: false } : tieNested;
   return {
     ...section,
+    mainDia: clampMainDia(section.mainDia),
+    tieDia: clampTieDia(section.tieDia),
+    extraDia: clampMainDia(section.extraDia),
+    extraTieDia: clampTieDia(section.extraTieDia),
     tieC: normalizeTie(section.tieC),
     tieNested: {
       ...nested,

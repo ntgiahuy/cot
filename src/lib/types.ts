@@ -74,18 +74,15 @@ export type ScheduleRow = {
 
 export const BAR_COUNT_MIN = 2;
 export const BAR_COUNT_MAX = 100;
-export const MAIN_DIA_MIN = 10;
-export const MAIN_DIA_MAX = 55;
-export const TIE_DIA_MIN = 4;
-export const TIE_DIA_MAX = 25;
+export const BAR_DIAMETERS = [6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32, 36, 40, 45, 50, 55] as const;
+export const MAIN_DIA_MIN = BAR_DIAMETERS[0];
+export const MAIN_DIA_MAX = BAR_DIAMETERS[BAR_DIAMETERS.length - 1];
+export const TIE_DIA_MIN = MAIN_DIA_MIN;
+export const TIE_DIA_MAX = MAIN_DIA_MAX;
+export const MAIN_DIAMETERS = [...BAR_DIAMETERS];
+export const TIE_DIAMETERS = [...BAR_DIAMETERS];
+export const DIAMETERS = [...BAR_DIAMETERS];
 
-function inclusiveRange(min: number, max: number) {
-  return Array.from({ length: max - min + 1 }, (_, i) => min + i);
-}
-
-export const MAIN_DIAMETERS = inclusiveRange(MAIN_DIA_MIN, MAIN_DIA_MAX);
-export const TIE_DIAMETERS = inclusiveRange(TIE_DIA_MIN, TIE_DIA_MAX);
-export const DIAMETERS = Array.from(new Set([...TIE_DIAMETERS, ...MAIN_DIAMETERS])).sort((a, b) => a - b);
 export function clampInt(value: number, min: number, max: number, fallback: number) {
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) return fallback;
@@ -96,12 +93,18 @@ export function clampBarCount(value: number) {
   return clampInt(value, BAR_COUNT_MIN, BAR_COUNT_MAX, BAR_COUNT_MIN);
 }
 
+export function clampDia(value: number, fallback = 16) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return BAR_DIAMETERS.reduce((best, dia) => (Math.abs(dia - n) < Math.abs(best - n) ? dia : best));
+}
+
 export function clampMainDia(value: number) {
-  return clampInt(value, MAIN_DIA_MIN, MAIN_DIA_MAX, 16);
+  return clampDia(value, 16);
 }
 
 export function clampTieDia(value: number) {
-  return clampInt(value, TIE_DIA_MIN, TIE_DIA_MAX, 6);
+  return clampDia(value, 6);
 }
 
 export const SPLICE_FACTORS: SpliceFactor[] = [30, 35, 40];

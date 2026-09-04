@@ -40,7 +40,7 @@ import {
   stirrupInner,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
-import { BAR_COUNT_MAX, BAR_COUNT_MIN, clampBarCount, clampMainDia, clampTieDia, MAIN_DIAMETERS, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, TIE_DIAMETERS, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
+import { BAR_COUNT_MAX, BAR_COUNT_MIN, BAR_DIAMETERS, clampBarCount, clampMainDia, clampTieDia, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
 import "./App.css";
 
 const STORE_KEY = "thep-cot-project-v1";
@@ -845,7 +845,7 @@ export default function App() {
                     value={selectedSection.mainDia}
                     onChange={(e) => patchSection({ mainDia: clampMainDia(Number(e.target.value)) }, applyUpper)}
                   >
-                    {MAIN_DIAMETERS.map((n) => (
+                    {BAR_DIAMETERS.map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
@@ -858,7 +858,7 @@ export default function App() {
                     value={selectedSection.tieDia}
                     onChange={(e) => patchSection({ tieDia: clampTieDia(Number(e.target.value)) }, applyUpper)}
                   >
-                    {TIE_DIAMETERS.map((n) => (
+                    {BAR_DIAMETERS.map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
@@ -882,9 +882,9 @@ export default function App() {
                       <label>Đường kính thép bổ sung:</label>
                       <select
                         value={selectedSection.extraDia}
-                        onChange={(e) => patchSection({ extraDia: Number(e.target.value) }, applyUpper)}
+                        onChange={(e) => patchSection({ extraDia: clampMainDia(Number(e.target.value)) }, applyUpper)}
                       >
-                        {MAIN_DIAMETERS.map((n) => (
+                        {BAR_DIAMETERS.map((n) => (
                           <option key={n} value={n}>
                             {n}
                           </option>
@@ -895,9 +895,9 @@ export default function App() {
                       <label>Thép đai (bổ sung):</label>
                       <select
                         value={selectedSection.extraTieDia}
-                        onChange={(e) => patchSection({ extraTieDia: Number(e.target.value) }, applyUpper)}
+                        onChange={(e) => patchSection({ extraTieDia: clampTieDia(Number(e.target.value)) }, applyUpper)}
                       >
-                        {TIE_DIAMETERS.map((n) => (
+                        {BAR_DIAMETERS.map((n) => (
                           <option key={n} value={n}>
                             {n}
                           </option>
