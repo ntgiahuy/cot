@@ -31,6 +31,8 @@ import {
   floorElevations,
   formatBarLabel,
   hasMainStirrup,
+  lapMm,
+  midSplicePosMm,
   edgeBarCenters,
   faceClearance,
   nestedAlongX,
@@ -655,7 +657,12 @@ export default function App() {
               </div>
               <fieldset>
                 <legend>Nối thép cột</legend>
-                <p className="splice-hint">Chiều dài nối = n × Ø thép chủ (30D / 35D / 40D).</p>
+                <p className="splice-hint">
+                  Chân cột: 50% thép chủ = nD, 50% = 2nD (n = 30 / 35 / 40).
+                </p>
+                <p className="splice-hint">
+                  Giữa cột: vị trí (H tầng − H dầm) / 2; 50% thép chủ tại đó, 50% lệch thêm nD.
+                </p>
                 <div className="form-row">
                   <label className="checkbox-row">
                     <input
@@ -677,6 +684,12 @@ export default function App() {
                     ))}
                   </select>
                 </div>
+                {selectedColumn.baseSplice ? (
+                  <p className="splice-hint">
+                    50% = {selectedColumn.baseSpliceD}D ({lapMm(selectedSection.mainDia, selectedColumn.baseSpliceD)} mm),
+                    50% = {2 * selectedColumn.baseSpliceD}D ({2 * lapMm(selectedSection.mainDia, selectedColumn.baseSpliceD)} mm) theo Ø{selectedSection.mainDia}.
+                  </p>
+                ) : null}
                 <div className="form-row">
                   <label className="checkbox-row">
                     <input
@@ -698,6 +711,13 @@ export default function App() {
                     ))}
                   </select>
                 </div>
+                {selectedColumn.midSplice ? (
+                  <p className="splice-hint">
+                    Tầng {selectedFloor.name}: 50% tại {Math.round(midSplicePosMm(selectedFloor))} mm, 50% tại{" "}
+                    {Math.round(midSplicePosMm(selectedFloor) + lapMm(selectedSection.mainDia, selectedColumn.midSpliceD))} mm
+                    ({Math.round(midSplicePosMm(selectedFloor))} + {selectedColumn.midSpliceD}D).
+                  </p>
+                ) : null}
               </fieldset>
               <div className="shape-switch">
                 <button

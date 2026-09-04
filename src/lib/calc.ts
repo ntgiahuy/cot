@@ -94,10 +94,69 @@ export function normalizeColumn(column: Column): Column {
   };
 }
 
-function spliceExtraMm(column: Column, dia: number) {
-  const base = column.baseSplice ? lapMm(dia, column.baseSpliceD) : 0;
-  const mid = column.midSplice ? lapMm(dia, column.midSpliceD) : 0;
-  return base + mid;
+export function staggerQty(n: number) {
+  const longQty = Math.floor(n / 2);
+  return { shortQty: n - longQty, longQty };
+}
+
+export function midSplicePosMm(floor: Floor) {
+  return Math.max(0, (floor.heightMm - floor.beamHeightMm) / 2);
+}
+
+export type LongBarSpec = {
+  mark: string;
+  qty: number;
+  straightMm: number;
+  hookMm: number;
+  lengthMm: number;
+  kind: "long" | "long-hook";
+  segs: number[];
+  baseExtraMm: number;
+  midPosMm: number | null;
+};
+
+export function longBarSpecs(
+  column: Column,
+  floor: Floor,
+  section: FloorSection,
+  isTop: boolean,
+): LongBarSpec[] {
+  const nBars = barCount(section);
+  const dia = section.mainDia;
+  const { shortQty, longQty } = staggerQty(nBars);
+  const hookMm = isTop ? 10 * dia : 0;
+  const coverTrim = isTop ? COVER_MM : 0;
+  const baseOne = column.baseSplice ? lapMm(dia, column.baseSpliceD) : 0;
+  const midPos = column.midSplice ? midSplicePosMm(floor) : null;
+  const midOffset = column.midSplice ? lapMm(dia, column.midSpliceD) : 0;
+  const split = column.baseSplice || column.midSplice;
+
+  const make = (
+    mark: string,
+    qty: number,
+    baseExtra: number,
+    midExtra: number,
+    splicePos: number | null,
+  ): LongBarSpec => {
+    const straightMm = Math.max(0, floor.heightMm - coverTrim + baseExtra + midExtra);
+    return {
+      mark,
+      qty,
+      straightMm,
+      hookMm,
+      lengthMm: straightMm + hookMm,
+      kind: isTop ? "long-hook" : "long",
+      segs: isTop ? [hookMm, straightMm] : [straightMm + hookMm],
+      baseExtraMm: baseExtra,
+      midPosMm: splicePos,
+    };
+  };
+
+  if (!split) return [make("1", nBars, 0, 0, null)].filter((spec) => spec.qty > 0);
+  return [
+    make("1", shortQty, baseOne, 0, midPos),
+    make("1*", longQty, baseOne * 2, midOffset, midPos == null ? null : midPos + midOffset),
+  ].filter((spec) => spec.qty > 0);
 }
 
 export function stirrupInner(section: FloorSection) {
@@ -444,70 +503,32 @@ export function buildSchedule(project: Project): {
     const active = columnFloors(column, project.floors);
     active.forEach((floor, floorIndex) => {
       const section = normalizeSection(sectionFor(column, floor.id));
-      const nBars = barCount(section);
       const isTop = floor.id === lastFloorId;
       const member = `${column.name} (TẦNG ${floor.name})`;
-      const baseLap = column.baseSplice ? lapMm(section.mainDia, column.baseSpliceD) : 0;
-      const midLap = column.midSplice ? lapMm(section.mainDia, column.midSpliceD) : 0;
 
-      if (isTop) {
-        const hook = 10 * section.mainDia;
-        const longStraight = floor.heightMm - COVER_MM + midLap;
-        const shortStraight = longStraight - (baseLap || 0);
-        const half = column.baseSplice ? Math.floor(nBars / 2) : 0;
-        const other = nBars - half;
-        const specs = column.baseSplice
-          ? [
-              { stt: 1, straight: longStraight, qty: other, mark: "1" },
-              { stt: 1, straight: shortStraight, qty: half, mark: "1*" },
-            ]
-          : [{ stt: 1, straight: longStraight, qty: nBars, mark: "1" }];
-        specs
-          .filter((spec) => spec.qty > 0)
-          .forEach((spec) => {
-          const lengthMm = spec.straight + hook;
+      longBarSpecs(column, floor, section, isTop)
+        .filter((spec) => spec.qty > 0)
+        .forEach((spec) => {
           const totalBars = spec.qty * column.quantity;
-          const totalLengthM = (lengthMm / 1000) * totalBars;
+          const totalLengthM = (spec.lengthMm / 1000) * totalBars;
           const weightKg = totalLengthM * kgPerMeter(section.mainDia);
           pushTotal(byDia, section.mainDia, totalLengthM, weightKg);
           rows.push({
             member,
             floorName: floor.name,
             quantity: column.quantity,
-            stt: spec.stt,
+            stt: 1,
             dia: section.mainDia,
-            kind: "long-hook",
+            kind: spec.kind,
             shapeLabel: spec.mark,
-            segs: [hook, spec.straight],
-            lengthMm,
+            segs: spec.segs,
+            lengthMm: spec.lengthMm,
             perMember: spec.qty,
             totalBars,
             totalLengthM,
             weightKg,
           });
         });
-      } else {
-        const lengthMm = floor.heightMm + spliceExtraMm(column, section.mainDia);
-        const totalBars = nBars * column.quantity;
-        const totalLengthM = (lengthMm / 1000) * totalBars;
-        const weightKg = totalLengthM * kgPerMeter(section.mainDia);
-        pushTotal(byDia, section.mainDia, totalLengthM, weightKg);
-        rows.push({
-          member,
-          floorName: floor.name,
-          quantity: column.quantity,
-          stt: 1,
-          dia: section.mainDia,
-          kind: "long",
-          shapeLabel: "1",
-          segs: [lengthMm],
-          lengthMm,
-          perMember: nBars,
-          totalBars,
-          totalLengthM,
-          weightKg,
-        });
-      }
 
       const { a, b } = stirrupInner(section);
       if (hasMainStirrup(section)) {

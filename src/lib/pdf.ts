@@ -14,6 +14,8 @@ import {
   doubleAlongY,
   doubleMinWrap,
   hasMainStirrup,
+  lapMm,
+  midSplicePosMm,
   nestedAlongX,
   nestedAlongY,
   nestedTieRect,
@@ -263,6 +265,25 @@ function drawColumnPanel(
     text(ctx, `2 Ø${section.tieDia}a100`, colX + colW + 28, y + botPx / 2, 7);
     text(ctx, `${section.cx}`, colX + colW / 2, y + hPx + 10, 7, false, "center");
     text(ctx, `${section.cy}`, colX - 8, y + hPx / 2, 7, false, "right");
+
+    if (column.baseSplice) {
+      const d1 = lapMm(section.mainDia, column.baseSpliceD);
+      const d2 = 2 * d1;
+      const y1 = y + hPx - d1 * scale;
+      const y2 = y + hPx - d2 * scale;
+      line(ctx, colX + 2, y1, colX + colW - 2, y1, 0.7);
+      line(ctx, colX + 2, y2, colX + colW - 2, y2, 0.7);
+      text(ctx, `nối ${column.baseSpliceD}D / ${2 * column.baseSpliceD}D`, colX + colW + 28, y + hPx - 10, 6);
+    }
+    if (column.midSplice) {
+      const mid = midSplicePosMm(floor);
+      const hi = mid + lapMm(section.mainDia, column.midSpliceD);
+      const yMid = y + hPx - mid * scale;
+      const yHi = y + hPx - hi * scale;
+      line(ctx, colX + 2, yMid, colX + colW - 2, yMid, 0.7);
+      line(ctx, colX + 2, yHi, colX + colW - 2, yHi, 0.7);
+      text(ctx, `giữa ${Math.round(mid)}+${column.midSpliceD}D`, colX + colW + 28, yMid, 6);
+    }
 
     const secX = originX + width - 118;
     const secY = y + Math.max(8, (hPx - 90) / 2);

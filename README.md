@@ -27,7 +27,7 @@ Mặc định: [http://127.0.0.1:43123/](http://127.0.0.1:43123/)
 
 Dữ liệu lưu tự động trên trình duyệt (`localStorage`). **New** khôi phục bộ mẫu 3 tầng / 5 cột (BT1, C3, C4, C2, C1) khớp file PDF tham chiếu.
 
-Trọng lượng tính theo `d² / 162.2` (kg/m). Nối thép dọc chọn 30D / 35D / 40D tại chân cột hoặc giữa cột (chiều dài nối = n × Ø). Tầng mái bẻ móc 10d.
+Trọng lượng tính theo `d² / 162.2` (kg/m). **Nối so le chân cột:** 50% thép chủ = nD, 50% = 2nD. **Nối so le giữa cột:** vị trí (H tầng − H dầm)/2; 50% tại đó, 50% lệch thêm nD (30 / 35 / 40). Tầng mái bẻ móc 10d.
 
 ## Xuất GitHub Pages
 
