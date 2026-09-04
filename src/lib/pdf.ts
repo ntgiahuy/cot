@@ -7,8 +7,10 @@ import {
   denseZones,
   floorElevations,
   formatBarLabel,
+  alignedClosedTie,
   sectionFor,
   stockBars,
+  stirrupInner,
   summaryBuckets,
 } from "./calc";
 import { EMBED_MM, STOCK_M, type Column, type FloorSection, type Project } from "./types";
@@ -118,29 +120,49 @@ function drawSection(
   } else {
     rect(ctx, x, y, w, h, 1.1);
     rect(ctx, x + 6, y + 6, w - 12, h - 12, 0.9);
-    const barR = 2.1;
-    const inset = 6 + 0.45 + barR + 0.8;
-    const left = x + inset;
-    const right = x + w - inset;
-    const top = y + inset;
-    const bottom = y + h - inset;
+    const sLeft = x + 6;
+    const sTop = y + 6;
+    const sW = w - 12;
+    const sH = h - 12;
+    const sRight = sLeft + sW;
+    const sBottom = sTop + sH;
     const hook = 5;
     const ret = 3;
+    if (section.tieNested.enabled) {
+      const box = alignedClosedTie(section, section.tieNested, "nested");
+      const { a, b } = stirrupInner(section);
+      const nw = sW * (box.xMm / a);
+      const nh = sH * (box.yMm / b);
+      rect(ctx, sLeft + (sW - nw) / 2, sTop + (sH - nh) / 2, nw, nh, 0.8);
+    }
+    if (section.tieDouble.enabled) {
+      const box = alignedClosedTie(section, section.tieDouble, "double");
+      const { a, b } = stirrupInner(section);
+      const dw = sW * (box.xMm / a);
+      const dh = sH * (box.yMm / b);
+      if (box.longAxis === "y") {
+        rect(ctx, sLeft, sTop, dw, dh, 0.8);
+        rect(ctx, sRight - dw, sTop, dw, dh, 0.8);
+      } else {
+        rect(ctx, sLeft, sTop, dw, dh, 0.8);
+        rect(ctx, sLeft, sBottom - dh, dw, dh, 0.8);
+      }
+    }
     if (section.tieC.enabled && section.barsX % 2 === 1) {
-      const cx = left + (right - left) / 2;
-      line(ctx, cx + hook, top + ret, cx + hook, top, 0.9);
-      line(ctx, cx + hook, top, cx, top, 0.9);
-      line(ctx, cx, top, cx, bottom, 0.9);
-      line(ctx, cx, bottom, cx + hook, bottom, 0.9);
-      line(ctx, cx + hook, bottom, cx + hook, bottom - ret, 0.9);
+      const cx = sLeft + sW / 2;
+      line(ctx, cx + hook, sTop + ret, cx + hook, sTop, 0.9);
+      line(ctx, cx + hook, sTop, cx, sTop, 0.9);
+      line(ctx, cx, sTop, cx, sBottom, 0.9);
+      line(ctx, cx, sBottom, cx + hook, sBottom, 0.9);
+      line(ctx, cx + hook, sBottom, cx + hook, sBottom - ret, 0.9);
     }
     if (section.tieC.enabled && section.barsY % 2 === 1) {
-      const cy = top + (bottom - top) / 2;
-      line(ctx, left + ret, cy + hook, left, cy + hook, 0.9);
-      line(ctx, left, cy + hook, left, cy, 0.9);
-      line(ctx, left, cy, right, cy, 0.9);
-      line(ctx, right, cy, right, cy + hook, 0.9);
-      line(ctx, right, cy + hook, right - ret, cy + hook, 0.9);
+      const cy = sTop + sH / 2;
+      line(ctx, sLeft + ret, cy + hook, sLeft, cy + hook, 0.9);
+      line(ctx, sLeft, cy + hook, sLeft, cy, 0.9);
+      line(ctx, sLeft, cy, sRight, cy, 0.9);
+      line(ctx, sRight, cy, sRight, cy + hook, 0.9);
+      line(ctx, sRight, cy + hook, sRight - ret, cy + hook, 0.9);
     }
   }
   barPoints(section, x, y, w, h).forEach(([px, py]) => circle(ctx, px, py, 2.1, true));

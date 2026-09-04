@@ -743,7 +743,11 @@ legend {
 }
 
 .column-preview {
-  width: min(100%, 360px);
+  width: min(100%, 400px);
+}
+
+input:read-only {
+  opacity: 0.72;
 }
 
 .metrics {

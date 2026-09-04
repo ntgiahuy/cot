@@ -99,6 +99,22 @@ export function cTieLengthMm(spanMm: number) {
   return Math.max(spanMm, 0) + 2 * STIRRUP_HOOK_MM;
 }
 
+export function alignedClosedTie(
+  section: FloorSection,
+  tie: TieOption,
+  kind: "nested" | "double" = "nested",
+): { xMm: number; yMm: number; longAxis: "x" | "y" } {
+  const { a, b } = stirrupInner(section);
+  const longAxis: "x" | "y" = b >= a ? "y" : "x";
+  const shortRatio = kind === "double" ? 0.55 : 0.42;
+  if (longAxis === "y") {
+    const short = Math.max(40, Math.min(a - 10, tie.xMm || Math.round(a * shortRatio)));
+    return { xMm: short, yMm: b, longAxis };
+  }
+  const short = Math.max(40, Math.min(b - 10, tie.yMm || Math.round(b * shortRatio)));
+  return { xMm: a, yMm: short, longAxis };
+}
+
 function closedTieLengthMm(xMm: number, yMm: number) {
   return 2 * (Math.max(xMm, 40) + Math.max(yMm, 40)) + 2 * STIRRUP_HOOK_MM;
 }
@@ -118,6 +134,8 @@ function extraTieSpecs(section: FloorSection) {
     copies: number;
     derived: boolean;
     spanMm: number;
+    xMm: number;
+    yMm: number;
   }> = [];
   if (section.barsX % 2 === 1) {
     specs.push({
@@ -128,6 +146,8 @@ function extraTieSpecs(section: FloorSection) {
       copies: 1,
       derived: true,
       spanMm: b,
+      xMm: 0,
+      yMm: b,
     });
   }
   if (section.barsY % 2 === 1) {
@@ -139,26 +159,34 @@ function extraTieSpecs(section: FloorSection) {
       copies: 1,
       derived: true,
       spanMm: a,
+      xMm: a,
+      yMm: 0,
     });
   }
+  const nested = alignedClosedTie(section, section.tieNested, "nested");
+  const branch = alignedClosedTie(section, section.tieDouble, "double");
   specs.push(
     {
       key: "Lồng",
       label: "Đai lồng",
       tie: section.tieNested,
-      lengthMm: closedTieLengthMm(section.tieNested.xMm, section.tieNested.yMm),
+      lengthMm: closedTieLengthMm(nested.xMm, nested.yMm),
       copies: 1,
       derived: false,
       spanMm: 0,
+      xMm: nested.xMm,
+      yMm: nested.yMm,
     },
     {
       key: "Nhánh",
       label: "Đai nhánh",
       tie: section.tieDouble,
-      lengthMm: closedTieLengthMm(section.tieDouble.xMm, section.tieDouble.yMm),
+      lengthMm: closedTieLengthMm(branch.xMm, branch.yMm),
       copies: 2,
       derived: false,
       spanMm: 0,
+      xMm: branch.xMm,
+      yMm: branch.yMm,
     },
   );
   return specs;
@@ -293,7 +321,6 @@ export function buildSchedule(project: Project): {
 
       extraTieSpecs(section).forEach((spec, specIndex) => {
         if (!spec.tie.enabled || spec.tie.spacingMm <= 0) return;
-        if (!spec.derived && spec.tie.xMm <= 0 && spec.tie.yMm <= 0) return;
         const nExtra = extraTieCount(floor, spec.tie.spacingMm) * spec.copies;
         const extraTotal = nExtra * column.quantity;
         const extraLengthM = (spec.lengthMm / 1000) * extraTotal;
@@ -301,7 +328,7 @@ export function buildSchedule(project: Project): {
         pushTotal(byDia, section.tieDia, extraLengthM, extraWeight);
         const extraKey = spec.derived
           ? `${spec.label} Ø${section.tieDia} L=${spec.lengthMm}`
-          : `${spec.label} Ø${section.tieDia} ${spec.tie.xMm} x ${spec.tie.yMm}`;
+          : `${spec.label} Ø${section.tieDia} ${spec.xMm} x ${spec.yMm}`;
         stirrupCounts.set(extraKey, (stirrupCounts.get(extraKey) ?? 0) + extraTotal);
         rows.push({
           member,
@@ -311,7 +338,7 @@ export function buildSchedule(project: Project): {
           dia: section.tieDia,
           kind: "stirrup",
           shapeLabel: spec.key,
-          segs: spec.derived ? [STIRRUP_HOOK_MM, spec.spanMm, STIRRUP_HOOK_MM] : [STIRRUP_HOOK_MM, spec.tie.xMm, spec.tie.yMm],
+          segs: spec.derived ? [STIRRUP_HOOK_MM, spec.spanMm, STIRRUP_HOOK_MM] : [STIRRUP_HOOK_MM, spec.xMm, spec.yMm],
           lengthMm: spec.lengthMm,
           perMember: nExtra,
           totalBars: extraTotal,

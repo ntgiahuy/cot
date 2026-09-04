@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  alignedClosedTie,
   barAreaCm2,
   barCount,
   canUseTieC,
@@ -889,6 +890,8 @@ export default function App() {
                 />
                 <TieOptionFields
                   title="Đai lồng"
+                  kind="nested"
+                  section={selectedSection}
                   value={selectedSection.tieNested}
                   onChange={(partial) =>
                     patchSection({ tieNested: { ...selectedSection.tieNested, ...partial } }, applyUpper)
@@ -896,6 +899,8 @@ export default function App() {
                 />
                 <TieOptionFields
                   title="Đai nhánh"
+                  kind="double"
+                  section={selectedSection}
                   value={selectedSection.tieDouble}
                   onChange={(partial) =>
                     patchSection({ tieDouble: { ...selectedSection.tieDouble, ...partial } }, applyUpper)
@@ -950,16 +955,19 @@ function TieOptionFields({
   value,
   onChange,
   variant = "box",
+  kind = "nested",
   section,
 }: {
   title: string;
   value: TieOption;
   onChange: (partial: Partial<TieOption>) => void;
   variant?: "c" | "box";
+  kind?: "nested" | "double";
   section?: FloorSection;
 }) {
   const allowC = variant !== "c" || (section ? canUseTieC(section) : false);
   const inner = section ? stirrupInner(section) : { a: 0, b: 0 };
+  const aligned = section && variant === "box" ? alignedClosedTie(section, value, kind) : null;
 
   return (
     <div className="tie-option">
@@ -970,7 +978,16 @@ function TieOptionFields({
           disabled={!allowC}
           onChange={(e) => {
             if (!allowC) return;
-            onChange({ enabled: e.target.checked });
+            if (!e.target.checked) {
+              onChange({ enabled: false });
+              return;
+            }
+            if (variant === "box" && section) {
+              const next = alignedClosedTie(section, { ...value, enabled: true }, kind);
+              onChange({ enabled: true, xMm: next.xMm, yMm: next.yMm });
+              return;
+            }
+            onChange({ enabled: true });
           }}
         />
         {title}
@@ -982,12 +999,12 @@ function TieOptionFields({
         <div>
           {section.barsX % 2 === 1 ? (
             <p className="splice-hint">
-              Cx = {section.barsX} (lẻ): đai C đứng, móc thanh giữa cạnh trên và dưới. Dài theo phương Y: {inner.b} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.b)} mm
+              Cx = {section.barsX} (lẻ): đai C đứng, móc thanh giữa cạnh trên và dưới. Dài theo phương Y (đai đơn): {inner.b} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.b)} mm
             </p>
           ) : null}
           {section.barsY % 2 === 1 ? (
             <p className="splice-hint">
-              Cy = {section.barsY} (lẻ): đai C ngang, móc thanh giữa cạnh trái và phải. Dài theo phương X: {inner.a} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.a)} mm
+              Cy = {section.barsY} (lẻ): đai C ngang, móc thanh giữa cạnh trái và phải. Dài theo phương X (đai đơn): {inner.a} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.a)} mm
             </p>
           ) : null}
           {section.barsY % 2 === 0 ? (
@@ -1007,26 +1024,44 @@ function TieOptionFields({
           </div>
         </div>
       ) : null}
-      {value.enabled && variant === "box" ? (
+      {value.enabled && variant === "box" && aligned ? (
         <div>
-          <div className="form-row">
-            <label>Phương X (mm):</label>
-            <input
-              type="number"
-              min={0}
-              value={value.xMm}
-              onChange={(e) => onChange({ xMm: Number(e.target.value) || 0 })}
-            />
-          </div>
-          <div className="form-row">
-            <label>Phương Y (mm):</label>
-            <input
-              type="number"
-              min={0}
-              value={value.yMm}
-              onChange={(e) => onChange({ yMm: Number(e.target.value) || 0 })}
-            />
-          </div>
+          {aligned.longAxis === "y" ? (
+            <>
+              <div className="form-row">
+                <label>Cạnh ngắn X (mm):</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={value.xMm || aligned.xMm}
+                  onChange={(e) => onChange({ xMm: Number(e.target.value) || 0, yMm: aligned.yMm })}
+                />
+              </div>
+              <div className="form-row">
+                <label>Cạnh dài Y (đai đơn):</label>
+                <input type="number" readOnly value={aligned.yMm} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="form-row">
+                <label>Cạnh dài X (đai đơn):</label>
+                <input type="number" readOnly value={aligned.xMm} />
+              </div>
+              <div className="form-row">
+                <label>Cạnh ngắn Y (mm):</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={value.yMm || aligned.yMm}
+                  onChange={(e) => onChange({ yMm: Number(e.target.value) || 0, xMm: aligned.xMm })}
+                />
+              </div>
+            </>
+          )}
+          <p className="splice-hint">
+            Cạnh dài khớp đai đơn {aligned.longAxis === "y" ? aligned.yMm : aligned.xMm} mm
+          </p>
           <div className="form-row">
             <label>Khoảng cách (mm):</label>
             <input
@@ -1078,33 +1113,35 @@ function Modal({
 
 function ExtraTiesPreview({
   section,
-  margin,
+  originX,
+  originY,
   innerW,
   innerH,
   stirrupOffset,
 }: {
   section: FloorSection;
-  margin: number;
+  originX: number;
+  originY: number;
   innerW: number;
   innerH: number;
   stirrupOffset: number;
 }) {
-  const sx = section.cx > 0 ? innerW / section.cx : 1;
-  const sy = section.cy > 0 ? innerH / section.cy : 1;
-  const outerX = margin + stirrupOffset;
-  const outerY = margin + stirrupOffset;
+  const { a, b } = stirrupInner(section);
+  const outerX = originX + stirrupOffset;
+  const outerY = originY + stirrupOffset;
   const outerW = innerW - stirrupOffset * 2;
   const outerH = innerH - stirrupOffset * 2;
   const nodes: ReactNode[] = [];
 
   if (section.tieNested.enabled) {
-    const nw = Math.max(24, Math.min(outerW - 36, (section.tieNested.xMm || section.cx * 0.42) * sx));
-    const nh = Math.max(24, Math.min(outerH - 36, (section.tieNested.yMm || section.cy * 0.72) * sy));
+    const box = alignedClosedTie(section, section.tieNested, "nested");
+    const nw = outerW * (box.xMm / a);
+    const nh = outerH * (box.yMm / b);
     nodes.push(
       <rect
         key="nested"
-        x={margin + (innerW - nw) / 2}
-        y={margin + (innerH - nh) / 2}
+        x={outerX + (outerW - nw) / 2}
+        y={outerY + (outerH - nh) / 2}
         width={nw}
         height={nh}
         rx="10"
@@ -1116,43 +1153,57 @@ function ExtraTiesPreview({
   }
 
   if (section.tieDouble.enabled) {
-    const dw = Math.max(40, Math.min(outerW * 0.72, (section.tieDouble.xMm || section.cx * 0.72) * sx));
-    const dh = Math.max(40, Math.min(outerH - 8, (section.tieDouble.yMm || section.cy * 0.92) * sy));
-    const dy = outerY + (outerH - dh) / 2;
-    nodes.push(
-      <rect key="double-a" x={outerX + 4} y={dy} width={dw} height={dh} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
-      <rect
-        key="double-b"
-        x={outerX + outerW - dw - 4}
-        y={dy}
-        width={dw}
-        height={dh}
-        rx="12"
-        fill="none"
-        stroke="#4dabf7"
-        strokeWidth="4"
-      />,
-    );
+    const box = alignedClosedTie(section, section.tieDouble, "double");
+    const dw = outerW * (box.xMm / a);
+    const dh = outerH * (box.yMm / b);
+    if (box.longAxis === "y") {
+      nodes.push(
+        <rect key="double-a" x={outerX} y={outerY} width={dw} height={dh} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
+        <rect
+          key="double-b"
+          x={outerX + outerW - dw}
+          y={outerY}
+          width={dw}
+          height={dh}
+          rx="12"
+          fill="none"
+          stroke="#4dabf7"
+          strokeWidth="4"
+        />,
+      );
+    } else {
+      nodes.push(
+        <rect key="double-a" x={outerX} y={outerY} width={dw} height={dh} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
+        <rect
+          key="double-b"
+          x={outerX}
+          y={outerY + outerH - dh}
+          width={dw}
+          height={dh}
+          rx="12"
+          fill="none"
+          stroke="#4dabf7"
+          strokeWidth="4"
+        />,
+      );
+    }
   }
 
-  const barR = 14;
-  const stirrupStroke = 6;
-  const cover = 5;
-  const inset = stirrupOffset + stirrupStroke / 2 + barR + cover;
-  const left = margin + inset;
-  const right = margin + innerW - inset;
-  const top = margin + inset;
-  const bottom = margin + innerH - inset;
-
   if (section.tieC.enabled) {
-    const hook = Math.max(14, STIRRUP_HOOK_MM * Math.min(sx, sy) * 0.55);
-    const ret = Math.max(10, hook * 0.55);
+    const sx = section.cx > 0 ? innerW / section.cx : 1;
+    const sy = section.cy > 0 ? innerH / section.cy : 1;
+    const hook = Math.max(12, STIRRUP_HOOK_MM * Math.min(sx, sy) * 0.45);
+    const ret = Math.max(8, hook * 0.5);
+    const sLeft = outerX;
+    const sRight = outerX + outerW;
+    const sTop = outerY;
+    const sBottom = outerY + outerH;
     if (section.barsX % 2 === 1) {
-      const x = left + (right - left) / 2;
+      const x = sLeft + outerW / 2;
       nodes.push(
         <path
           key="c-x"
-          d={`M ${x + hook} ${top + ret} L ${x + hook} ${top} L ${x} ${top} L ${x} ${bottom} L ${x + hook} ${bottom} L ${x + hook} ${bottom - ret}`}
+          d={`M ${x + hook} ${sTop + ret} L ${x + hook} ${sTop} L ${x} ${sTop} L ${x} ${sBottom} L ${x + hook} ${sBottom} L ${x + hook} ${sBottom - ret}`}
           fill="none"
           stroke="#ffa94d"
           strokeWidth="5"
@@ -1162,11 +1213,11 @@ function ExtraTiesPreview({
       );
     }
     if (section.barsY % 2 === 1) {
-      const y = top + (bottom - top) / 2;
+      const y = sTop + outerH / 2;
       nodes.push(
         <path
           key="c-y"
-          d={`M ${left + ret} ${y + hook} L ${left} ${y + hook} L ${left} ${y} L ${right} ${y} L ${right} ${y + hook} L ${right - ret} ${y + hook}`}
+          d={`M ${sLeft + ret} ${y + hook} L ${sLeft} ${y + hook} L ${sLeft} ${y} L ${sRight} ${y} L ${sRight} ${y + hook} L ${sRight - ret} ${y + hook}`}
           fill="none"
           stroke="#ffa94d"
           strokeWidth="5"
@@ -1180,12 +1231,62 @@ function ExtraTiesPreview({
   return nodes.length ? <>{nodes}</> : null;
 }
 
+function PreviewDims({
+  x,
+  y,
+  w,
+  h,
+  cx,
+  cy,
+}: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  cx: number;
+  cy: number;
+}) {
+  const gap = 22;
+  const tick = 6;
+  const cxY = y + h + gap;
+  const cyX = x - gap;
+  return (
+    <g stroke="#fff12d" fill="#fff12d" strokeWidth="1.5">
+      <line x1={x} y1={y + h} x2={x} y2={cxY} />
+      <line x1={x + w} y1={y + h} x2={x + w} y2={cxY} />
+      <line x1={x} y1={cxY} x2={x + w} y2={cxY} />
+      <line x1={x} y1={cxY - tick} x2={x} y2={cxY + tick} />
+      <line x1={x + w} y1={cxY - tick} x2={x + w} y2={cxY + tick} />
+      <text x={x + w / 2} y={cxY + 18} textAnchor="middle" stroke="none" fontSize="15" fontWeight="700">
+        Cx {cx}
+      </text>
+      <line x1={x} y1={y} x2={cyX} y2={y} />
+      <line x1={x} y1={y + h} x2={cyX} y2={y + h} />
+      <line x1={cyX} y1={y} x2={cyX} y2={y + h} />
+      <line x1={cyX - tick} y1={y} x2={cyX + tick} y2={y} />
+      <line x1={cyX - tick} y1={y + h} x2={cyX + tick} y2={y + h} />
+      <text
+        x={cyX - 12}
+        y={y + h / 2}
+        textAnchor="middle"
+        stroke="none"
+        fontSize="15"
+        fontWeight="700"
+        transform={`rotate(-90 ${cyX - 12} ${y + h / 2})`}
+      >
+        Cy {cy}
+      </text>
+    </g>
+  );
+}
+
 function ColumnPreview({ section, shape }: { section: FloorSection; shape: Column["shape"] }) {
-  const width = 360;
-  const height = 420;
-  const margin = 48;
-  const innerW = width - margin * 2;
-  const innerH = height - margin * 2;
+  const width = 400;
+  const height = 480;
+  const originX = 72;
+  const originY = 28;
+  const innerW = 300;
+  const innerH = 390;
   const barR = 14;
   const stirrupStroke = 6;
   const stirrupOffset = 24;
@@ -1193,9 +1294,9 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
   const points: Array<{ x: number; y: number }> = [];
 
   if (shape === "TRON") {
-    const cx = width / 2;
-    const cy = height / 2;
-    const stirrupR = innerW / 2 - 28;
+    const cx = originX + innerW / 2;
+    const cy = originY + innerH / 2;
+    const stirrupR = Math.min(innerW, innerH) / 2 - 28;
     const ringR = Math.max(barR * 2, stirrupR - stirrupStroke / 2 - barR - cover);
     const n = Math.max(4, section.barsX * 2 + section.barsY * 2 - 4);
     for (let i = 0; i < n; i += 1) {
@@ -1204,10 +1305,10 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
     }
   } else {
     const inset = stirrupOffset + stirrupStroke / 2 + barR + cover;
-    const left = margin + inset;
-    const right = width - margin - inset;
-    const top = margin + inset;
-    const bottom = height - margin - inset;
+    const left = originX + inset;
+    const right = originX + innerW - inset;
+    const top = originY + inset;
+    const bottom = originY + innerH - inset;
     const spanX = right - left;
     const spanY = bottom - top;
     for (let i = 0; i < section.barsX; i += 1) {
@@ -1226,15 +1327,23 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
     <svg viewBox={`0 0 ${width} ${height}`} className="column-preview" role="img" aria-label="Mặt cắt cột">
       {shape === "TRON" ? (
         <>
-          <circle cx={width / 2} cy={height / 2} r={innerW / 2} fill="none" stroke="#f5f5f5" strokeWidth="3" />
-          <circle cx={width / 2} cy={height / 2} r={innerW / 2 - 28} fill="none" stroke="#b0db34" strokeWidth={stirrupStroke} />
+          <circle cx={originX + innerW / 2} cy={originY + innerH / 2} r={Math.min(innerW, innerH) / 2} fill="none" stroke="#f5f5f5" strokeWidth="3" />
+          <circle
+            cx={originX + innerW / 2}
+            cy={originY + innerH / 2}
+            r={Math.min(innerW, innerH) / 2 - 28}
+            fill="none"
+            stroke="#b0db34"
+            strokeWidth={stirrupStroke}
+          />
+          <PreviewDims x={originX} y={originY} w={innerW} h={innerH} cx={section.cx} cy={section.cy} />
         </>
       ) : (
         <>
-          <rect x={margin} y={margin} width={innerW} height={innerH} fill="none" stroke="#f5f5f5" strokeWidth="3" />
+          <rect x={originX} y={originY} width={innerW} height={innerH} fill="none" stroke="#f5f5f5" strokeWidth="3" />
           <rect
-            x={margin + stirrupOffset}
-            y={margin + stirrupOffset}
+            x={originX + stirrupOffset}
+            y={originY + stirrupOffset}
             width={innerW - stirrupOffset * 2}
             height={innerH - stirrupOffset * 2}
             rx="16"
@@ -1244,11 +1353,13 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
           />
           <ExtraTiesPreview
             section={section}
-            margin={margin}
+            originX={originX}
+            originY={originY}
             innerW={innerW}
             innerH={innerH}
             stirrupOffset={stirrupOffset}
           />
+          <PreviewDims x={originX} y={originY} w={innerW} h={innerH} cx={section.cx} cy={section.cy} />
         </>
       )}
       {points.map((point, index) => (
