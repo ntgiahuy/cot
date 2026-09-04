@@ -109,6 +109,7 @@ export const COVER_MM = 25;
 export const STIRRUP_HOOK_MM = 50;
 export const STOCK_M = 11.7;
 export const EMBED_MM = 600;
+export const MIN_BAR_CLEAR_MM = 25;
 
 export function emptyTie(): TieOption {
   return { enabled: false, xMm: 0, yMm: 0, spacingMm: 0, alongX: true, alongY: true, wrapBarsX: 0, wrapBarsY: 0 };

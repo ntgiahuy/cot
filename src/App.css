@@ -726,6 +726,20 @@ legend {
   font-size: 13px;
 }
 
+.clearance-warn {
+  margin: 0 0 8px;
+  color: #ff6b6b;
+  font-size: 13px;
+}
+
+.nested-wrap-note {
+  margin: 0 0 8px 22px;
+}
+
+.nested-wrap-note p {
+  margin: 0 0 4px;
+}
+
 .tie-option {
   margin-bottom: 8px;
 }

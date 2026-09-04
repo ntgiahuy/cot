@@ -5,6 +5,7 @@ import {
   buildSchedule,
   columnFloors,
   denseZones,
+  edgeBarCenters,
   floorElevations,
   formatBarLabel,
   alignedClosedTie,
@@ -13,8 +14,7 @@ import {
   hasMainStirrup,
   nestedAlongX,
   nestedAlongY,
-  nestedBoxX,
-  nestedBoxY,
+  nestedTieRect,
   sectionFor,
   stockBars,
   stirrupInner,
@@ -139,19 +139,18 @@ function drawSection(
     const sBottom = sTop + sH;
     const hook = 5;
     const ret = 3;
+    const barR = 2.1;
+    const barInset = 6 + 0.45 + barR + 0.8;
+    const pad = barInset - 6;
+    const xs = edgeBarCenters(section.barsX, x + barInset, w - 2 * barInset);
+    const ys = edgeBarCenters(section.barsY, y + barInset, h - 2 * barInset);
     if (nestedAlongX(section) && !section.tieDouble.enabled) {
-      const box = nestedBoxX(section);
-      const { a, b } = stirrupInner(section);
-      const nw = sW * (box.xMm / a);
-      const nh = sH * (box.yMm / b);
-      rect(ctx, sLeft + (sW - nw) / 2, sTop + (sH - nh) / 2, nw, nh, 0.8);
+      const box = nestedTieRect(section.barsX, xs, pad, sTop, sH, "x");
+      rect(ctx, box.x, box.y, box.w, box.h, 0.8);
     }
     if (nestedAlongY(section) && !section.tieDouble.enabled) {
-      const box = nestedBoxY(section);
-      const { a, b } = stirrupInner(section);
-      const nw = sW * (box.xMm / a);
-      const nh = sH * (box.yMm / b);
-      rect(ctx, sLeft + (sW - nw) / 2, sTop + (sH - nh) / 2, nw, nh, 0.8);
+      const box = nestedTieRect(section.barsY, ys, pad, sLeft, sW, "y");
+      rect(ctx, box.x, box.y, box.w, box.h, 0.8);
     }
     if (section.tieDouble.enabled && !section.tieNested.enabled) {
       const box = alignedClosedTie(section, section.tieDouble, "double");

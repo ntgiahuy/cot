@@ -1,4 +1,4 @@
-import { COVER_MM, EMBED_MM, STOCK_M, STIRRUP_HOOK_MM, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
+import { COVER_MM, EMBED_MM, MIN_BAR_CLEAR_MM, STOCK_M, STIRRUP_HOOK_MM, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
 
 export function barCount(section: FloorSection) {
   const edge = section.barsX * 2 + section.barsY * 2 - 4;
@@ -37,10 +37,15 @@ export function floorElevations(floors: Floor[]) {
 export function normalizeSection(section: FloorSection): FloorSection {
   const tieNested = normalizeTie(section.tieNested);
   const tieDouble = normalizeTie(section.tieDouble);
+  const nested = tieDouble.enabled ? { ...tieNested, enabled: false } : tieNested;
   return {
     ...section,
     tieC: normalizeTie(section.tieC),
-    tieNested: tieDouble.enabled ? { ...tieNested, enabled: false } : tieNested,
+    tieNested: {
+      ...nested,
+      wrapBarsX: nestedMinWrap(section.barsX),
+      wrapBarsY: nestedMinWrap(section.barsY),
+    },
     tieDouble,
   };
 }
@@ -121,28 +126,71 @@ export function nestedAlongY(section: FloorSection) {
   return Boolean(section.tieNested.enabled && section.tieNested.alongY && section.barsY >= 4);
 }
 
+/** Đai lồng ôm đúng 1/3 số thép mặt đó (làm tròn lên, tối thiểu 2). */
 export function nestedMinWrap(bars: number) {
-  return Math.max(bars >= 5 ? 3 : 2, Math.ceil(bars / 3));
+  return Math.max(2, Math.ceil(bars / 3));
 }
 
-export function nestedWrapOptions(bars: number) {
-  const min = nestedMinWrap(bars);
-  const max = Math.max(min, bars - 2);
-  const opts: number[] = [];
-  for (let n = min; n <= max; n += 1) opts.push(n);
-  return opts;
-}
-
-export function nestedWrapCount(bars: number, requested: number) {
-  const opts = nestedWrapOptions(bars);
-  if (opts.includes(requested)) return requested;
+export function nestedWrapCount(bars: number, _requested?: number) {
   return nestedMinWrap(bars);
 }
 
+export function nestedWrapRange(bars: number) {
+  const wrap = nestedMinWrap(bars);
+  const start = Math.max(0, Math.floor((bars - wrap) / 2));
+  return { wrap, start, end: Math.min(bars - 1, start + wrap - 1) };
+}
+
+export function edgeBarCenters(count: number, start: number, span: number) {
+  if (count <= 1) return [start + span / 2];
+  return Array.from({ length: count }, (_, i) => start + (span * i) / (count - 1));
+}
+
+export function nestedTieRect(
+  bars: number,
+  centers: number[],
+  pad: number,
+  longStart: number,
+  longSize: number,
+  wrapAxis: "x" | "y",
+) {
+  const { start, end } = nestedWrapRange(bars);
+  const a0 = centers[start] - pad;
+  const a1 = centers[end] + pad;
+  if (wrapAxis === "x") {
+    return { x: a0, y: longStart, w: a1 - a0, h: longSize };
+  }
+  return { x: longStart, y: a0, w: longSize, h: a1 - a0 };
+}
+
+/** Khoảng hở thông thủy giữa 2 thanh kề: (L đai − n×Ø) / (n−1). */
+export function barClearGapMm(innerSpan: number, bars: number, dia: number) {
+  if (bars <= 1) return innerSpan;
+  return (innerSpan - bars * dia) / (bars - 1);
+}
+
 export function nestedShortMm(innerSpan: number, bars: number, wrapCount: number, mainDia: number) {
-  const spacing = innerSpan / Math.max(bars - 1, 1);
   const n = nestedWrapCount(bars, wrapCount);
-  return Math.max(40, Math.round((n - 1) * spacing + mainDia));
+  const gap = barClearGapMm(innerSpan, bars, mainDia);
+  return Math.max(40, Math.round(n * mainDia + (n - 1) * gap));
+}
+
+export function faceClearance(section: FloorSection, axis: "x" | "y") {
+  const { a, b } = stirrupInner(section);
+  const span = axis === "x" ? a : b;
+  const bars = axis === "x" ? section.barsX : section.barsY;
+  const gap = barClearGapMm(span, bars, section.mainDia);
+  const wrap = nestedMinWrap(bars);
+  return {
+    name: axis === "x" ? "Cx" : "Cy",
+    span,
+    bars,
+    dia: section.mainDia,
+    gap,
+    wrap,
+    nestedMm: nestedShortMm(span, bars, wrap, section.mainDia),
+    ok: bars <= 1 || gap + 1e-9 >= MIN_BAR_CLEAR_MM,
+  };
 }
 
 export function nestedBoxX(section: FloorSection) {

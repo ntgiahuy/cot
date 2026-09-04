@@ -28,19 +28,19 @@ import {
   floorElevations,
   formatBarLabel,
   hasMainStirrup,
+  edgeBarCenters,
+  faceClearance,
   nestedAlongX,
   nestedAlongY,
-  nestedBoxX,
-  nestedBoxY,
-  nestedWrapCount,
-  nestedWrapOptions,
+  nestedMinWrap,
+  nestedTieRect,
   normalizeColumn,
   sectionFor,
   steelRatioPercent,
   stirrupInner,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
-import { BAR_COUNT_MAX, BAR_COUNT_MIN, clampBarCount, clampMainDia, clampTieDia, MAIN_DIAMETERS, SPLICE_FACTORS, STIRRUP_HOOK_MM, TIE_DIAMETERS, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
+import { BAR_COUNT_MAX, BAR_COUNT_MIN, clampBarCount, clampMainDia, clampTieDia, MAIN_DIAMETERS, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, TIE_DIAMETERS, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
 import "./App.css";
 
 const STORE_KEY = "thep-cot-project-v1";
@@ -784,6 +784,8 @@ export default function App() {
                             enabled: nestOk ? selectedSection.tieNested.enabled : false,
                             alongX: barsX >= 4 ? (selectedSection.barsX >= 4 ? selectedSection.tieNested.alongX : true) : false,
                             alongY: selectedSection.barsY >= 4 ? selectedSection.tieNested.alongY : false,
+                            wrapBarsX: nestedMinWrap(barsX),
+                            wrapBarsY: nestedMinWrap(selectedSection.barsY),
                           },
                         },
                         applyUpper,
@@ -792,10 +794,11 @@ export default function App() {
                     onBlur={() => {
                       const barsX = clampBarCount(selectedSection.barsX);
                       if (barsX === selectedSection.barsX) return;
-                      patchSection({ barsX }, applyUpper);
+                      patchSection({ barsX, tieNested: { ...selectedSection.tieNested, wrapBarsX: nestedMinWrap(barsX) } }, applyUpper);
                     }}
                   />
                 </div>
+                <FaceClearanceNote section={selectedSection} axis="x" />
                 <div className="form-row">
                   <label>Số lượng thanh thép cạnh Cy:</label>
                   <input
@@ -821,6 +824,8 @@ export default function App() {
                             enabled: nestOk ? selectedSection.tieNested.enabled : false,
                             alongX: selectedSection.barsX >= 4 ? selectedSection.tieNested.alongX : false,
                             alongY: barsY >= 4 ? (selectedSection.barsY >= 4 ? selectedSection.tieNested.alongY : true) : false,
+                            wrapBarsX: nestedMinWrap(selectedSection.barsX),
+                            wrapBarsY: nestedMinWrap(barsY),
                           },
                         },
                         applyUpper,
@@ -829,10 +834,11 @@ export default function App() {
                     onBlur={() => {
                       const barsY = clampBarCount(selectedSection.barsY);
                       if (barsY === selectedSection.barsY) return;
-                      patchSection({ barsY }, applyUpper);
+                      patchSection({ barsY, tieNested: { ...selectedSection.tieNested, wrapBarsY: nestedMinWrap(barsY) } }, applyUpper);
                     }}
                   />
                 </div>
+                <FaceClearanceNote section={selectedSection} axis="y" />
                 <div className="form-row">
                   <label>Đường kính cốt thép chính:</label>
                   <select
@@ -1030,8 +1036,6 @@ function TieOptionFields({
   const axes = variant === "c" || variant === "nested";
   const xOk = section ? (variant === "c" ? section.barsX % 2 === 1 : section.barsX >= 4) : false;
   const yOk = section ? (variant === "c" ? section.barsY % 2 === 1 : section.barsY >= 4) : false;
-  const wrapX = section ? nestedWrapOptions(section.barsX) : [];
-  const wrapY = section ? nestedWrapOptions(section.barsY) : [];
 
   return (
     <div className="tie-option">
@@ -1066,8 +1070,8 @@ function TieOptionFields({
                 alongX: section.barsX >= 4,
                 alongY: section.barsY >= 4,
                 spacingMm: value.spacingMm || 200,
-                wrapBarsX: nestedWrapCount(section.barsX, value.wrapBarsX),
-                wrapBarsY: nestedWrapCount(section.barsY, value.wrapBarsY),
+                wrapBarsX: nestedMinWrap(section.barsX),
+                wrapBarsY: nestedMinWrap(section.barsY),
               });
               return;
             }
@@ -1100,21 +1104,7 @@ function TieOptionFields({
             />
             Bố trí theo phương Cx
           </label>
-          {variant === "nested" && value.alongX && xOk ? (
-            <div className="form-row nested">
-              <label>Bo ngoài Cx (sắt chủ):</label>
-              <select
-                value={nestedWrapCount(section.barsX, value.wrapBarsX)}
-                onChange={(e) => onChange({ wrapBarsX: Number(e.target.value) })}
-              >
-                {wrapX.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+          {variant === "nested" && value.alongX && xOk ? <NestedWrapNote section={section} axis="x" /> : null}
           <label className={yOk ? "checkbox-row nested" : "checkbox-row nested disabled"}>
             <input
               type="checkbox"
@@ -1124,21 +1114,7 @@ function TieOptionFields({
             />
             Bố trí theo phương Cy
           </label>
-          {variant === "nested" && value.alongY && yOk ? (
-            <div className="form-row nested">
-              <label>Bo ngoài Cy (sắt chủ):</label>
-              <select
-                value={nestedWrapCount(section.barsY, value.wrapBarsY)}
-                onChange={(e) => onChange({ wrapBarsY: Number(e.target.value) })}
-              >
-                {wrapY.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+          {variant === "nested" && value.alongY && yOk ? <NestedWrapNote section={section} axis="y" /> : null}
         </div>
       ) : null}
       {value.enabled && variant === "box" && aligned ? (
@@ -1228,6 +1204,37 @@ function Modal({
   );
 }
 
+function formatMm(value: number) {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function FaceClearanceNote({ section, axis }: { section: FloorSection; axis: "x" | "y" }) {
+  const info = faceClearance(section, axis);
+  return (
+    <p className={info.ok ? "splice-hint" : "clearance-warn"}>
+      Đai {info.name} {Math.round(info.span)} mm − {info.bars}Ø{info.dia} → khoảng hở {formatMm(info.gap)} mm
+      {info.ok ? "" : ` (nhỏ hơn ${MIN_BAR_CLEAR_MM} mm)`}
+    </p>
+  );
+}
+
+function NestedWrapNote({ section, axis }: { section: FloorSection; axis: "x" | "y" }) {
+  const info = faceClearance(section, axis);
+  return (
+    <div className="nested-wrap-note">
+      <p className="splice-hint">
+        Bo ngoài {info.wrap} sắt chủ (1/3 × {info.bars} cây) — đai lồng {info.nestedMm} mm
+      </p>
+      {!info.ok ? (
+        <p className="clearance-warn">
+          Khoảng hở {formatMm(info.gap)} mm nhỏ hơn {MIN_BAR_CLEAR_MM} mm — tăng {info.name} hoặc giảm số thanh / Ø.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ExtraTiesPreview({
   section,
   originX,
@@ -1235,6 +1242,7 @@ function ExtraTiesPreview({
   innerW,
   innerH,
   stirrupOffset,
+  barInset,
 }: {
   section: FloorSection;
   originX: number;
@@ -1242,25 +1250,31 @@ function ExtraTiesPreview({
   innerW: number;
   innerH: number;
   stirrupOffset: number;
+  barInset: number;
 }) {
   const { a, b } = stirrupInner(section);
   const outerX = originX + stirrupOffset;
   const outerY = originY + stirrupOffset;
   const outerW = innerW - stirrupOffset * 2;
   const outerH = innerH - stirrupOffset * 2;
+  const left = originX + barInset;
+  const right = originX + innerW - barInset;
+  const top = originY + barInset;
+  const bottom = originY + innerH - barInset;
+  const pad = barInset - stirrupOffset;
+  const xs = edgeBarCenters(section.barsX, left, right - left);
+  const ys = edgeBarCenters(section.barsY, top, bottom - top);
   const nodes: ReactNode[] = [];
 
   if (nestedAlongX(section) && !section.tieDouble.enabled) {
-    const box = nestedBoxX(section);
-    const nw = outerW * (box.xMm / a);
-    const nh = outerH * (box.yMm / b);
+    const box = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x");
     nodes.push(
       <rect
         key="nested-x"
-        x={outerX + (outerW - nw) / 2}
-        y={outerY + (outerH - nh) / 2}
-        width={nw}
-        height={nh}
+        x={box.x}
+        y={box.y}
+        width={box.w}
+        height={box.h}
         rx="10"
         fill="none"
         stroke="#4dabf7"
@@ -1269,16 +1283,14 @@ function ExtraTiesPreview({
     );
   }
   if (nestedAlongY(section) && !section.tieDouble.enabled) {
-    const box = nestedBoxY(section);
-    const nw = outerW * (box.xMm / a);
-    const nh = outerH * (box.yMm / b);
+    const box = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y");
     nodes.push(
       <rect
         key="nested-y"
-        x={outerX + (outerW - nw) / 2}
-        y={outerY + (outerH - nh) / 2}
-        width={nw}
-        height={nh}
+        x={box.x}
+        y={box.y}
+        width={box.w}
+        height={box.h}
         rx="10"
         fill="none"
         stroke="#74c0fc"
@@ -1426,6 +1438,7 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
   const stirrupStroke = 6;
   const stirrupOffset = 24;
   const cover = 5;
+  const inset = stirrupOffset + stirrupStroke / 2 + barR + cover;
   const points: Array<{ x: number; y: number }> = [];
 
   if (shape === "TRON") {
@@ -1439,7 +1452,6 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
       points.push({ x: cx + ringR * Math.cos(angle), y: cy + ringR * Math.sin(angle) });
     }
   } else {
-    const inset = stirrupOffset + stirrupStroke / 2 + barR + cover;
     const left = originX + inset;
     const right = originX + innerW - inset;
     const top = originY + inset;
@@ -1497,6 +1509,7 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
             innerW={innerW}
             innerH={innerH}
             stirrupOffset={stirrupOffset}
+            barInset={inset}
           />
           <PreviewDims x={originX} y={originY} w={innerW} h={innerH} cx={section.cx} cy={section.cy} />
         </>
