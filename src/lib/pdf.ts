@@ -21,6 +21,7 @@ import {
   normalizeColumn,
   sectionFor,
   sectionMarks,
+  uniqueSectionMarks,
   stockBars,
   tieSpec,
   summaryBuckets,
@@ -617,32 +618,33 @@ function extraTieTargets(
   w: number,
   h: number,
   kind: SectionMark["kind"],
+  axis?: SectionMark["axis"],
 ): Array<{ x: number; y: number; w: number; h: number }> {
   const g = sectionGeom(section, x, y, w, h);
   const { sLeft, sTop, sW, sH, xs, ys, wrapPad } = g;
   const out: Array<{ x: number; y: number; w: number; h: number }> = [];
   if (kind === "nested" && !section.tieDouble.enabled) {
-    if (nestedAlongX(section)) out.push(nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x"));
-    if (nestedAlongY(section)) out.push(nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y"));
+    if (axis !== "y" && nestedAlongX(section)) out.push(nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x"));
+    if (axis !== "x" && nestedAlongY(section)) out.push(nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y"));
   }
   if (kind === "double" && !section.tieNested.enabled) {
-    if (doubleAlongX(section)) {
+    if (axis !== "y" && doubleAlongX(section)) {
       const wrap = doubleMinWrap(section.barsX);
       out.push(nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "start"));
       out.push(nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "end"));
     }
-    if (doubleAlongY(section)) {
+    if (axis !== "x" && doubleAlongY(section)) {
       const wrap = doubleMinWrap(section.barsY);
       out.push(nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "start"));
       out.push(nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "end"));
     }
   }
   if (kind === "c") {
-    if (cTieAlongX(section)) {
+    if (axis !== "y" && cTieAlongX(section)) {
       const cx = sLeft + sW / 2;
       out.push({ x: cx, y: sTop, w: Math.max(8, g.cover * 0.9), h: sH });
     }
-    if (cTieAlongY(section)) {
+    if (axis !== "x" && cTieAlongY(section)) {
       const cy = sTop + sH / 2;
       out.push({ x: sLeft, y: cy, w: sW, h: Math.max(8, g.cover * 0.9) });
     }
@@ -653,7 +655,7 @@ function extraTieTargets(
 function drawMarkTable(ctx: Ctx, x: number, y: number, rows: SectionMark[]) {
   const sttW = 22;
   const nameW = 112;
-  const specW = 72;
+  const specW = 96;
   const tw = sttW + nameW + specW;
   const rh = 19;
   rows.forEach((row, i) => {
@@ -680,12 +682,13 @@ function drawSectionDetail(
   shape: Column["shape"],
 ) {
   const marks = sectionMarks(section);
-  const tableH = marks.length * 19;
+  const tableRows = uniqueSectionMarks(section);
+  const tableH = tableRows.length * 19;
   const leftAnno = 108;
   const topAnno = 32;
   const botDim = 44;
   const dimGap = 36;
-  const isoCol = 108;
+  const isoCol = 188;
   const availH = Math.max(58, maxH - topAnno - botDim - tableH - 14);
   const availW = Math.max(52, maxW - leftAnno - dimGap - isoCol - 8);
   const aspect = section.cy / Math.max(section.cx, 1);
@@ -743,30 +746,36 @@ function drawSectionDetail(
     );
   }
 
-  const extraKinds: Array<SectionMark["kind"]> = ["nested", "double", "c"];
-  extraKinds.forEach((kind) => {
-    const mark = markOf(section, kind);
-    if (mark == null || kind === "long" || kind === "main") return;
-    extraTieTargets(section, x, y, w, h, kind).slice(0, 1).forEach((box) => {
+  const extraMarks = marks.filter(
+    (row): row is SectionMark & { kind: Exclude<SectionMark["kind"], "long" | "main"> } =>
+      row.kind !== "long" && row.kind !== "main",
+  );
+  const labeled = new Set<number>();
+  let lastExtraY = mark1Y;
+  extraMarks.forEach((row) => {
+    if (labeled.has(row.mark)) return;
+    labeled.add(row.mark);
+    extraTieTargets(section, x, y, w, h, row.kind, row.axis).slice(0, 1).forEach((box) => {
       const cy = box.y + box.h / 2;
       let yL = Math.min(y + h - 10, Math.max(y + 14, cy));
       if (Math.abs(yL - mark1Y) < 18) yL = Math.min(y + h - 10, mark1Y + 22);
-      const spec = marks.find((row) => row.kind === kind)?.spec ?? tieSpec(section, kind);
-      leaderCallout(ctx, leadX, yL, box.x, yL, mark, spec, 7.4, 8, specX);
+      if (Math.abs(yL - lastExtraY) < 16) yL = Math.min(y + h - 10, lastExtraY + 20);
+      lastExtraY = yL;
+      leaderCallout(ctx, leadX, yL, box.x, yL, row.mark, tieSpec(section, row.kind), 7.4, 8, specX);
     });
   });
 
-  const isoMarks = marks.filter((row) => row.kind !== "long");
-  const isoW = 32;
-  const isoH = Math.max(26, isoW * Math.min(aspect, 1.2));
-  const isoX = x + w + dimGap + 18;
-  const isoY = y + 8;
+  const isoMarks = tableRows.filter((row) => row.kind !== "long");
+  const isoW = 28;
+  const isoGap = 12;
+  const isoX = x + w + dimGap + 14;
+  const isoY = y + 6;
   isoMarks.forEach((row, i) => {
-    const scale = row.kind === "main" ? 1 : 0.84;
-    const iw = isoW * scale;
-    const ih = isoH * scale;
-    const dx = isoX + i * (isoW + 20);
-    const dy = isoY + (isoH - ih) / 2;
+    const ar = row.xMm && row.yMm && row.xMm > 0 ? row.yMm / row.xMm : 1;
+    const iw = isoW;
+    const ih = Math.max(18, Math.min(46, iw * Math.min(Math.max(ar, 0.4), 1.85)));
+    const dx = isoX + i * (isoW + isoGap);
+    const dy = isoY + (46 - ih) / 2;
     if (row.kind === "c") drawCStirrup(ctx, dx, dy, dx + iw, dy + ih, "right", 1.05);
     else drawRoundedStirrup(ctx, dx, dy, iw, ih, 1.05, 0.4);
     balloon(ctx, dx + iw / 2, dy + ih + 12, row.mark, 6.6);
@@ -774,7 +783,7 @@ function drawSectionDetail(
 
   const tx = x;
   const ty0 = y + h + botDim;
-  drawMarkTable(ctx, tx, Math.min(ty0, boxY + maxH - tableH - 2), marks);
+  drawMarkTable(ctx, tx, Math.min(ty0, boxY + maxH - tableH - 2), tableRows);
 }
 
 function floorBandYs(floors: Floor[], scale: number, elevBot: number) {

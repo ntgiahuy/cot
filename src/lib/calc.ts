@@ -65,13 +65,28 @@ export function hasMainStirrup(section: FloorSection) {
 }
 
 export type SectionMarkKind = "long" | "main" | "nested" | "double" | "c";
+export type SectionMarkAxis = "x" | "y";
 
 export type SectionMark = {
   mark: number;
   kind: SectionMarkKind;
+  axis?: SectionMarkAxis;
   name: string;
   spec: string;
+  sizeKey: string;
+  xMm?: number;
+  yMm?: number;
 };
+
+function closedSizeKey(dia: number, xMm: number, yMm: number) {
+  const a = Math.round(xMm);
+  const b = Math.round(yMm);
+  return `Ø${dia}:${Math.max(a, b)}x${Math.min(a, b)}`;
+}
+
+function formatTieSize(xMm: number, yMm: number) {
+  return `${Math.round(xMm)}×${Math.round(yMm)}`;
+}
 
 export function tieSpec(section: FloorSection, kind: Exclude<SectionMarkKind, "long">): string {
   const spacing = (mm: number) => `Ø${section.tieDia}a${mm || 200}`;
@@ -81,30 +96,128 @@ export function tieSpec(section: FloorSection, kind: Exclude<SectionMarkKind, "l
   return spacing(section.tieC.spacingMm);
 }
 
-/** Số hiệu mặt cắt / thống kê: 1 thép dọc, 2 đai chính, 3 đai lồng|kép, 4 đai C. */
+/**
+ * Mỗi Ø hoặc mỗi kích thước đai khác nhau = một số hiệu.
+ * Đai lồng/kép/C hai phương cùng kích thước thì dùng chung số hiệu.
+ */
 export function sectionMarks(section: FloorSection): SectionMark[] {
-  const rows: SectionMark[] = [{ mark: 1, kind: "long", name: "THÉP DỌC", spec: formatBarLabel(section) }];
-  let n = 2;
+  const draft: Array<Omit<SectionMark, "mark">> = [
+    { kind: "long", name: "THÉP DỌC", spec: formatBarLabel(section), sizeKey: `long:${formatBarLabel(section)}` },
+  ];
   if (hasMainStirrup(section)) {
-    rows.push({ mark: n, kind: "main", name: "THÉP ĐAI CHÍNH", spec: tieSpec(section, "main") });
-    n += 1;
+    const { a, b } = stirrupInner(section);
+    draft.push({
+      kind: "main",
+      name: "THÉP ĐAI CHÍNH",
+      spec: tieSpec(section, "main"),
+      sizeKey: closedSizeKey(section.tieDia, a, b),
+      xMm: a,
+      yMm: b,
+    });
   }
-  if ((nestedAlongX(section) || nestedAlongY(section)) && !section.tieDouble.enabled) {
-    rows.push({ mark: n, kind: "nested", name: "THÉP ĐAI LỒNG", spec: tieSpec(section, "nested") });
-    n += 1;
+  if (nestedAlongX(section) && !section.tieDouble.enabled) {
+    const box = nestedBoxX(section);
+    draft.push({
+      kind: "nested",
+      axis: "x",
+      name: "THÉP ĐAI LỒNG",
+      spec: `${tieSpec(section, "nested")} ${formatTieSize(box.xMm, box.yMm)}`,
+      sizeKey: closedSizeKey(section.tieDia, box.xMm, box.yMm),
+      xMm: box.xMm,
+      yMm: box.yMm,
+    });
   }
-  if ((doubleAlongX(section) || doubleAlongY(section)) && !section.tieNested.enabled) {
-    rows.push({ mark: n, kind: "double", name: "THÉP ĐAI KÉP", spec: tieSpec(section, "double") });
-    n += 1;
+  if (nestedAlongY(section) && !section.tieDouble.enabled) {
+    const box = nestedBoxY(section);
+    draft.push({
+      kind: "nested",
+      axis: "y",
+      name: "THÉP ĐAI LỒNG",
+      spec: `${tieSpec(section, "nested")} ${formatTieSize(box.xMm, box.yMm)}`,
+      sizeKey: closedSizeKey(section.tieDia, box.xMm, box.yMm),
+      xMm: box.xMm,
+      yMm: box.yMm,
+    });
   }
-  if (cTieAlongX(section) || cTieAlongY(section)) {
-    rows.push({ mark: n, kind: "c", name: "THÉP ĐAI C", spec: tieSpec(section, "c") });
+  if (doubleAlongX(section) && !section.tieNested.enabled) {
+    const box = doubleBoxX(section);
+    draft.push({
+      kind: "double",
+      axis: "x",
+      name: "THÉP ĐAI KÉP",
+      spec: `${tieSpec(section, "double")} ${formatTieSize(box.xMm, box.yMm)}`,
+      sizeKey: closedSizeKey(section.tieDia, box.xMm, box.yMm),
+      xMm: box.xMm,
+      yMm: box.yMm,
+    });
   }
-  return rows;
+  if (doubleAlongY(section) && !section.tieNested.enabled) {
+    const box = doubleBoxY(section);
+    draft.push({
+      kind: "double",
+      axis: "y",
+      name: "THÉP ĐAI KÉP",
+      spec: `${tieSpec(section, "double")} ${formatTieSize(box.xMm, box.yMm)}`,
+      sizeKey: closedSizeKey(section.tieDia, box.xMm, box.yMm),
+      xMm: box.xMm,
+      yMm: box.yMm,
+    });
+  }
+  if (cTieAlongX(section)) {
+    const { b } = stirrupInner(section);
+    const len = cTieLengthMm(b);
+    draft.push({
+      kind: "c",
+      axis: "x",
+      name: "THÉP ĐAI C",
+      spec: `${tieSpec(section, "c")} L=${Math.round(len)}`,
+      sizeKey: `C:Ø${section.tieDia}:${Math.round(len)}`,
+      xMm: 0,
+      yMm: b,
+    });
+  }
+  if (cTieAlongY(section)) {
+    const { a } = stirrupInner(section);
+    const len = cTieLengthMm(a);
+    draft.push({
+      kind: "c",
+      axis: "y",
+      name: "THÉP ĐAI C",
+      spec: `${tieSpec(section, "c")} L=${Math.round(len)}`,
+      sizeKey: `C:Ø${section.tieDia}:${Math.round(len)}`,
+      xMm: a,
+      yMm: 0,
+    });
+  }
+
+  const keyToMark = new Map<string, number>();
+  let n = 1;
+  return draft.map((row) => {
+    let mark = keyToMark.get(row.sizeKey);
+    if (mark == null) {
+      mark = n;
+      n += 1;
+      keyToMark.set(row.sizeKey, mark);
+    }
+    return { ...row, mark };
+  });
 }
 
-export function markOf(section: FloorSection, kind: SectionMarkKind): number | undefined {
-  return sectionMarks(section).find((row) => row.kind === kind)?.mark;
+export function uniqueSectionMarks(section: FloorSection): SectionMark[] {
+  const seen = new Set<number>();
+  return sectionMarks(section).filter((row) => {
+    if (seen.has(row.mark)) return false;
+    seen.add(row.mark);
+    return true;
+  });
+}
+
+export function markOf(section: FloorSection, kind: SectionMarkKind, axis?: SectionMarkAxis): number | undefined {
+  const rows = sectionMarks(section);
+  if (axis) {
+    return rows.find((row) => row.kind === kind && row.axis === axis)?.mark ?? rows.find((row) => row.kind === kind)?.mark;
+  }
+  return rows.find((row) => row.kind === kind)?.mark;
 }
 
 export function sectionFor(column: Column, floorId: number): FloorSection {
@@ -624,7 +737,8 @@ export function buildSchedule(project: Project): {
           : spec.key.startsWith("Kép")
             ? "double"
             : "c";
-        const extraMark = markOf(section, extraKind) ?? 3 + specIndex;
+        const extraAxis = spec.key.endsWith("-X") ? "x" : spec.key.endsWith("-Y") ? "y" : undefined;
+        const extraMark = markOf(section, extraKind, extraAxis) ?? 3 + specIndex;
         rows.push({
           member,
           floorName: floor.name,
