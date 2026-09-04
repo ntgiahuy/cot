@@ -982,13 +982,19 @@ function TieOptionFields({
         <div>
           {section.barsX % 2 === 1 ? (
             <p className="splice-hint">
-              Phương X: đai đơn {inner.a} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.a)} mm
+              Cx = {section.barsX} (lẻ): đai C đứng, móc thanh giữa cạnh trên và dưới. Dài theo phương Y: {inner.b} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.b)} mm
             </p>
           ) : null}
           {section.barsY % 2 === 1 ? (
             <p className="splice-hint">
-              Phương Y: đai đơn {inner.b} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.b)} mm
+              Cy = {section.barsY} (lẻ): đai C ngang, móc thanh giữa cạnh trái và phải. Dài theo phương X: {inner.a} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.a)} mm
             </p>
+          ) : null}
+          {section.barsY % 2 === 0 ? (
+            <p className="splice-hint">Cy chẵn: không đặt đai C ngang — cạnh trái/phải không có thép chủ giữa.</p>
+          ) : null}
+          {section.barsX % 2 === 0 ? (
+            <p className="splice-hint">Cx chẵn: không đặt đai C đứng — cạnh trên/dưới không có thép chủ giữa.</p>
           ) : null}
           <div className="form-row">
             <label>Khoảng cách (mm):</label>
@@ -1129,16 +1135,24 @@ function ExtraTiesPreview({
     );
   }
 
+  const barR = 14;
+  const stirrupStroke = 6;
+  const cover = 5;
+  const inset = stirrupOffset + stirrupStroke / 2 + barR + cover;
+  const left = margin + inset;
+  const right = margin + innerW - inset;
+  const top = margin + inset;
+  const bottom = margin + innerH - inset;
+
   if (section.tieC.enabled) {
-    const hook = Math.max(10, STIRRUP_HOOK_MM * Math.min(sx, sy));
+    const hook = Math.max(14, STIRRUP_HOOK_MM * Math.min(sx, sy) * 0.55);
+    const ret = Math.max(10, hook * 0.55);
     if (section.barsX % 2 === 1) {
-      const y = outerY + outerH / 2;
-      const x1 = outerX;
-      const x2 = outerX + outerW;
+      const x = left + (right - left) / 2;
       nodes.push(
         <path
           key="c-x"
-          d={`M ${x1} ${y - hook} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - hook}`}
+          d={`M ${x + hook} ${top + ret} L ${x + hook} ${top} L ${x} ${top} L ${x} ${bottom} L ${x + hook} ${bottom} L ${x + hook} ${bottom - ret}`}
           fill="none"
           stroke="#ffa94d"
           strokeWidth="5"
@@ -1148,13 +1162,11 @@ function ExtraTiesPreview({
       );
     }
     if (section.barsY % 2 === 1) {
-      const x = outerX + outerW / 2;
-      const y1 = outerY;
-      const y2 = outerY + outerH;
+      const y = top + (bottom - top) / 2;
       nodes.push(
         <path
           key="c-y"
-          d={`M ${x - hook} ${y1} L ${x} ${y1} L ${x} ${y2} L ${x - hook} ${y2}`}
+          d={`M ${left + ret} ${y + hook} L ${left} ${y + hook} L ${left} ${y} L ${right} ${y} L ${right} ${y + hook} L ${right - ret} ${y + hook}`}
           fill="none"
           stroke="#ffa94d"
           strokeWidth="5"

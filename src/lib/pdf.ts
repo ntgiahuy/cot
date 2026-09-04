@@ -118,6 +118,30 @@ function drawSection(
   } else {
     rect(ctx, x, y, w, h, 1.1);
     rect(ctx, x + 6, y + 6, w - 12, h - 12, 0.9);
+    const barR = 2.1;
+    const inset = 6 + 0.45 + barR + 0.8;
+    const left = x + inset;
+    const right = x + w - inset;
+    const top = y + inset;
+    const bottom = y + h - inset;
+    const hook = 5;
+    const ret = 3;
+    if (section.tieC.enabled && section.barsX % 2 === 1) {
+      const cx = left + (right - left) / 2;
+      line(ctx, cx + hook, top + ret, cx + hook, top, 0.9);
+      line(ctx, cx + hook, top, cx, top, 0.9);
+      line(ctx, cx, top, cx, bottom, 0.9);
+      line(ctx, cx, bottom, cx + hook, bottom, 0.9);
+      line(ctx, cx + hook, bottom, cx + hook, bottom - ret, 0.9);
+    }
+    if (section.tieC.enabled && section.barsY % 2 === 1) {
+      const cy = top + (bottom - top) / 2;
+      line(ctx, left + ret, cy + hook, left, cy + hook, 0.9);
+      line(ctx, left, cy + hook, left, cy, 0.9);
+      line(ctx, left, cy, right, cy, 0.9);
+      line(ctx, right, cy, right, cy + hook, 0.9);
+      line(ctx, right, cy + hook, right - ret, cy + hook, 0.9);
+    }
   }
   barPoints(section, x, y, w, h).forEach(([px, py]) => circle(ctx, px, py, 2.1, true));
   text(ctx, `${section.cx}`, x + w / 2, y - 12, 8, false, "center");

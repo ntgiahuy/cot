@@ -122,23 +122,23 @@ function extraTieSpecs(section: FloorSection) {
   if (section.barsX % 2 === 1) {
     specs.push({
       key: "C-X",
-      label: "Đai C phương X",
-      tie: section.tieC,
-      lengthMm: cTieLengthMm(a),
-      copies: 1,
-      derived: true,
-      spanMm: a,
-    });
-  }
-  if (section.barsY % 2 === 1) {
-    specs.push({
-      key: "C-Y",
-      label: "Đai C phương Y",
+      label: "Đai C đứng (móc thép giữa Cx)",
       tie: section.tieC,
       lengthMm: cTieLengthMm(b),
       copies: 1,
       derived: true,
       spanMm: b,
+    });
+  }
+  if (section.barsY % 2 === 1) {
+    specs.push({
+      key: "C-Y",
+      label: "Đai C ngang (móc thép giữa Cy)",
+      tie: section.tieC,
+      lengthMm: cTieLengthMm(a),
+      copies: 1,
+      derived: true,
+      spanMm: a,
     });
   }
   specs.push(
