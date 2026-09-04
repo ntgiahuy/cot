@@ -8,16 +8,17 @@ import {
   edgeBarCenters,
   floorElevations,
   formatBarLabel,
-  alignedClosedTie,
   cTieAlongX,
   cTieAlongY,
+  doubleAlongX,
+  doubleAlongY,
+  doubleMinWrap,
   hasMainStirrup,
   nestedAlongX,
   nestedAlongY,
   nestedTieRect,
   sectionFor,
   stockBars,
-  stirrupInner,
   summaryBuckets,
 } from "./calc";
 import { EMBED_MM, STOCK_M, type Column, type FloorSection, type Project } from "./types";
@@ -152,18 +153,19 @@ function drawSection(
       const box = nestedTieRect(section.barsY, ys, pad, sLeft, sW, "y");
       rect(ctx, box.x, box.y, box.w, box.h, 0.8);
     }
-    if (section.tieDouble.enabled && !section.tieNested.enabled) {
-      const box = alignedClosedTie(section, section.tieDouble, "double");
-      const { a, b } = stirrupInner(section);
-      const dw = sW * (box.xMm / a);
-      const dh = sH * (box.yMm / b);
-      if (box.longAxis === "y") {
-        rect(ctx, sLeft, sTop, dw, dh, 0.8);
-        rect(ctx, sRight - dw, sTop, dw, dh, 0.8);
-      } else {
-        rect(ctx, sLeft, sTop, dw, dh, 0.8);
-        rect(ctx, sLeft, sBottom - dh, dw, dh, 0.8);
-      }
+    if (doubleAlongX(section) && !section.tieNested.enabled) {
+      const wrap = doubleMinWrap(section.barsX);
+      const leftBox = nestedTieRect(section.barsX, xs, pad, sTop, sH, "x", wrap, "start");
+      const rightBox = nestedTieRect(section.barsX, xs, pad, sTop, sH, "x", wrap, "end");
+      rect(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.8);
+      rect(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.8);
+    }
+    if (doubleAlongY(section) && !section.tieNested.enabled) {
+      const wrap = doubleMinWrap(section.barsY);
+      const topBox = nestedTieRect(section.barsY, ys, pad, sLeft, sW, "y", wrap, "start");
+      const botBox = nestedTieRect(section.barsY, ys, pad, sLeft, sW, "y", wrap, "end");
+      rect(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.8);
+      rect(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.8);
     }
     if (cTieAlongX(section)) {
       const cx = sLeft + sW / 2;

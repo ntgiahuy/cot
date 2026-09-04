@@ -22,7 +22,7 @@ Mặc định: [http://127.0.0.1:43123/](http://127.0.0.1:43123/)
 1. **Tầng** — nhập số tầng, chiều cao tầng, chiều cao dầm.
 2. **Add / Edit** — khai báo tên cột, số lượng, Cx × Cy, phạm vi tầng.
 3. Nhấp ô cột trên mặt đứng để **bố trí thép** (số thanh cạnh Cx/Cy từ 2 đến 100; Ø 6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32, 36, 40, 45, 50, 55). Tick *Sử dụng cốt thép đã bố trí cho các tầng trên* nếu muốn copy lên tầng trên.
-4. **Đai C** — tick bố trí Cx/Cy (cạnh lẻ). **Đai lồng** cùng bố cục, chỉ khi Cx/Cy ≥ 4 thanh. Số cây ôm = 1/3 số thép mặt đó (làm tròn lên, tối thiểu 2): 10→4, 12→4. Cạnh ngắn = `n×Ø + (n−1)×hở`, với khoảng hở `(L đai − số thanh×Ø) / (số thanh−1)` ≥ 25 mm. Đai lồng và đai nhánh không dùng đồng thời; đai nhánh thì bỏ đai đơn.
+4. **Đai C** — tick bố trí Cx/Cy (cạnh lẻ). **Đai lồng** cùng bố cục, chỉ khi Cx/Cy ≥ 4 thanh. Số cây ôm = 1/3 số thép mặt đó (làm tròn lên, tối thiểu 2). Cạnh ngắn = `n×Ø + (n−1)×hở`. **Đai kép** cùng form Cx/Cy; mỗi phía ôm ≥ 2/3 số thép, cạnh ngắn = max(ôm thanh, 2/3 nhịp đai). Đai lồng và đai kép không dùng đồng thời; đai kép thì bỏ đai đơn.
 5. **Draw / Xuất PDF** — tải `output.pdf`.
 
 Dữ liệu lưu tự động trên trình duyệt (`localStorage`). **New** khôi phục bộ mẫu 3 tầng / 5 cột (BT1, C3, C4, C2, C1) khớp file PDF tham chiếu.

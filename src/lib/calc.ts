@@ -50,7 +50,11 @@ export function normalizeSection(section: FloorSection): FloorSection {
       wrapBarsX: nestedMinWrap(section.barsX),
       wrapBarsY: nestedMinWrap(section.barsY),
     },
-    tieDouble,
+    tieDouble: {
+      ...tieDouble,
+      wrapBarsX: doubleMinWrap(section.barsX),
+      wrapBarsY: doubleMinWrap(section.barsY),
+    },
   };
 }
 
@@ -122,6 +126,10 @@ export function canUseTieNested(section: FloorSection) {
   return section.barsX >= 4 || section.barsY >= 4;
 }
 
+export function canUseTieDouble(section: FloorSection) {
+  return canUseTieNested(section);
+}
+
 export function nestedAlongX(section: FloorSection) {
   return Boolean(section.tieNested.enabled && section.tieNested.alongX && section.barsX >= 4);
 }
@@ -130,19 +138,38 @@ export function nestedAlongY(section: FloorSection) {
   return Boolean(section.tieNested.enabled && section.tieNested.alongY && section.barsY >= 4);
 }
 
+export function doubleAlongX(section: FloorSection) {
+  return Boolean(section.tieDouble.enabled && section.tieDouble.alongX && section.barsX >= 4);
+}
+
+export function doubleAlongY(section: FloorSection) {
+  return Boolean(section.tieDouble.enabled && section.tieDouble.alongY && section.barsY >= 4);
+}
+
 /** Đai lồng ôm đúng 1/3 số thép mặt đó (làm tròn lên, tối thiểu 2). */
 export function nestedMinWrap(bars: number) {
   return Math.max(2, Math.ceil(bars / 3));
+}
+
+/** Đai kép ôm ≥ 2/3 số thép mặt đó (làm tròn lên, tối thiểu 2). */
+export function doubleMinWrap(bars: number) {
+  return Math.min(bars, Math.max(2, Math.ceil((2 * bars) / 3)));
 }
 
 export function nestedWrapCount(bars: number, _requested?: number) {
   return nestedMinWrap(bars);
 }
 
+export function wrapRange(bars: number, wrap: number, align: "center" | "start" | "end" = "center") {
+  const n = Math.min(bars, Math.max(1, wrap));
+  if (align === "start") return { wrap: n, start: 0, end: n - 1 };
+  if (align === "end") return { wrap: n, start: Math.max(0, bars - n), end: bars - 1 };
+  const start = Math.max(0, Math.floor((bars - n) / 2));
+  return { wrap: n, start, end: Math.min(bars - 1, start + n - 1) };
+}
+
 export function nestedWrapRange(bars: number) {
-  const wrap = nestedMinWrap(bars);
-  const start = Math.max(0, Math.floor((bars - wrap) / 2));
-  return { wrap, start, end: Math.min(bars - 1, start + wrap - 1) };
+  return wrapRange(bars, nestedMinWrap(bars), "center");
 }
 
 export function edgeBarCenters(count: number, start: number, span: number) {
@@ -157,8 +184,10 @@ export function nestedTieRect(
   longStart: number,
   longSize: number,
   wrapAxis: "x" | "y",
+  wrapCount = nestedMinWrap(bars),
+  align: "center" | "start" | "end" = "center",
 ) {
-  const { start, end } = nestedWrapRange(bars);
+  const { start, end } = wrapRange(bars, wrapCount, align);
   const a0 = centers[start] - pad;
   const a1 = centers[end] + pad;
   if (wrapAxis === "x") {
@@ -173,18 +202,30 @@ export function barClearGapMm(innerSpan: number, bars: number, dia: number) {
   return (innerSpan - bars * dia) / (bars - 1);
 }
 
-export function nestedShortMm(innerSpan: number, bars: number, wrapCount: number, mainDia: number) {
-  const n = nestedWrapCount(bars, wrapCount);
+export function wrappedShortMm(innerSpan: number, bars: number, wrapCount: number, mainDia: number) {
+  const n = Math.min(bars, Math.max(1, wrapCount));
   const gap = barClearGapMm(innerSpan, bars, mainDia);
-  return Math.max(40, Math.round(n * mainDia + (n - 1) * gap));
+  return Math.max(40, Math.round(n * mainDia + Math.max(0, n - 1) * gap));
 }
 
-export function faceClearance(section: FloorSection, axis: "x" | "y") {
+export function nestedShortMm(innerSpan: number, bars: number, wrapCount: number, mainDia: number) {
+  return wrappedShortMm(innerSpan, bars, nestedWrapCount(bars, wrapCount), mainDia);
+}
+
+export function doubleShortMm(innerSpan: number, bars: number, mainDia: number) {
+  const wrap = doubleMinWrap(bars);
+  const envelope = wrappedShortMm(innerSpan, bars, wrap, mainDia);
+  const minSpan = (2 / 3) * innerSpan;
+  return Math.max(envelope, Math.round(minSpan));
+}
+
+export function faceClearance(section: FloorSection, axis: "x" | "y", kind: "nested" | "double" = "nested") {
   const { a, b } = stirrupInner(section);
   const span = axis === "x" ? a : b;
   const bars = axis === "x" ? section.barsX : section.barsY;
   const gap = barClearGapMm(span, bars, section.mainDia);
-  const wrap = nestedMinWrap(bars);
+  const wrap = kind === "double" ? doubleMinWrap(bars) : nestedMinWrap(bars);
+  const nestedMm = kind === "double" ? doubleShortMm(span, bars, section.mainDia) : nestedShortMm(span, bars, wrap, section.mainDia);
   return {
     name: axis === "x" ? "Cx" : "Cy",
     span,
@@ -192,7 +233,7 @@ export function faceClearance(section: FloorSection, axis: "x" | "y") {
     dia: section.mainDia,
     gap,
     wrap,
-    nestedMm: nestedShortMm(span, bars, wrap, section.mainDia),
+    nestedMm,
     ok: bars <= 1 || gap + 1e-9 >= MIN_BAR_CLEAR_MM,
   };
 }
@@ -210,6 +251,22 @@ export function nestedBoxY(section: FloorSection) {
   return {
     xMm: a,
     yMm: nestedShortMm(b, section.barsY, section.tieNested.wrapBarsY, section.mainDia),
+  };
+}
+
+export function doubleBoxX(section: FloorSection) {
+  const { a, b } = stirrupInner(section);
+  return {
+    xMm: doubleShortMm(a, section.barsX, section.mainDia),
+    yMm: b,
+  };
+}
+
+export function doubleBoxY(section: FloorSection) {
+  const { a, b } = stirrupInner(section);
+  return {
+    xMm: a,
+    yMm: doubleShortMm(b, section.barsY, section.mainDia),
   };
 }
 
@@ -281,7 +338,6 @@ function extraTieSpecs(section: FloorSection) {
       yMm: 0,
     });
   }
-  const branch = alignedClosedTie(section, section.tieDouble, "double");
   if (!section.tieDouble.enabled) {
     if (nestedAlongX(section)) {
       const box = nestedBoxX(section);
@@ -313,17 +369,34 @@ function extraTieSpecs(section: FloorSection) {
     }
   }
   if (!section.tieNested.enabled) {
-    specs.push({
-      key: "Nhánh",
-      label: "Đai nhánh",
-      tie: section.tieDouble,
-      lengthMm: closedTieLengthMm(branch.xMm, branch.yMm),
-      copies: 2,
-      derived: false,
-      spanMm: 0,
-      xMm: branch.xMm,
-      yMm: branch.yMm,
-    });
+    if (doubleAlongX(section)) {
+      const box = doubleBoxX(section);
+      specs.push({
+        key: "Kép-X",
+        label: "Đai kép phương Cx",
+        tie: section.tieDouble,
+        lengthMm: closedTieLengthMm(box.xMm, box.yMm),
+        copies: 2,
+        derived: false,
+        spanMm: 0,
+        xMm: box.xMm,
+        yMm: box.yMm,
+      });
+    }
+    if (doubleAlongY(section)) {
+      const box = doubleBoxY(section);
+      specs.push({
+        key: "Kép-Y",
+        label: "Đai kép phương Cy",
+        tie: section.tieDouble,
+        lengthMm: closedTieLengthMm(box.xMm, box.yMm),
+        copies: 2,
+        derived: false,
+        spanMm: 0,
+        xMm: box.xMm,
+        yMm: box.yMm,
+      });
+    }
   }
   return specs;
 }
@@ -460,7 +533,9 @@ export function buildSchedule(project: Project): {
       extraTieSpecs(section).forEach((spec, specIndex) => {
         if (!spec.tie.enabled) return;
         const spacingMm =
-          spec.derived || spec.key.startsWith("Lồng") ? spec.tie.spacingMm || 200 : spec.tie.spacingMm;
+          spec.derived || spec.key.startsWith("Lồng") || spec.key.startsWith("Kép")
+            ? spec.tie.spacingMm || 200
+            : spec.tie.spacingMm;
         if (spacingMm <= 0) return;
         const nExtra = extraTieCount(floor, spacingMm) * spec.copies;
         const extraTotal = nExtra * column.quantity;

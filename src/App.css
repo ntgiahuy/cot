@@ -740,6 +740,13 @@ legend {
   margin: 0 0 4px;
 }
 
+.nested-wrap-mm {
+  margin: 0 0 4px;
+  color: #e4e4e7;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .tie-option {
   margin-bottom: 8px;
 }

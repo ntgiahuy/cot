@@ -22,6 +22,9 @@ import {
   barCount,
   canUseTieC,
   canUseTieNested,
+  doubleAlongX,
+  doubleAlongY,
+  doubleMinWrap,
   cTieAlongX,
   cTieAlongY,
   columnFloors,
@@ -37,7 +40,6 @@ import {
   normalizeColumn,
   sectionFor,
   steelRatioPercent,
-  stirrupInner,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
 import { BAR_COUNT_MAX, BAR_COUNT_MIN, BAR_DIAMETERS, clampBarCount, clampMainDia, clampTieDia, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
@@ -787,6 +789,14 @@ export default function App() {
                             wrapBarsX: nestedMinWrap(barsX),
                             wrapBarsY: nestedMinWrap(selectedSection.barsY),
                           },
+                          tieDouble: {
+                            ...selectedSection.tieDouble,
+                            enabled: nestOk ? selectedSection.tieDouble.enabled : false,
+                            alongX: barsX >= 4 ? (selectedSection.barsX >= 4 ? selectedSection.tieDouble.alongX : true) : false,
+                            alongY: selectedSection.barsY >= 4 ? selectedSection.tieDouble.alongY : false,
+                            wrapBarsX: doubleMinWrap(barsX),
+                            wrapBarsY: doubleMinWrap(selectedSection.barsY),
+                          },
                         },
                         applyUpper,
                       );
@@ -794,7 +804,20 @@ export default function App() {
                     onBlur={() => {
                       const barsX = clampBarCount(selectedSection.barsX);
                       if (barsX === selectedSection.barsX) return;
-                      patchSection({ barsX, tieNested: { ...selectedSection.tieNested, wrapBarsX: nestedMinWrap(barsX) } }, applyUpper);
+                      patchSection(
+                        {
+                          barsX,
+                          tieNested: {
+                            ...selectedSection.tieNested,
+                            wrapBarsX: nestedMinWrap(barsX),
+                          },
+                          tieDouble: {
+                            ...selectedSection.tieDouble,
+                            wrapBarsX: doubleMinWrap(barsX),
+                          },
+                        },
+                        applyUpper,
+                      );
                     }}
                   />
                 </div>
@@ -827,6 +850,14 @@ export default function App() {
                             wrapBarsX: nestedMinWrap(selectedSection.barsX),
                             wrapBarsY: nestedMinWrap(barsY),
                           },
+                          tieDouble: {
+                            ...selectedSection.tieDouble,
+                            enabled: nestOk ? selectedSection.tieDouble.enabled : false,
+                            alongX: selectedSection.barsX >= 4 ? selectedSection.tieDouble.alongX : false,
+                            alongY: barsY >= 4 ? (selectedSection.barsY >= 4 ? selectedSection.tieDouble.alongY : true) : false,
+                            wrapBarsX: doubleMinWrap(selectedSection.barsX),
+                            wrapBarsY: doubleMinWrap(barsY),
+                          },
                         },
                         applyUpper,
                       );
@@ -834,7 +865,14 @@ export default function App() {
                     onBlur={() => {
                       const barsY = clampBarCount(selectedSection.barsY);
                       if (barsY === selectedSection.barsY) return;
-                      patchSection({ barsY, tieNested: { ...selectedSection.tieNested, wrapBarsY: nestedMinWrap(barsY) } }, applyUpper);
+                      patchSection(
+                        {
+                          barsY,
+                          tieNested: { ...selectedSection.tieNested, wrapBarsY: nestedMinWrap(barsY) },
+                          tieDouble: { ...selectedSection.tieDouble, wrapBarsY: doubleMinWrap(barsY) },
+                        },
+                        applyUpper,
+                      );
                     }}
                   />
                 </div>
@@ -937,7 +975,7 @@ export default function App() {
                   kind="nested"
                   section={selectedSection}
                   blocked={selectedSection.tieDouble.enabled}
-                  blockedHint="Đã chọn đai nhánh — không dùng đai lồng."
+                  blockedHint="Đã chọn đai kép — không dùng đai lồng."
                   value={selectedSection.tieNested}
                   onChange={(partial) =>
                     patchSection(
@@ -950,11 +988,12 @@ export default function App() {
                   }
                 />
                 <TieOptionFields
-                  title="Đai nhánh"
+                  title="Đai kép"
+                  variant="nested"
                   kind="double"
                   section={selectedSection}
                   blocked={selectedSection.tieNested.enabled}
-                  blockedHint="Đã chọn đai lồng — không dùng đai nhánh."
+                  blockedHint="Đã chọn đai lồng — không dùng đai kép."
                   value={selectedSection.tieDouble}
                   onChange={(partial) =>
                     patchSection(
@@ -1065,13 +1104,15 @@ function TieOptionFields({
               return;
             }
             if (variant === "nested" && section) {
+              const wrapX = kind === "double" ? doubleMinWrap(section.barsX) : nestedMinWrap(section.barsX);
+              const wrapY = kind === "double" ? doubleMinWrap(section.barsY) : nestedMinWrap(section.barsY);
               onChange({
                 enabled: true,
                 alongX: section.barsX >= 4,
                 alongY: section.barsY >= 4,
                 spacingMm: value.spacingMm || 200,
-                wrapBarsX: nestedMinWrap(section.barsX),
-                wrapBarsY: nestedMinWrap(section.barsY),
+                wrapBarsX: wrapX,
+                wrapBarsY: wrapY,
               });
               return;
             }
@@ -1082,7 +1123,7 @@ function TieOptionFields({
       </label>
       {blocked && blockedHint ? <p className="splice-hint">{blockedHint}</p> : null}
       {value.enabled && allow && kind === "double" ? (
-        <p className="splice-hint">Đai nhánh thay đai đơn — không vẽ và không thống kê đai đơn.</p>
+        <p className="splice-hint">Đai kép thay đai đơn — không vẽ và không thống kê đai đơn.</p>
       ) : null}
       {value.enabled && allow && axes && section ? (
         <div className="tie-c-fields">
@@ -1104,7 +1145,9 @@ function TieOptionFields({
             />
             Bố trí theo phương Cx
           </label>
-          {variant === "nested" && value.alongX && xOk ? <NestedWrapNote section={section} axis="x" /> : null}
+          {variant === "nested" && value.alongX && xOk ? (
+            <NestedWrapNote section={section} axis="x" kind={kind} />
+          ) : null}
           <label className={yOk ? "checkbox-row nested" : "checkbox-row nested disabled"}>
             <input
               type="checkbox"
@@ -1114,7 +1157,9 @@ function TieOptionFields({
             />
             Bố trí theo phương Cy
           </label>
-          {variant === "nested" && value.alongY && yOk ? <NestedWrapNote section={section} axis="y" /> : null}
+          {variant === "nested" && value.alongY && yOk ? (
+            <NestedWrapNote section={section} axis="y" kind={kind} />
+          ) : null}
         </div>
       ) : null}
       {value.enabled && variant === "box" && aligned ? (
@@ -1219,13 +1264,24 @@ function FaceClearanceNote({ section, axis }: { section: FloorSection; axis: "x"
   );
 }
 
-function NestedWrapNote({ section, axis }: { section: FloorSection; axis: "x" | "y" }) {
-  const info = faceClearance(section, axis);
+function NestedWrapNote({
+  section,
+  axis,
+  kind = "nested",
+}: {
+  section: FloorSection;
+  axis: "x" | "y";
+  kind?: "nested" | "double";
+}) {
+  const info = faceClearance(section, axis, kind);
+  const frac = kind === "double" ? "2/3" : "1/3";
+  const label = kind === "double" ? "đai kép" : "đai lồng";
   return (
     <div className="nested-wrap-note">
       <p className="splice-hint">
-        Bo ngoài {info.wrap} sắt chủ (1/3 × {info.bars} cây) — đai lồng {info.nestedMm} mm
+        Bo ngoài {info.wrap} sắt chủ ({frac} × {info.bars} cây) – {label}
       </p>
+      <p className="nested-wrap-mm">{info.nestedMm} mm</p>
       {!info.ok ? (
         <p className="clearance-warn">
           Khoảng hở {formatMm(info.gap)} mm nhỏ hơn {MIN_BAR_CLEAR_MM} mm — tăng {info.name} hoặc giảm số thanh / Ø.
@@ -1252,7 +1308,6 @@ function ExtraTiesPreview({
   stirrupOffset: number;
   barInset: number;
 }) {
-  const { a, b } = stirrupInner(section);
   const outerX = originX + stirrupOffset;
   const outerY = originY + stirrupOffset;
   const outerW = innerW - stirrupOffset * 2;
@@ -1299,41 +1354,23 @@ function ExtraTiesPreview({
     );
   }
 
-  if (section.tieDouble.enabled && !section.tieNested.enabled) {
-    const box = alignedClosedTie(section, section.tieDouble, "double");
-    const dw = outerW * (box.xMm / a);
-    const dh = outerH * (box.yMm / b);
-    if (box.longAxis === "y") {
-      nodes.push(
-        <rect key="double-a" x={outerX} y={outerY} width={dw} height={dh} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
-        <rect
-          key="double-b"
-          x={outerX + outerW - dw}
-          y={outerY}
-          width={dw}
-          height={dh}
-          rx="12"
-          fill="none"
-          stroke="#4dabf7"
-          strokeWidth="4"
-        />,
-      );
-    } else {
-      nodes.push(
-        <rect key="double-a" x={outerX} y={outerY} width={dw} height={dh} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
-        <rect
-          key="double-b"
-          x={outerX}
-          y={outerY + outerH - dh}
-          width={dw}
-          height={dh}
-          rx="12"
-          fill="none"
-          stroke="#4dabf7"
-          strokeWidth="4"
-        />,
-      );
-    }
+  if (doubleAlongX(section) && !section.tieNested.enabled) {
+    const wrap = doubleMinWrap(section.barsX);
+    const leftBox = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x", wrap, "start");
+    const rightBox = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x", wrap, "end");
+    nodes.push(
+      <rect key="double-x-a" x={leftBox.x} y={leftBox.y} width={leftBox.w} height={leftBox.h} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
+      <rect key="double-x-b" x={rightBox.x} y={rightBox.y} width={rightBox.w} height={rightBox.h} rx="12" fill="none" stroke="#4dabf7" strokeWidth="4" />,
+    );
+  }
+  if (doubleAlongY(section) && !section.tieNested.enabled) {
+    const wrap = doubleMinWrap(section.barsY);
+    const topBox = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y", wrap, "start");
+    const botBox = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y", wrap, "end");
+    nodes.push(
+      <rect key="double-y-a" x={topBox.x} y={topBox.y} width={topBox.w} height={topBox.h} rx="12" fill="none" stroke="#ff6b6b" strokeWidth="4" />,
+      <rect key="double-y-b" x={botBox.x} y={botBox.y} width={botBox.w} height={botBox.h} rx="12" fill="none" stroke="#74c0fc" strokeWidth="4" />,
+    );
   }
 
   if (section.tieC.enabled) {
