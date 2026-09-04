@@ -232,28 +232,43 @@ function storyZones(floor: Floor, index: number, section: FloorSection, column: 
   return zones.filter((z) => z.len > 1);
 }
 
-function spliceLens(floor: Floor, section: FloorSection, column: Column): number[] {
-  if (column.baseSplice) {
-    const nD = lapMm(section.mainDia, column.baseSpliceD);
-    return [nD, nD, Math.max(floor.heightMm - 2 * nD, 0)];
-  }
+function spliceLens(
+  floor: Floor,
+  section: FloorSection,
+  column: Column,
+  prevSection: FloorSection | null,
+  isColumnBase: boolean,
+): number[] {
   if (column.midSplice) {
     const nD = lapMm(section.mainDia, column.midSpliceD);
     const pos = midSplicePosMm(floor);
     return [pos, nD, Math.max(floor.heightMm - pos - nD, 0)];
   }
+  if (column.baseSplice) {
+    const dia = !isColumnBase && prevSection ? prevSection.mainDia : section.mainDia;
+    const nD = lapMm(dia, column.baseSpliceD);
+    return [nD, nD, Math.max(floor.heightMm - 2 * nD, 0)];
+  }
   return [floor.heightMm];
 }
 
-function crankYs(floor: Floor, section: FloorSection, column: Column, yBot: number, scale: number): number[] {
-  if (column.baseSplice) {
-    const d = lapMm(section.mainDia, column.baseSpliceD) * scale;
-    return [yBot - d, yBot - 2 * d];
-  }
+/** Đỉnh sắt dưới (mm từ đáy tầng) — đoạn bẻ đầu tiên khớp các cao độ này. */
+function lowerSteelTopsMm(
+  floor: Floor,
+  section: FloorSection,
+  column: Column,
+  prevSection: FloorSection | null,
+  isColumnBase: boolean,
+): number[] {
   if (column.midSplice) {
-    const mid = midSplicePosMm(floor) * scale;
-    const d = lapMm(section.mainDia, column.midSpliceD) * scale;
-    return [yBot - mid, yBot - mid - d];
+    const nD = lapMm(section.mainDia, column.midSpliceD);
+    const pos = midSplicePosMm(floor);
+    return [pos, pos + nD];
+  }
+  if (column.baseSplice && !isColumnBase) {
+    const dia = prevSection ? prevSection.mainDia : section.mainDia;
+    const nD = lapMm(dia, column.baseSpliceD);
+    return [nD, 2 * nD];
   }
   return [];
 }
@@ -296,7 +311,7 @@ function drawBeamBoxV(ctx: Ctx, x: number, y: number, w: number, h: number) {
   zigzagV(ctx, x + w, y, y + h);
 }
 
-/** Bẻ cổ chai: đoạn dưới lệch, bẻ chéo rồi thẳng hàng phía trên. */
+/** Bẻ cổ chai ngắn ngay đỉnh sắt dưới: đoạn lệch cao bằng sắt dưới, rồi bẻ gọn. */
 function crankBarV(
   ctx: Ctx,
   xAlign: number,
@@ -306,11 +321,10 @@ function crankBarV(
   offset: number,
   w = 1.05,
 ) {
-  const run = Math.max(7, Math.min(16, Math.abs(offset) * 1.6));
-  const yLo = Math.min(yBot - 1.5, crankY + run);
-  const yHi = Math.max(yTop + 1.5, crankY - run);
-  line(ctx, xAlign + offset, yBot, xAlign + offset, yLo, w);
-  line(ctx, xAlign + offset, yLo, xAlign, yHi, w);
+  const run = Math.max(2.2, Math.min(3.6, Math.abs(offset) * 0.45));
+  const yHi = Math.max(yTop + 1, crankY - run);
+  line(ctx, xAlign + offset, yBot, xAlign + offset, crankY, w);
+  line(ctx, xAlign + offset, crankY, xAlign, yHi, w);
   line(ctx, xAlign, yHi, xAlign, yTop, w);
 }
 
@@ -561,6 +575,9 @@ function drawColumnSheet(
     }
     if (!active.has(floor.id)) return;
 
+    const isColumnBase = floor.id === col.startFloor;
+    const prevFloor = index > 0 ? project.floors[index - 1] : undefined;
+    const prevSection = prevFloor && !isColumnBase ? sectionFor(col, prevFloor.id) : null;
     const section = sectionFor(col, floor.id);
     const zones = storyZones(floor, index, section, col);
     const zoneEdges = [yBot];
@@ -593,7 +610,6 @@ function drawColumnSheet(
     line(ctx, shaftX, yTop, shaftX, yBot, 1.15);
     line(ctx, shaftX + shaftW, yTop, shaftX + shaftW, yBot, 1.15);
 
-    const kinks = crankYs(floor, section, col, yBot, scale);
     const inset = 5;
     const xL = shaftX + inset;
     const xR = shaftX + shaftW - inset;
@@ -605,31 +621,34 @@ function drawColumnSheet(
         : nShow === 3
           ? [xL, xM, xR]
           : [xL, (xL + xM) / 2, (xR + xM) / 2, xR];
-    xs.forEach((x, i) => {
-      const inward = x < xM ? 5.2 : x > xM ? -5.2 : 0;
-      const ky = kinks.length ? kinks[i % kinks.length] : null;
-      if (ky != null && inward !== 0) {
-        crankBarV(ctx, x, yTop + 1, yBot - 1, ky, inward, 1.05);
-        line(ctx, x, yBot - 1, x, ky - 3, 1.0);
-      } else {
-        line(ctx, x, yTop + 1, x, yBot - 1, 1.0);
-      }
+    xs.forEach((x) => {
+      line(ctx, x, yTop + 1, x, yBot - 1, 1.0);
     });
 
-    if (kinks.length) {
-      const amp = 16;
-      crankBarV(ctx, explodedX, yTop + 2, yBot - 2, kinks[0], -amp, 1.25);
-      line(ctx, explodedX, yBot - 2, explodedX, kinks[0] - 4, 1.15);
-      if (kinks[1]) {
-        crankBarV(ctx, explodedX + 18, yTop + 2, yBot - 2, kinks[1], -amp, 1.25);
-        line(ctx, explodedX + 18, yBot - 2, explodedX + 18, kinks[1] - 4, 1.15);
-      }
+    const topsMm = lowerSteelTopsMm(floor, section, col, prevSection, isColumnBase);
+    const amp = 5;
+    const midLap = col.midSplice ? lapMm(section.mainDia, col.midSpliceD) : 0;
+    if (topsMm.length) {
+      topsMm.forEach((topMm, i) => {
+        const x = explodedX + i * 14;
+        const crankY = yBot - topMm * scale;
+        const offsetH = col.midSplice ? midLap : topMm;
+        const yOffsetBot = yBot - Math.max(topMm - offsetH, 0) * scale;
+        line(ctx, x, yBot - 1, x, crankY, 1.05);
+        crankBarV(ctx, x, yTop + 2, yOffsetBot - 1, crankY, -amp, 1.15);
+      });
+      const calloutY = yTop + (yBot - yTop) * 0.28;
+      balloon(ctx, explodedX + 32, calloutY, 1, 6.6);
+      textVCenter(ctx, formatBarLabel(section), explodedX + 44, calloutY, 8, true);
+    } else {
+      line(ctx, explodedX, yTop + 2, explodedX, yBot - 2, 1.15);
+      line(ctx, explodedX + 14, yTop + 2, explodedX + 14, yBot - 2, 1.15);
       const calloutY = yTop + (yBot - yTop) * 0.28;
       balloon(ctx, explodedX + 32, calloutY, 1, 6.6);
       textVCenter(ctx, formatBarLabel(section), explodedX + 44, calloutY, 8, true);
     }
 
-    const segs = spliceLens(floor, section, col);
+    const segs = spliceLens(floor, section, col, prevSection, isColumnBase);
     const spliceEdges = [yBot];
     let sy = yBot;
     segs.forEach((len) => {
