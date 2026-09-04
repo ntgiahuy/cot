@@ -25,6 +25,7 @@ import {
   columnFloors,
   floorElevations,
   formatBarLabel,
+  hasMainStirrup,
   normalizeColumn,
   sectionFor,
   steelRatioPercent,
@@ -892,18 +893,34 @@ export default function App() {
                   title="Đai lồng"
                   kind="nested"
                   section={selectedSection}
+                  blocked={selectedSection.tieDouble.enabled}
+                  blockedHint="Đã chọn đai nhánh — không dùng đai lồng."
                   value={selectedSection.tieNested}
                   onChange={(partial) =>
-                    patchSection({ tieNested: { ...selectedSection.tieNested, ...partial } }, applyUpper)
+                    patchSection(
+                      {
+                        tieNested: { ...selectedSection.tieNested, ...partial },
+                        ...(partial.enabled ? { tieDouble: { ...selectedSection.tieDouble, enabled: false } } : {}),
+                      },
+                      applyUpper,
+                    )
                   }
                 />
                 <TieOptionFields
                   title="Đai nhánh"
                   kind="double"
                   section={selectedSection}
+                  blocked={selectedSection.tieNested.enabled}
+                  blockedHint="Đã chọn đai lồng — không dùng đai nhánh."
                   value={selectedSection.tieDouble}
                   onChange={(partial) =>
-                    patchSection({ tieDouble: { ...selectedSection.tieDouble, ...partial } }, applyUpper)
+                    patchSection(
+                      {
+                        tieDouble: { ...selectedSection.tieDouble, ...partial },
+                        ...(partial.enabled ? { tieNested: { ...selectedSection.tieNested, enabled: false } } : {}),
+                      },
+                      applyUpper,
+                    )
                   }
                 />
               </fieldset>
@@ -957,6 +974,8 @@ function TieOptionFields({
   variant = "box",
   kind = "nested",
   section,
+  blocked = false,
+  blockedHint,
 }: {
   title: string;
   value: TieOption;
@@ -964,20 +983,23 @@ function TieOptionFields({
   variant?: "c" | "box";
   kind?: "nested" | "double";
   section?: FloorSection;
+  blocked?: boolean;
+  blockedHint?: string;
 }) {
   const allowC = variant !== "c" || (section ? canUseTieC(section) : false);
+  const allow = allowC && !blocked;
   const inner = section ? stirrupInner(section) : { a: 0, b: 0 };
   const aligned = section && variant === "box" ? alignedClosedTie(section, value, kind) : null;
 
   return (
     <div className="tie-option">
-      <label className={allowC ? "checkbox-row" : "checkbox-row disabled"}>
+      <label className={allow ? "checkbox-row" : "checkbox-row disabled"}>
         <input
           type="checkbox"
-          checked={value.enabled && allowC}
-          disabled={!allowC}
+          checked={value.enabled && allow}
+          disabled={!allow}
           onChange={(e) => {
-            if (!allowC) return;
+            if (!allow) return;
             if (!e.target.checked) {
               onChange({ enabled: false });
               return;
@@ -994,6 +1016,10 @@ function TieOptionFields({
       </label>
       {variant === "c" && !allowC ? (
         <p className="splice-hint">Đai C móc vào thép chủ giữa — chỉ chọn khi số thanh Cx hoặc Cy là số lẻ.</p>
+      ) : null}
+      {blocked && blockedHint ? <p className="splice-hint">{blockedHint}</p> : null}
+      {value.enabled && allow && kind === "double" ? (
+        <p className="splice-hint">Đai nhánh thay đai đơn — không vẽ và không thống kê đai đơn.</p>
       ) : null}
       {value.enabled && allowC && variant === "c" && section ? (
         <div>
@@ -1133,7 +1159,7 @@ function ExtraTiesPreview({
   const outerH = innerH - stirrupOffset * 2;
   const nodes: ReactNode[] = [];
 
-  if (section.tieNested.enabled) {
+  if (section.tieNested.enabled && !section.tieDouble.enabled) {
     const box = alignedClosedTie(section, section.tieNested, "nested");
     const nw = outerW * (box.xMm / a);
     const nh = outerH * (box.yMm / b);
@@ -1152,7 +1178,7 @@ function ExtraTiesPreview({
     );
   }
 
-  if (section.tieDouble.enabled) {
+  if (section.tieDouble.enabled && !section.tieNested.enabled) {
     const box = alignedClosedTie(section, section.tieDouble, "double");
     const dw = outerW * (box.xMm / a);
     const dh = outerH * (box.yMm / b);
@@ -1328,29 +1354,33 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
       {shape === "TRON" ? (
         <>
           <circle cx={originX + innerW / 2} cy={originY + innerH / 2} r={Math.min(innerW, innerH) / 2} fill="none" stroke="#f5f5f5" strokeWidth="3" />
-          <circle
-            cx={originX + innerW / 2}
-            cy={originY + innerH / 2}
-            r={Math.min(innerW, innerH) / 2 - 28}
-            fill="none"
-            stroke="#b0db34"
-            strokeWidth={stirrupStroke}
-          />
+          {hasMainStirrup(section) ? (
+            <circle
+              cx={originX + innerW / 2}
+              cy={originY + innerH / 2}
+              r={Math.min(innerW, innerH) / 2 - 28}
+              fill="none"
+              stroke="#b0db34"
+              strokeWidth={stirrupStroke}
+            />
+          ) : null}
           <PreviewDims x={originX} y={originY} w={innerW} h={innerH} cx={section.cx} cy={section.cy} />
         </>
       ) : (
         <>
           <rect x={originX} y={originY} width={innerW} height={innerH} fill="none" stroke="#f5f5f5" strokeWidth="3" />
-          <rect
-            x={originX + stirrupOffset}
-            y={originY + stirrupOffset}
-            width={innerW - stirrupOffset * 2}
-            height={innerH - stirrupOffset * 2}
-            rx="16"
-            fill="none"
-            stroke="#b0db34"
-            strokeWidth={stirrupStroke}
-          />
+          {hasMainStirrup(section) ? (
+            <rect
+              x={originX + stirrupOffset}
+              y={originY + stirrupOffset}
+              width={innerW - stirrupOffset * 2}
+              height={innerH - stirrupOffset * 2}
+              rx="16"
+              fill="none"
+              stroke="#b0db34"
+              strokeWidth={stirrupStroke}
+            />
+          ) : null}
           <ExtraTiesPreview
             section={section}
             originX={originX}

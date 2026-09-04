@@ -35,12 +35,18 @@ export function floorElevations(floors: Floor[]) {
 }
 
 export function normalizeSection(section: FloorSection): FloorSection {
+  const tieNested = normalizeTie(section.tieNested);
+  const tieDouble = normalizeTie(section.tieDouble);
   return {
     ...section,
     tieC: normalizeTie(section.tieC),
-    tieNested: normalizeTie(section.tieNested),
-    tieDouble: normalizeTie(section.tieDouble),
+    tieNested: tieDouble.enabled ? { ...tieNested, enabled: false } : tieNested,
+    tieDouble,
   };
+}
+
+export function hasMainStirrup(section: FloorSection) {
+  return !section.tieDouble.enabled;
 }
 
 export function sectionFor(column: Column, floorId: number): FloorSection {
@@ -165,8 +171,8 @@ function extraTieSpecs(section: FloorSection) {
   }
   const nested = alignedClosedTie(section, section.tieNested, "nested");
   const branch = alignedClosedTie(section, section.tieDouble, "double");
-  specs.push(
-    {
+  if (!section.tieDouble.enabled) {
+    specs.push({
       key: "Lồng",
       label: "Đai lồng",
       tie: section.tieNested,
@@ -176,8 +182,10 @@ function extraTieSpecs(section: FloorSection) {
       spanMm: 0,
       xMm: nested.xMm,
       yMm: nested.yMm,
-    },
-    {
+    });
+  }
+  if (!section.tieNested.enabled) {
+    specs.push({
       key: "Nhánh",
       label: "Đai nhánh",
       tie: section.tieDouble,
@@ -187,8 +195,8 @@ function extraTieSpecs(section: FloorSection) {
       spanMm: 0,
       xMm: branch.xMm,
       yMm: branch.yMm,
-    },
-  );
+    });
+  }
   return specs;
 }
 
@@ -294,30 +302,32 @@ export function buildSchedule(project: Project): {
         });
       }
 
-      const tieLen = stirrupLengthMm(section);
-      const nTie = stirrupCount(floor, floorIndex);
-      const totalBars = nTie * column.quantity;
-      const totalLengthM = (tieLen / 1000) * totalBars;
-      const weightKg = totalLengthM * kgPerMeter(section.tieDia);
-      pushTotal(byDia, section.tieDia, totalLengthM, weightKg);
       const { a, b } = stirrupInner(section);
-      const key = `Ø${section.tieDia} ${Math.max(a, b)} x ${Math.min(a, b)}`;
-      stirrupCounts.set(key, (stirrupCounts.get(key) ?? 0) + totalBars);
-      rows.push({
-        member,
-        floorName: floor.name,
-        quantity: column.quantity,
-        stt: 2,
-        dia: section.tieDia,
-        kind: "stirrup",
-        shapeLabel: "2",
-        segs: [STIRRUP_HOOK_MM, a, b],
-        lengthMm: tieLen,
-        perMember: nTie,
-        totalBars,
-        totalLengthM,
-        weightKg,
-      });
+      if (hasMainStirrup(section)) {
+        const tieLen = stirrupLengthMm(section);
+        const nTie = stirrupCount(floor, floorIndex);
+        const totalBars = nTie * column.quantity;
+        const totalLengthM = (tieLen / 1000) * totalBars;
+        const weightKg = totalLengthM * kgPerMeter(section.tieDia);
+        pushTotal(byDia, section.tieDia, totalLengthM, weightKg);
+        const key = `Ø${section.tieDia} ${Math.max(a, b)} x ${Math.min(a, b)}`;
+        stirrupCounts.set(key, (stirrupCounts.get(key) ?? 0) + totalBars);
+        rows.push({
+          member,
+          floorName: floor.name,
+          quantity: column.quantity,
+          stt: 2,
+          dia: section.tieDia,
+          kind: "stirrup",
+          shapeLabel: "2",
+          segs: [STIRRUP_HOOK_MM, a, b],
+          lengthMm: tieLen,
+          perMember: nTie,
+          totalBars,
+          totalLengthM,
+          weightKg,
+        });
+      }
 
       extraTieSpecs(section).forEach((spec, specIndex) => {
         if (!spec.tie.enabled || spec.tie.spacingMm <= 0) return;

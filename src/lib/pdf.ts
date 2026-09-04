@@ -8,6 +8,7 @@ import {
   floorElevations,
   formatBarLabel,
   alignedClosedTie,
+  hasMainStirrup,
   sectionFor,
   stockBars,
   stirrupInner,
@@ -116,10 +117,14 @@ function drawSection(
   if (shape === "TRON") {
     const r = Math.min(w, h) / 2 - 2;
     circle(ctx, x + w / 2, y + h / 2, r, false);
-    circle(ctx, x + w / 2, y + h / 2, r - 6, false);
+    if (hasMainStirrup(section)) {
+      circle(ctx, x + w / 2, y + h / 2, r - 6, false);
+    }
   } else {
     rect(ctx, x, y, w, h, 1.1);
-    rect(ctx, x + 6, y + 6, w - 12, h - 12, 0.9);
+    if (hasMainStirrup(section)) {
+      rect(ctx, x + 6, y + 6, w - 12, h - 12, 0.9);
+    }
     const sLeft = x + 6;
     const sTop = y + 6;
     const sW = w - 12;
@@ -128,14 +133,14 @@ function drawSection(
     const sBottom = sTop + sH;
     const hook = 5;
     const ret = 3;
-    if (section.tieNested.enabled) {
+    if (section.tieNested.enabled && !section.tieDouble.enabled) {
       const box = alignedClosedTie(section, section.tieNested, "nested");
       const { a, b } = stirrupInner(section);
       const nw = sW * (box.xMm / a);
       const nh = sH * (box.yMm / b);
       rect(ctx, sLeft + (sW - nw) / 2, sTop + (sH - nh) / 2, nw, nh, 0.8);
     }
-    if (section.tieDouble.enabled) {
+    if (section.tieDouble.enabled && !section.tieNested.enabled) {
       const box = alignedClosedTie(section, section.tieDouble, "double");
       const { a, b } = stirrupInner(section);
       const dw = sW * (box.xMm / a);
