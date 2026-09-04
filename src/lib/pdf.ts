@@ -291,6 +291,29 @@ function leaderCalloutInvL(
   }
 }
 
+/** Leader chữ L: ngang tới elbow rồi dọc tới đai. Chữ quy cách trên thanh ngang. */
+function leaderCalloutL(
+  ctx: Ctx,
+  bx: number,
+  by: number,
+  elbowX: number,
+  targetY: number,
+  n: number,
+  label?: string,
+  r = 7.4,
+  labelSize = 8,
+  specX?: number,
+) {
+  const sx = bx + r + 0.7;
+  line(ctx, sx, by, elbowX, by, 0.4);
+  if (Math.abs(by - targetY) > 0.6) line(ctx, elbowX, by, elbowX, targetY, 0.4);
+  balloon(ctx, bx, by, n, r);
+  if (label) {
+    const ax = specX ?? (sx + elbowX) / 2;
+    specAbove(ctx, label, ax, by, labelSize, specX != null ? "left" : "center");
+  }
+}
+
 function n2(v: number) {
   return Math.round(v * 100) / 100;
 }
@@ -611,15 +634,30 @@ function drawSectionTies(
   }
 }
 
-/** Điểm chỉ vào phần đai không trùng đai chính: đứng → cạnh trái; ngang → cạnh trên phía trong. */
+/** Điểm chỉ vào phần đai riêng: đứng → cạnh trong; ngang → cạnh trên phía trong. */
 function extraCalloutTip(
   box: { x: number; y: number; w: number; h: number },
-  axis?: SectionMark["axis"],
+  axis: SectionMark["axis"] | undefined,
+  outerLeft: number,
 ) {
   if (axis === "y") {
-    return { tx: box.x + Math.max(10, box.w * 0.38), ty: box.y };
+    return { tx: box.x + Math.max(10, box.w * 0.42), ty: box.y };
   }
-  return { tx: box.x, ty: box.y + box.h / 2 };
+  const useRight = Math.abs(box.x - outerLeft) < 3.5;
+  return { tx: useRight ? box.x + box.w : box.x, ty: box.y + box.h / 2 };
+}
+
+function placeBalloonY(preferred: number, occupied: number[], yMin: number, yMax: number, gap = 20) {
+  const fits = (v: number) => occupied.every((o) => Math.abs(v - o) >= gap);
+  let by = Math.min(yMax, Math.max(yMin, preferred));
+  if (fits(by)) return by;
+  for (let step = gap; step <= yMax - yMin + gap; step += gap) {
+    const down = preferred + step;
+    if (down <= yMax && fits(down)) return down;
+    const up = preferred - step;
+    if (up >= yMin && fits(up)) return up;
+  }
+  return by;
 }
 
 function extraTieTargets(
@@ -761,18 +799,17 @@ function drawSectionDetail(
     (row): row is SectionMark & { kind: Exclude<SectionMark["kind"], "long" | "main"> } =>
       row.kind !== "long" && row.kind !== "main",
   );
+  const occupiedYs = [mark1Y];
+  if (mainMark != null && hasMainStirrup(section)) occupiedYs.push(y - 14);
   const labeled = new Set<number>();
-  let lastExtraY = mark1Y;
   extraMarks.forEach((row) => {
     if (labeled.has(row.mark)) return;
     labeled.add(row.mark);
     extraTieTargets(section, x, y, w, h, row.kind, row.axis).slice(0, 1).forEach((box) => {
-      const tip = extraCalloutTip(box, row.axis);
-      let balloonY = tip.ty;
-      if (Math.abs(balloonY - mark1Y) < 16) balloonY = Math.min(y + h - 10, Math.max(y + 14, mark1Y + 20));
-      if (Math.abs(balloonY - lastExtraY) < 16) balloonY = Math.min(y + h - 10, lastExtraY + 20);
-      lastExtraY = balloonY;
-      leaderCallout(ctx, leadX, balloonY, tip.tx, tip.ty, row.mark, tieSpec(section, row.kind), 7.4, 8, specX);
+      const tip = extraCalloutTip(box, row.axis, x + pad);
+      const balloonY = placeBalloonY(tip.ty, occupiedYs, y - 16, y + h + 6, 20);
+      occupiedYs.push(balloonY);
+      leaderCalloutL(ctx, leadX, balloonY, tip.tx, tip.ty, row.mark, tieSpec(section, row.kind), 7.4, 8, specX);
     });
   });
 
@@ -781,12 +818,13 @@ function drawSectionDetail(
   const isoGap = 12;
   const isoX = x + w + dimGap + 14;
   const isoY = y + 6;
+  const maxIsoX = Math.max(1, ...isoMarks.map((row) => row.xMm || 1));
   isoMarks.forEach((row, i) => {
     const ar = row.xMm && row.yMm && row.xMm > 0 ? row.yMm / row.xMm : 1;
-    const iw = isoW;
-    const ih = Math.max(18, Math.min(46, iw * Math.min(Math.max(ar, 0.4), 1.85)));
+    const iw = isoW * (row.kind === "c" ? 0.7 : Math.max(0.42, Math.min(1, (row.xMm || maxIsoX) / maxIsoX)));
+    const ih = Math.max(16, Math.min(48, iw * Math.min(Math.max(ar || 1, 0.35), 2.2)));
     const dx = isoX + i * (isoW + isoGap);
-    const dy = isoY + (46 - ih) / 2;
+    const dy = isoY + (48 - ih) / 2;
     if (row.kind === "c") drawCStirrup(ctx, dx, dy, dx + iw, dy + ih, "right", 1.05);
     else drawRoundedStirrup(ctx, dx, dy, iw, ih, 1.05, 0.4);
     balloon(ctx, dx + iw / 2, dy + ih + 12, row.mark, 6.6);
