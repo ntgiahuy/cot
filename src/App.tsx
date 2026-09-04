@@ -19,15 +19,18 @@ import {
 import {
   barAreaCm2,
   barCount,
+  canUseTieC,
+  cTieLengthMm,
   columnFloors,
   floorElevations,
   formatBarLabel,
   normalizeColumn,
   sectionFor,
   steelRatioPercent,
+  stirrupInner,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
-import { DIAMETERS, SPLICE_FACTORS, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
+import { DIAMETERS, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
 import "./App.css";
 
 const STORE_KEY = "thep-cot-project-v1";
@@ -750,7 +753,17 @@ export default function App() {
                   <label>Số lượng thanh thép cạnh Cx:</label>
                   <select
                     value={selectedSection.barsX}
-                    onChange={(e) => patchSection({ barsX: Number(e.target.value) }, applyUpper)}
+                    onChange={(e) => {
+                      const barsX = Number(e.target.value);
+                      const evenBoth = barsX % 2 === 0 && selectedSection.barsY % 2 === 0;
+                      patchSection(
+                        {
+                          barsX,
+                          tieC: evenBoth ? { ...selectedSection.tieC, enabled: false } : selectedSection.tieC,
+                        },
+                        applyUpper,
+                      );
+                    }}
                   >
                     {[2, 3, 4, 5, 6].map((n) => (
                       <option key={n} value={n}>
@@ -763,7 +776,17 @@ export default function App() {
                   <label>Số lượng thanh thép cạnh Cy:</label>
                   <select
                     value={selectedSection.barsY}
-                    onChange={(e) => patchSection({ barsY: Number(e.target.value) }, applyUpper)}
+                    onChange={(e) => {
+                      const barsY = Number(e.target.value);
+                      const evenBoth = selectedSection.barsX % 2 === 0 && barsY % 2 === 0;
+                      patchSection(
+                        {
+                          barsY,
+                          tieC: evenBoth ? { ...selectedSection.tieC, enabled: false } : selectedSection.tieC,
+                        },
+                        applyUpper,
+                      );
+                    }}
                   >
                     {[2, 3, 4, 5, 6].map((n) => (
                       <option key={n} value={n}>
@@ -857,6 +880,8 @@ export default function App() {
                 ) : null}
                 <TieOptionFields
                   title="Đai C"
+                  variant="c"
+                  section={selectedSection}
                   value={selectedSection.tieC}
                   onChange={(partial) =>
                     patchSection({ tieC: { ...selectedSection.tieC, ...partial } }, applyUpper)
@@ -924,22 +949,59 @@ function TieOptionFields({
   title,
   value,
   onChange,
+  variant = "box",
+  section,
 }: {
   title: string;
   value: TieOption;
   onChange: (partial: Partial<TieOption>) => void;
+  variant?: "c" | "box";
+  section?: FloorSection;
 }) {
+  const allowC = variant !== "c" || (section ? canUseTieC(section) : false);
+  const inner = section ? stirrupInner(section) : { a: 0, b: 0 };
+
   return (
     <div className="tie-option">
-      <label className="checkbox-row">
+      <label className={allowC ? "checkbox-row" : "checkbox-row disabled"}>
         <input
           type="checkbox"
-          checked={value.enabled}
-          onChange={(e) => onChange({ enabled: e.target.checked })}
+          checked={value.enabled && allowC}
+          disabled={!allowC}
+          onChange={(e) => {
+            if (!allowC) return;
+            onChange({ enabled: e.target.checked });
+          }}
         />
         {title}
       </label>
-      {value.enabled ? (
+      {variant === "c" && !allowC ? (
+        <p className="splice-hint">Đai C móc vào thép chủ giữa — chỉ chọn khi số thanh Cx hoặc Cy là số lẻ.</p>
+      ) : null}
+      {value.enabled && allowC && variant === "c" && section ? (
+        <div>
+          {section.barsX % 2 === 1 ? (
+            <p className="splice-hint">
+              Phương X: đai đơn {inner.a} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.a)} mm
+            </p>
+          ) : null}
+          {section.barsY % 2 === 1 ? (
+            <p className="splice-hint">
+              Phương Y: đai đơn {inner.b} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.b)} mm
+            </p>
+          ) : null}
+          <div className="form-row">
+            <label>Khoảng cách (mm):</label>
+            <input
+              type="number"
+              min={0}
+              value={value.spacingMm}
+              onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 0 })}
+            />
+          </div>
+        </div>
+      ) : null}
+      {value.enabled && variant === "box" ? (
         <div>
           <div className="form-row">
             <label>Phương X (mm):</label>
@@ -1068,20 +1130,39 @@ function ExtraTiesPreview({
   }
 
   if (section.tieC.enabled) {
-    const cw = Math.max(20, Math.min(outerW - 20, (section.tieC.xMm || section.cx * 0.55) * sx));
-    const ch = Math.max(20, Math.min(outerH - 20, (section.tieC.yMm || section.cy * 0.55) * sy));
-    const x0 = margin + (innerW - cw) / 2;
-    const y0 = margin + (innerH - ch) / 2;
-    nodes.push(
-      <path
-        key="c"
-        d={`M ${x0 + cw} ${y0} H ${x0} V ${y0 + ch} H ${x0 + cw}`}
-        fill="none"
-        stroke="#ffa94d"
-        strokeWidth="5"
-        strokeLinecap="round"
-      />,
-    );
+    const hook = Math.max(10, STIRRUP_HOOK_MM * Math.min(sx, sy));
+    if (section.barsX % 2 === 1) {
+      const y = outerY + outerH / 2;
+      const x1 = outerX;
+      const x2 = outerX + outerW;
+      nodes.push(
+        <path
+          key="c-x"
+          d={`M ${x1} ${y - hook} L ${x1} ${y} L ${x2} ${y} L ${x2} ${y - hook}`}
+          fill="none"
+          stroke="#ffa94d"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />,
+      );
+    }
+    if (section.barsY % 2 === 1) {
+      const x = outerX + outerW / 2;
+      const y1 = outerY;
+      const y2 = outerY + outerH;
+      nodes.push(
+        <path
+          key="c-y"
+          d={`M ${x - hook} ${y1} L ${x} ${y1} L ${x} ${y2} L ${x - hook} ${y2}`}
+          fill="none"
+          stroke="#ffa94d"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />,
+      );
+    }
   }
 
   return nodes.length ? <>{nodes}</> : null;

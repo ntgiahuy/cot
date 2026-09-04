@@ -704,6 +704,10 @@ legend {
   margin: 0;
 }
 
+.checkbox-row.disabled {
+  opacity: 0.45;
+}
+
 .splice-hint {
   margin: 0 0 8px;
   color: #71717a;

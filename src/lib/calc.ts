@@ -91,12 +91,16 @@ export function stirrupLengthMm(section: FloorSection) {
   return 2 * (a + b) + 2 * STIRRUP_HOOK_MM;
 }
 
-function closedTieLengthMm(xMm: number, yMm: number) {
-  return 2 * (Math.max(xMm, 40) + Math.max(yMm, 40)) + 2 * STIRRUP_HOOK_MM;
+export function canUseTieC(section: FloorSection) {
+  return section.barsX % 2 === 1 || section.barsY % 2 === 1;
 }
 
-function cTieLengthMm(xMm: number, yMm: number) {
-  return Math.max(xMm, 0) + 2 * Math.max(yMm, 0) + 2 * STIRRUP_HOOK_MM;
+export function cTieLengthMm(spanMm: number) {
+  return Math.max(spanMm, 0) + 2 * STIRRUP_HOOK_MM;
+}
+
+function closedTieLengthMm(xMm: number, yMm: number) {
+  return 2 * (Math.max(xMm, 40) + Math.max(yMm, 40)) + 2 * STIRRUP_HOOK_MM;
 }
 
 function extraTieCount(floor: Floor, spacingMm: number) {
@@ -105,14 +109,47 @@ function extraTieCount(floor: Floor, spacingMm: number) {
 }
 
 function extraTieSpecs(section: FloorSection) {
-  return [
-    { key: "C", label: "Đai C", tie: section.tieC, lengthMm: cTieLengthMm(section.tieC.xMm, section.tieC.yMm), copies: 1 },
+  const { a, b } = stirrupInner(section);
+  const specs: Array<{
+    key: string;
+    label: string;
+    tie: TieOption;
+    lengthMm: number;
+    copies: number;
+    derived: boolean;
+    spanMm: number;
+  }> = [];
+  if (section.barsX % 2 === 1) {
+    specs.push({
+      key: "C-X",
+      label: "Đai C phương X",
+      tie: section.tieC,
+      lengthMm: cTieLengthMm(a),
+      copies: 1,
+      derived: true,
+      spanMm: a,
+    });
+  }
+  if (section.barsY % 2 === 1) {
+    specs.push({
+      key: "C-Y",
+      label: "Đai C phương Y",
+      tie: section.tieC,
+      lengthMm: cTieLengthMm(b),
+      copies: 1,
+      derived: true,
+      spanMm: b,
+    });
+  }
+  specs.push(
     {
       key: "Lồng",
       label: "Đai lồng",
       tie: section.tieNested,
       lengthMm: closedTieLengthMm(section.tieNested.xMm, section.tieNested.yMm),
       copies: 1,
+      derived: false,
+      spanMm: 0,
     },
     {
       key: "Nhánh",
@@ -120,8 +157,11 @@ function extraTieSpecs(section: FloorSection) {
       tie: section.tieDouble,
       lengthMm: closedTieLengthMm(section.tieDouble.xMm, section.tieDouble.yMm),
       copies: 2,
+      derived: false,
+      spanMm: 0,
     },
-  ] satisfies Array<{ key: string; label: string; tie: TieOption; lengthMm: number; copies: number }>;
+  );
+  return specs;
 }
 
 export function denseZones(floor: Floor, index: number) {
@@ -252,13 +292,16 @@ export function buildSchedule(project: Project): {
       });
 
       extraTieSpecs(section).forEach((spec, specIndex) => {
-        if (!spec.tie.enabled || spec.tie.spacingMm <= 0 || (spec.tie.xMm <= 0 && spec.tie.yMm <= 0)) return;
+        if (!spec.tie.enabled || spec.tie.spacingMm <= 0) return;
+        if (!spec.derived && spec.tie.xMm <= 0 && spec.tie.yMm <= 0) return;
         const nExtra = extraTieCount(floor, spec.tie.spacingMm) * spec.copies;
         const extraTotal = nExtra * column.quantity;
         const extraLengthM = (spec.lengthMm / 1000) * extraTotal;
         const extraWeight = extraLengthM * kgPerMeter(section.tieDia);
         pushTotal(byDia, section.tieDia, extraLengthM, extraWeight);
-        const extraKey = `${spec.label} Ø${section.tieDia} ${spec.tie.xMm} x ${spec.tie.yMm}`;
+        const extraKey = spec.derived
+          ? `${spec.label} Ø${section.tieDia} L=${spec.lengthMm}`
+          : `${spec.label} Ø${section.tieDia} ${spec.tie.xMm} x ${spec.tie.yMm}`;
         stirrupCounts.set(extraKey, (stirrupCounts.get(extraKey) ?? 0) + extraTotal);
         rows.push({
           member,
@@ -268,7 +311,7 @@ export function buildSchedule(project: Project): {
           dia: section.tieDia,
           kind: "stirrup",
           shapeLabel: spec.key,
-          segs: [STIRRUP_HOOK_MM, spec.tie.xMm, spec.tie.yMm],
+          segs: spec.derived ? [STIRRUP_HOOK_MM, spec.spanMm, STIRRUP_HOOK_MM] : [STIRRUP_HOOK_MM, spec.tie.xMm, spec.tie.yMm],
           lengthMm: spec.lengthMm,
           perMember: nExtra,
           totalBars: extraTotal,
