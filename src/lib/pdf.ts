@@ -22,6 +22,7 @@ import {
   sectionFor,
   sectionMarks,
   stockBars,
+  tieSpec,
   summaryBuckets,
   type SectionMark,
 } from "./calc";
@@ -227,7 +228,11 @@ function balloon(ctx: Ctx, x: number, y: number, n: number, r = 7.4) {
   });
 }
 
-/** (n) ở đầu line; nhãn Ø6a100 / 6Ø16 nằm giữa thanh chỉ. */
+function specAbove(ctx: Ctx, label: string, x: number, lineY: number, size: number) {
+  textVCenter(ctx, label, x, lineY - size * 0.82, size, true, "center");
+}
+
+/** Số hiệu ở đầu line; chữ quy cách nằm trên line, line đi suốt không bị che. */
 function leaderCallout(
   ctx: Ctx,
   bx: number,
@@ -239,7 +244,6 @@ function leaderCallout(
   r = 7.4,
   labelSize = 8,
 ) {
-  balloon(ctx, bx, by, n, r);
   const dx = tx - bx;
   const dy = typt - by;
   const len = Math.hypot(dx, dy) || 1;
@@ -247,33 +251,28 @@ function leaderCallout(
   const uy = dy / len;
   const sx = bx + ux * (r + 0.7);
   const sy = by + uy * (r + 0.7);
-  if (!label) {
-    line(ctx, sx, sy, tx, typt, 0.4);
-    return;
-  }
-  const font = ctx.fontBold;
-  const tw = font.widthOfTextAtSize(label, labelSize);
-  const mx = (sx + tx) / 2;
-  const my = (sy + typt) / 2;
-  const half = tw / 2 + 3.2;
-  const reach = Math.max(0, (len - r - 2) / 2);
-  const g = Math.min(half, reach);
-  if (g > 2) {
-    line(ctx, sx, sy, mx - ux * g, my - uy * g, 0.4);
-    line(ctx, mx + ux * g, my + uy * g, tx, typt, 0.4);
-  } else {
-    line(ctx, sx, sy, tx, typt, 0.4);
-  }
-  const padX = 2;
-  const boxH = labelSize * 1.35;
-  ctx.page.drawRectangle({
-    x: mx - tw / 2 - padX,
-    y: ty(ctx, my) - boxH / 2,
-    width: tw + padX * 2,
-    height: boxH,
-    color: WHITE,
-  });
-  textVCenter(ctx, label, mx, my, labelSize, true, "center");
+  line(ctx, sx, sy, tx, typt, 0.4);
+  balloon(ctx, bx, by, n, r);
+  if (label) specAbove(ctx, label, (sx + tx) / 2, (sy + typt) / 2, labelSize);
+}
+
+/** Leader chữ L úp: ngang rồi xuống; chữ quy cách trên thanh ngang. */
+function leaderCalloutInvL(
+  ctx: Ctx,
+  bx: number,
+  by: number,
+  elbowX: number,
+  targetY: number,
+  n: number,
+  label?: string,
+  r = 7.4,
+  labelSize = 8,
+) {
+  const sx = bx + r + 0.7;
+  line(ctx, sx, by, elbowX, by, 0.4);
+  line(ctx, elbowX, by, elbowX, targetY, 0.4);
+  balloon(ctx, bx, by, n, r);
+  if (label) specAbove(ctx, label, (sx + elbowX) / 2, by, labelSize);
 }
 
 function n2(v: number) {
@@ -618,7 +617,7 @@ function extraTieTargets(
 function drawMarkTable(ctx: Ctx, x: number, y: number, rows: SectionMark[]) {
   const sttW = 22;
   const nameW = 112;
-  const specW = 54;
+  const specW = 72;
   const tw = sttW + nameW + specW;
   const rh = 19;
   rows.forEach((row, i) => {
@@ -646,8 +645,8 @@ function drawSectionDetail(
 ) {
   const marks = sectionMarks(section);
   const tableH = marks.length * 19;
-  const leftAnno = 132;
-  const topAnno = 28;
+  const leftAnno = 108;
+  const topAnno = 32;
   const botDim = 44;
   const dimGap = 36;
   const isoCol = 108;
@@ -681,24 +680,25 @@ function drawSectionDetail(
   dimH(ctx, x, x + w, y + h + 18, String(section.cx), 8);
   dimChainV(ctx, x + w + 18, [y, y + h], [String(section.cy)], 8, "right", 13);
 
+  const leadX = x - 64;
   const longBar = pts[0];
   let mark1Y = y + 10;
   if (longBar) {
     const yL = longBar[1];
     mark1Y = yL;
-    leaderCallout(ctx, x - 96, yL, longBar[0] - barR - 0.5, yL, 1, formatBarLabel(section), 7.4, 9);
+    leaderCallout(ctx, leadX, yL, longBar[0] - barR - 0.5, yL, 1, formatBarLabel(section), 7.4, 9);
   }
 
   const mainMark = markOf(section, "main");
   if (mainMark != null && hasMainStirrup(section)) {
-    leaderCallout(
+    leaderCalloutInvL(
       ctx,
-      x - 56,
-      y - 18,
-      x + w * 0.5,
+      leadX,
+      y - 14,
+      x + w * 0.18,
       y + pad + 1,
       mainMark,
-      `Ø${section.tieDia}a200(100)`,
+      marks.find((row) => row.kind === "main")?.spec ?? tieSpec(section, "main"),
       7.4,
       8,
     );
@@ -707,12 +707,13 @@ function drawSectionDetail(
   const extraKinds: Array<SectionMark["kind"]> = ["nested", "double", "c"];
   extraKinds.forEach((kind) => {
     const mark = markOf(section, kind);
-    if (mark == null) return;
+    if (mark == null || kind === "long" || kind === "main") return;
     extraTieTargets(section, x, y, w, h, pad, kind).slice(0, 1).forEach((box) => {
       const cy = box.y + box.h / 2;
       let yL = Math.min(y + h - 10, Math.max(y + 14, cy));
       if (Math.abs(yL - mark1Y) < 18) yL = Math.min(y + h - 10, mark1Y + 22);
-      leaderCallout(ctx, x - 96, yL, box.x, yL, mark, `Ø${section.tieDia}`, 7.4, 8);
+      const spec = marks.find((row) => row.kind === kind)?.spec ?? tieSpec(section, kind);
+      leaderCallout(ctx, leadX, yL, box.x, yL, mark, spec, 7.4, 8);
     });
   });
 
@@ -824,7 +825,7 @@ function drawColumnSheet(
         const mid = (zTop + zy) / 2;
         const mark = markOf(section, "main") ?? 2;
         const tag = `Ø${section.tieDia}${zone.label}`;
-        leaderCallout(ctx, dimLeftX + 14, mid, shaftX - 2, mid, mark, tag, 6.8, 8);
+        leaderCallout(ctx, dimLeftX + 54, mid, shaftX - 2, mid, mark, tag, 6.8, 8);
       }
       zoneEdges.push(zTop);
       zy = zTop;
@@ -868,12 +869,12 @@ function drawColumnSheet(
         crankBarV(ctx, x, yTop + 2, yOffsetBot - 1, crankY, -amp, 1.15);
       });
       const calloutY = yTop + (yBot - yTop) * 0.28;
-      leaderCallout(ctx, explodedX + 84, calloutY, explodedX + 16, calloutY, 1, formatBarLabel(section), 6.6, 8);
+      leaderCallout(ctx, explodedX + 61, calloutY, explodedX + 16, calloutY, 1, formatBarLabel(section), 6.6, 8);
     } else {
       line(ctx, explodedX, yTop + 2, explodedX, yBot - 2, 1.15);
       line(ctx, explodedX + 14, yTop + 2, explodedX + 14, yBot - 2, 1.15);
       const calloutY = yTop + (yBot - yTop) * 0.28;
-      leaderCallout(ctx, explodedX + 84, calloutY, explodedX + 16, calloutY, 1, formatBarLabel(section), 6.6, 8);
+      leaderCallout(ctx, explodedX + 61, calloutY, explodedX + 16, calloutY, 1, formatBarLabel(section), 6.6, 8);
     }
 
     const segs = spliceLens(floor, section, col, prevSection, isColumnBase);

@@ -73,24 +73,32 @@ export type SectionMark = {
   spec: string;
 };
 
+export function tieSpec(section: FloorSection, kind: Exclude<SectionMarkKind, "long">): string {
+  const spacing = (mm: number) => `Ø${section.tieDia}a${mm || 200}`;
+  if (kind === "main") return `Ø${section.tieDia}a200(100)`;
+  if (kind === "nested") return spacing(section.tieNested.spacingMm);
+  if (kind === "double") return spacing(section.tieDouble.spacingMm);
+  return spacing(section.tieC.spacingMm);
+}
+
 /** Số hiệu mặt cắt / thống kê: 1 thép dọc, 2 đai chính, 3 đai lồng|kép, 4 đai C. */
 export function sectionMarks(section: FloorSection): SectionMark[] {
   const rows: SectionMark[] = [{ mark: 1, kind: "long", name: "THÉP DỌC", spec: formatBarLabel(section) }];
   let n = 2;
   if (hasMainStirrup(section)) {
-    rows.push({ mark: n, kind: "main", name: "THÉP ĐAI CHÍNH", spec: `Ø${section.tieDia}` });
+    rows.push({ mark: n, kind: "main", name: "THÉP ĐAI CHÍNH", spec: tieSpec(section, "main") });
     n += 1;
   }
   if ((nestedAlongX(section) || nestedAlongY(section)) && !section.tieDouble.enabled) {
-    rows.push({ mark: n, kind: "nested", name: "THÉP ĐAI LỒNG", spec: `Ø${section.tieDia}` });
+    rows.push({ mark: n, kind: "nested", name: "THÉP ĐAI LỒNG", spec: tieSpec(section, "nested") });
     n += 1;
   }
   if ((doubleAlongX(section) || doubleAlongY(section)) && !section.tieNested.enabled) {
-    rows.push({ mark: n, kind: "double", name: "THÉP ĐAI KÉP", spec: `Ø${section.tieDia}` });
+    rows.push({ mark: n, kind: "double", name: "THÉP ĐAI KÉP", spec: tieSpec(section, "double") });
     n += 1;
   }
   if (cTieAlongX(section) || cTieAlongY(section)) {
-    rows.push({ mark: n, kind: "c", name: "THÉP ĐAI C", spec: `Ø${section.tieDia}` });
+    rows.push({ mark: n, kind: "c", name: "THÉP ĐAI C", spec: tieSpec(section, "c") });
   }
   return rows;
 }
