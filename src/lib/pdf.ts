@@ -204,18 +204,54 @@ function textVCenter(
 }
 
 function balloon(ctx: Ctx, x: number, y: number, n: number, r = 7.4) {
-  circle(ctx, x, y, r, false);
+  ctx.page.drawEllipse({
+    x,
+    y: ty(ctx, y),
+    xScale: r,
+    yScale: r,
+    color: WHITE,
+    borderColor: BLACK,
+    borderWidth: 0.8,
+    rotate: degrees(0),
+  });
   const str = String(n);
-  const size = Math.min(8.2, r * 1.05);
-  const nudgeX = str === "1" ? size * 0.26 : 0;
-  textVCenter(ctx, str, x + nudgeX, y, size, true, "center");
+  const size = Math.min(8.0, r * 1.02);
+  const font = ctx.fontBold;
+  const tw = font.widthOfTextAtSize(str, size);
+  ctx.page.drawText(str, {
+    x: x - tw / 2,
+    y: ty(ctx, y) - size * 0.42,
+    size,
+    font,
+    color: BLACK,
+  });
 }
 
-function leaderTo(ctx: Ctx, bx: number, by: number, tx: number, typt: number, r: number) {
-  const dx = tx - bx;
-  const dy = typt - by;
+/** Đường chỉ; vòng số nằm trên line tại tỉ lệ t (0.5 = giữa thanh). */
+function leaderMark(
+  ctx: Ctx,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  n: number,
+  r = 7.4,
+  t = 0.5,
+) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
   const len = Math.hypot(dx, dy) || 1;
-  line(ctx, bx + (dx / len) * (r + 0.5), by + (dy / len) * (r + 0.5), tx, typt, 0.4);
+  const ux = dx / len;
+  const uy = dy / len;
+  const mx = x0 + dx * t;
+  const my = y0 + dy * t;
+  const gap = r + 1.05;
+  const g0 = Math.min(gap, Math.max(0, len * t - 0.4));
+  const g1 = Math.min(gap, Math.max(0, len * (1 - t) - 0.4));
+  if (g0 > 0.5) line(ctx, x0, y0, mx - ux * g0, my - uy * g0, 0.4);
+  if (g1 > 0.5) line(ctx, mx + ux * g1, my + uy * g1, x1, y1, 0.4);
+  balloon(ctx, mx, my, n, r);
+  return { mx, my };
 }
 
 function n2(v: number) {
@@ -509,7 +545,7 @@ function drawSectionTies(
   }
 }
 
-function extraTieTarget(
+function extraTieTargets(
   section: FloorSection,
   x: number,
   y: number,
@@ -517,7 +553,7 @@ function extraTieTarget(
   h: number,
   pad: number,
   kind: SectionMark["kind"],
-): { x: number; y: number; w: number; h: number } | null {
+): Array<{ x: number; y: number; w: number; h: number }> {
   const sLeft = x + pad;
   const sTop = y + pad;
   const sW = w - 2 * pad;
@@ -527,35 +563,34 @@ function extraTieTarget(
   const insetPad = barInset - pad;
   const xs = edgeBarCenters(section.barsX, x + barInset, w - 2 * barInset);
   const ys = edgeBarCenters(section.barsY, y + barInset, h - 2 * barInset);
-  if (kind === "nested") {
-    if (nestedAlongX(section) && !section.tieDouble.enabled) {
-      return nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x");
-    }
-    if (nestedAlongY(section) && !section.tieDouble.enabled) {
-      return nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y");
-    }
+  const out: Array<{ x: number; y: number; w: number; h: number }> = [];
+  if (kind === "nested" && !section.tieDouble.enabled) {
+    if (nestedAlongX(section)) out.push(nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x"));
+    if (nestedAlongY(section)) out.push(nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y"));
   }
-  if (kind === "double") {
-    if (doubleAlongX(section) && !section.tieNested.enabled) {
+  if (kind === "double" && !section.tieNested.enabled) {
+    if (doubleAlongX(section)) {
       const wrap = doubleMinWrap(section.barsX);
-      return nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "start");
+      out.push(nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "start"));
+      out.push(nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "end"));
     }
-    if (doubleAlongY(section) && !section.tieNested.enabled) {
+    if (doubleAlongY(section)) {
       const wrap = doubleMinWrap(section.barsY);
-      return nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "start");
+      out.push(nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "start"));
+      out.push(nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "end"));
     }
   }
   if (kind === "c") {
     if (cTieAlongX(section)) {
       const cx = sLeft + sW / 2;
-      return { x: cx, y: sTop, w: Math.max(8, pad * 0.9), h: sH };
+      out.push({ x: cx, y: sTop, w: Math.max(8, pad * 0.9), h: sH });
     }
     if (cTieAlongY(section)) {
       const cy = sTop + sH / 2;
-      return { x: sLeft, y: cy, w: sW, h: Math.max(8, pad * 0.9) };
+      out.push({ x: sLeft, y: cy, w: sW, h: Math.max(8, pad * 0.9) });
     }
   }
-  return null;
+  return out.filter((b) => b.w > 1 && b.h > 1);
 }
 
 function drawMarkTable(ctx: Ctx, x: number, y: number, rows: SectionMark[]) {
@@ -589,8 +624,8 @@ function drawSectionDetail(
 ) {
   const marks = sectionMarks(section);
   const tableH = marks.length * 19;
-  const leftAnno = 120;
-  const topAnno = 26;
+  const leftAnno = 160;
+  const topAnno = 34;
   const botDim = 44;
   const dimGap = 36;
   const isoCol = 108;
@@ -627,41 +662,46 @@ function drawSectionDetail(
   const longBar = pts[0];
   let mark1Y = y + 10;
   if (longBar) {
-    const b1x = x - 50;
-    const b1y = longBar[1];
-    mark1Y = b1y;
-    balloon(ctx, b1x, b1y, 1);
-    textVCenter(ctx, formatBarLabel(section), b1x - 12, b1y, 9, true, "right");
-    leaderTo(ctx, b1x, b1y, longBar[0] - barR - 0.6, longBar[1], 7.4);
+    const yL = longBar[1];
+    mark1Y = yL;
+    const x0 = x - 108;
+    const x1 = longBar[0] - barR - 0.5;
+    const t = Math.max(0.38, Math.min(0.52, (x - 10 - x0) / Math.max(x1 - x0, 1)));
+    leaderMark(ctx, x0, yL, x1, yL, 1, 7.4, t);
+    textVCenter(ctx, formatBarLabel(section), x0 - 4, yL, 9, true, "right");
   }
 
   const mainMark = markOf(section, "main");
   if (mainMark != null && hasMainStirrup(section)) {
-    const b2x = x + 8;
-    const b2y = y - 17;
-    balloon(ctx, b2x, b2y, mainMark);
-    textVCenter(ctx, `Ø${section.tieDia}a200(100)`, b2x + 12, b2y, 8);
-    leaderTo(ctx, b2x, b2y, x + w * 0.38, y + pad + 1, 7.4);
+    const x0 = x + 2;
+    const y0 = y - 34;
+    const x1 = x + w * 0.42;
+    const y1 = y + pad + 1;
+    leaderMark(ctx, x0, y0, x1, y1, mainMark, 7.4, 0.5);
+    textVCenter(ctx, `Ø${section.tieDia}a200(100)`, x0 + 16, y0 - 2, 8);
   }
 
   const extraKinds: Array<SectionMark["kind"]> = ["nested", "double", "c"];
   extraKinds.forEach((kind) => {
     const mark = markOf(section, kind);
     if (mark == null) return;
-    const box = extraTieTarget(section, x, y, w, h, pad, kind);
-    if (!box) return;
-    const b3x = x - 50;
-    let b3y = Math.min(y + h - 8, Math.max(y + 32, box.y + box.h * 0.55));
-    if (Math.abs(b3y - mark1Y) < 22) b3y = Math.min(y + h - 8, mark1Y + 26);
-    balloon(ctx, b3x, b3y, mark);
-    leaderTo(ctx, b3x, b3y, box.x + Math.max(4, box.w * 0.35), box.y + box.h * 0.4, 7.4);
+    extraTieTargets(section, x, y, w, h, pad, kind).slice(0, 2).forEach((box, i) => {
+      const cy = box.y + box.h / 2;
+      let yL = Math.min(y + h - 10, Math.max(y + 14, cy));
+      if (Math.abs(yL - mark1Y) < 18) yL = Math.min(y + h - 10, mark1Y + 22);
+      if (i > 0) yL = Math.min(y + h - 10, yL + 16);
+      const x0 = x - 108;
+      const x1 = box.x;
+      const t = Math.max(0.38, Math.min(0.55, (x - 8 - x0) / Math.max(x1 - x0, 1)));
+      leaderMark(ctx, x0, yL, x1, yL, mark, 7.4, t);
+    });
   });
 
   const isoMarks = marks.filter((row) => row.kind !== "long");
   const isoW = 32;
   const isoH = Math.max(26, isoW * Math.min(aspect, 1.2));
   const isoX = x + w + dimGap + 18;
-  const isoY = y + 6;
+  const isoY = y + 28;
   isoMarks.forEach((row, i) => {
     const scale = row.kind === "main" ? 1 : 0.84;
     const iw = isoW * scale;
@@ -670,7 +710,8 @@ function drawSectionDetail(
     const dy = isoY + (isoH - ih) / 2;
     if (row.kind === "c") drawCStirrup(ctx, dx, dy, dx + iw, dy + ih, "right", 1.05);
     else drawRoundedStirrup(ctx, dx, dy, iw, ih, 1.05, 0.4);
-    balloon(ctx, dx + iw / 2, dy + ih + 12, row.mark, 6.6);
+    const cx = dx + iw / 2;
+    leaderMark(ctx, cx, dy - 28, cx, dy, row.mark, 6.8, 0.5);
   });
 
   const tx = x;
@@ -763,12 +804,12 @@ function drawColumnSheet(
       else stirrupTicksH(ctx, shaftX, shaftX + shaftW, zTop, zy, zone.spacing, scale);
       if (zone.label) {
         const mid = (zTop + zy) / 2;
-        const bx = dimLeftX + 22;
+        const mark = markOf(section, "main") ?? 2;
         const tag = `Ø${section.tieDia}${zone.label}`;
-        balloon(ctx, bx, mid, markOf(section, "main") ?? 2, 6.8);
-        textVCenter(ctx, tag, bx + 12, mid - 7, 8);
-        const tagW = ctx.font.widthOfTextAtSize(tag, 8);
-        line(ctx, bx + 12 + tagW + 3, mid, shaftX - 2, mid, 0.35);
+        const x0 = dimLeftX + 10;
+        const x1 = shaftX - 2;
+        textVCenter(ctx, tag, x0, mid - 11, 8);
+        leaderMark(ctx, x0, mid, x1, mid, mark, 6.8, 0.5);
       }
       zoneEdges.push(zTop);
       zy = zTop;
