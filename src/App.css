@@ -320,16 +320,15 @@ h1 {
 
 .elevation-board {
   border: 1px solid #707985;
-  min-height: 560px;
   overflow: auto;
   background: #323a45;
 }
 
 .floor-band {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-columns: 132px minmax(0, 1fr);
   border-top: 1px dashed #8a93a0;
-  min-height: 180px;
+  min-height: 0;
 }
 
 .floor-meta,
@@ -342,7 +341,7 @@ h1 {
 }
 
 .floor-meta {
-  padding: 16px 12px;
+  padding: 8px 10px;
 }
 
 .floor-meta.active,
@@ -351,26 +350,29 @@ h1 {
 }
 
 .floor-meta h3 {
-  margin: 0 0 16px;
+  margin: 0 0 6px;
   color: #fff545;
+  font-size: 16px;
 }
 
 .floor-meta span {
   display: block;
   color: #eee;
+  font-size: 11px;
 }
 
 .floor-meta strong {
   display: block;
-  margin-bottom: 12px;
-  font-size: 26px;
+  margin-bottom: 6px;
+  font-size: 18px;
 }
 
 .column-band-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  padding: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px 10px;
+  align-items: stretch;
 }
 
 .column-band-card {
@@ -380,21 +382,25 @@ h1 {
     "name meta"
     "dim dim"
     "steel steel";
-  gap: 4px 12px;
+  gap: 2px 8px;
   text-align: left;
-  padding: 12px 14px;
+  padding: 8px 10px;
   border: 1px solid #6d7784;
   border-left: 5px solid #fff12d;
   background: #2a323c;
   border-radius: 6px;
+  min-width: 0;
 }
 
 .column-name {
   grid-area: name;
   color: #fff12d;
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 700;
   font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .column-meta {
@@ -402,14 +408,15 @@ h1 {
   justify-self: end;
   align-self: center;
   color: #cfd8e3;
-  font-size: 13px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .dimension {
   grid-area: dim;
   display: block;
   color: #fff12d;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -417,7 +424,7 @@ h1 {
   grid-area: steel;
   display: block;
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .dim-label {
@@ -801,8 +808,13 @@ input:read-only {
     grid-template-columns: 1fr;
   }
 
-  .elevation-board {
+  .elevation-board,
+  .column-band-grid {
     overflow-x: auto;
+  }
+
+  .column-band-grid {
+    grid-template-columns: repeat(5, minmax(148px, 1fr));
   }
 }
 
