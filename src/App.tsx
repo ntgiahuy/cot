@@ -1024,6 +1024,7 @@ function TieOptionFields({
                 enabled: true,
                 alongX: section.barsX % 2 === 1,
                 alongY: section.barsY % 2 === 1,
+                spacingMm: value.spacingMm || 200,
               });
               return;
             }
@@ -1037,15 +1038,17 @@ function TieOptionFields({
         <p className="splice-hint">Đai nhánh thay đai đơn — không vẽ và không thống kê đai đơn.</p>
       ) : null}
       {value.enabled && allow && variant === "c" && section ? (
-        <div className="form-row c-tie-spacing">
-          <label>Khoảng cách (mm):</label>
-          <input
-            type="number"
-            min={0}
-            value={value.spacingMm}
-            onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 0 })}
-          />
-          <label className={section.barsX % 2 === 1 ? "checkbox-row" : "checkbox-row disabled"}>
+        <div className="tie-c-fields">
+          <div className="form-row">
+            <label>Khoảng cách (mm):</label>
+            <input
+              type="number"
+              min={0}
+              value={value.spacingMm || 200}
+              onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 200 })}
+            />
+          </div>
+          <label className={section.barsX % 2 === 1 ? "checkbox-row nested" : "checkbox-row nested disabled"}>
             <input
               type="checkbox"
               checked={Boolean(value.alongX) && section.barsX % 2 === 1}
@@ -1054,7 +1057,7 @@ function TieOptionFields({
             />
             Bố trí theo phương Cx
           </label>
-          <label className={section.barsY % 2 === 1 ? "checkbox-row" : "checkbox-row disabled"}>
+          <label className={section.barsY % 2 === 1 ? "checkbox-row nested" : "checkbox-row nested disabled"}>
             <input
               type="checkbox"
               checked={Boolean(value.alongY) && section.barsY % 2 === 1}

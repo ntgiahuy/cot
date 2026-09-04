@@ -338,8 +338,10 @@ export function buildSchedule(project: Project): {
       }
 
       extraTieSpecs(section).forEach((spec, specIndex) => {
-        if (!spec.tie.enabled || spec.tie.spacingMm <= 0) return;
-        const nExtra = extraTieCount(floor, spec.tie.spacingMm) * spec.copies;
+        if (!spec.tie.enabled) return;
+        const spacingMm = spec.derived ? spec.tie.spacingMm || 200 : spec.tie.spacingMm;
+        if (spacingMm <= 0) return;
+        const nExtra = extraTieCount(floor, spacingMm) * spec.copies;
         const extraTotal = nExtra * column.quantity;
         const extraLengthM = (spec.lengthMm / 1000) * extraTotal;
         const extraWeight = extraLengthM * kgPerMeter(section.tieDia);

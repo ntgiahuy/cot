@@ -521,21 +521,6 @@ h1 {
   margin-bottom: 8px;
 }
 
-.form-row.c-tie-spacing {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 10px 12px;
-}
-
-.form-row.c-tie-spacing > label:first-child {
-  flex: 0 0 auto;
-}
-
-.form-row.c-tie-spacing .checkbox-row {
-  flex: 0 1 auto;
-  white-space: nowrap;
-}
-
 .form-row label {
   color: #a1a1aa;
   font-size: 14px;
@@ -544,7 +529,7 @@ h1 {
   min-width: 0;
 }
 
-.form-row input,
+.form-row input:not([type="checkbox"]),
 .form-row select {
   box-sizing: border-box;
   border-radius: 7px;
@@ -560,7 +545,7 @@ h1 {
   color-scheme: dark;
 }
 
-.form-row input:disabled,
+.form-row input:not([type="checkbox"]):disabled,
 .form-row select:disabled {
   background: #141414;
   color: #71717a;
@@ -721,6 +706,14 @@ legend {
 
 .checkbox-row.disabled {
   opacity: 0.45;
+}
+
+.checkbox-row.nested {
+  margin-left: 22px;
+}
+
+.tie-c-fields {
+  margin: 0 0 4px;
 }
 
 .splice-hint {
