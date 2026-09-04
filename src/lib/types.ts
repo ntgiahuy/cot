@@ -72,7 +72,38 @@ export type ScheduleRow = {
   weightKg: number;
 };
 
-export const DIAMETERS = [6, 8, 10, 12, 14, 16, 18, 20, 22, 25] as const;
+export const BAR_COUNT_MIN = 2;
+export const BAR_COUNT_MAX = 100;
+export const MAIN_DIA_MIN = 10;
+export const MAIN_DIA_MAX = 55;
+export const TIE_DIA_MIN = 4;
+export const TIE_DIA_MAX = 25;
+
+function inclusiveRange(min: number, max: number) {
+  return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+}
+
+export const MAIN_DIAMETERS = inclusiveRange(MAIN_DIA_MIN, MAIN_DIA_MAX);
+export const TIE_DIAMETERS = inclusiveRange(TIE_DIA_MIN, TIE_DIA_MAX);
+export const DIAMETERS = Array.from(new Set([...TIE_DIAMETERS, ...MAIN_DIAMETERS])).sort((a, b) => a - b);
+export function clampInt(value: number, min: number, max: number, fallback: number) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+export function clampBarCount(value: number) {
+  return clampInt(value, BAR_COUNT_MIN, BAR_COUNT_MAX, BAR_COUNT_MIN);
+}
+
+export function clampMainDia(value: number) {
+  return clampInt(value, MAIN_DIA_MIN, MAIN_DIA_MAX, 16);
+}
+
+export function clampTieDia(value: number) {
+  return clampInt(value, TIE_DIA_MIN, TIE_DIA_MAX, 6);
+}
+
 export const SPLICE_FACTORS: SpliceFactor[] = [30, 35, 40];
 export const COVER_MM = 25;
 export const STIRRUP_HOOK_MM = 50;

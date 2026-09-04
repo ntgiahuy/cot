@@ -21,7 +21,7 @@ Mặc định: [http://127.0.0.1:43123/](http://127.0.0.1:43123/)
 
 1. **Tầng** — nhập số tầng, chiều cao tầng, chiều cao dầm.
 2. **Add / Edit** — khai báo tên cột, số lượng, Cx × Cy, phạm vi tầng.
-3. Nhấp ô cột trên mặt đứng để **bố trí thép** (số thanh cạnh Cx/Cy, Ø thép chủ, Ø đai). Tick *Sử dụng cốt thép đã bố trí cho các tầng trên* nếu muốn copy lên tầng trên.
+3. Nhấp ô cột trên mặt đứng để **bố trí thép** (số thanh cạnh Cx/Cy từ 2 đến 100, Ø thép chủ 10–55, Ø đai 4–25). Tick *Sử dụng cốt thép đã bố trí cho các tầng trên* nếu muốn copy lên tầng trên.
 4. **Đai C** — tick bố trí Cx/Cy (cạnh lẻ). **Đai lồng** cùng bố cục, chỉ khi Cx/Cy ≥ 4 thanh; cạnh ngắn bo ngoài sắt chủ giữa, số cây ôm ≥ (số thanh / 3): 4→2, 5→3, 6→3, 7→3. Đai lồng và đai nhánh không dùng đồng thời; đai nhánh thì bỏ đai đơn.
 5. **Draw / Xuất PDF** — tải `output.pdf`.
 

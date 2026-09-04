@@ -40,7 +40,7 @@ import {
   stirrupInner,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
-import { DIAMETERS, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
+import { BAR_COUNT_MAX, BAR_COUNT_MIN, clampBarCount, clampMainDia, clampTieDia, MAIN_DIAMETERS, SPLICE_FACTORS, STIRRUP_HOOK_MM, TIE_DIAMETERS, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
 import "./App.css";
 
 const STORE_KEY = "thep-cot-project-v1";
@@ -761,10 +761,13 @@ export default function App() {
                 <legend>Thép cột chính</legend>
                 <div className="form-row">
                   <label>Số lượng thanh thép cạnh Cx:</label>
-                  <select
+                  <input
+                    type="number"
+                    min={BAR_COUNT_MIN}
+                    max={BAR_COUNT_MAX}
                     value={selectedSection.barsX}
                     onChange={(e) => {
-                      const barsX = Number(e.target.value);
+                      const barsX = Math.min(BAR_COUNT_MAX, Math.max(0, Math.round(Number(e.target.value)) || 0));
                       const evenBoth = barsX % 2 === 0 && selectedSection.barsY % 2 === 0;
                       const nestOk = barsX >= 4 || selectedSection.barsY >= 4;
                       patchSection(
@@ -786,20 +789,22 @@ export default function App() {
                         applyUpper,
                       );
                     }}
-                  >
-                    {[2, 3, 4, 5, 6, 7, 8].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                    onBlur={() => {
+                      const barsX = clampBarCount(selectedSection.barsX);
+                      if (barsX === selectedSection.barsX) return;
+                      patchSection({ barsX }, applyUpper);
+                    }}
+                  />
                 </div>
                 <div className="form-row">
                   <label>Số lượng thanh thép cạnh Cy:</label>
-                  <select
+                  <input
+                    type="number"
+                    min={BAR_COUNT_MIN}
+                    max={BAR_COUNT_MAX}
                     value={selectedSection.barsY}
                     onChange={(e) => {
-                      const barsY = Number(e.target.value);
+                      const barsY = Math.min(BAR_COUNT_MAX, Math.max(0, Math.round(Number(e.target.value)) || 0));
                       const evenBoth = selectedSection.barsX % 2 === 0 && barsY % 2 === 0;
                       const nestOk = selectedSection.barsX >= 4 || barsY >= 4;
                       patchSection(
@@ -821,21 +826,20 @@ export default function App() {
                         applyUpper,
                       );
                     }}
-                  >
-                    {[2, 3, 4, 5, 6, 7, 8].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                    onBlur={() => {
+                      const barsY = clampBarCount(selectedSection.barsY);
+                      if (barsY === selectedSection.barsY) return;
+                      patchSection({ barsY }, applyUpper);
+                    }}
+                  />
                 </div>
                 <div className="form-row">
                   <label>Đường kính cốt thép chính:</label>
                   <select
                     value={selectedSection.mainDia}
-                    onChange={(e) => patchSection({ mainDia: Number(e.target.value) }, applyUpper)}
+                    onChange={(e) => patchSection({ mainDia: clampMainDia(Number(e.target.value)) }, applyUpper)}
                   >
-                    {DIAMETERS.filter((d) => d >= 10).map((n) => (
+                    {MAIN_DIAMETERS.map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
@@ -846,9 +850,9 @@ export default function App() {
                   <label>Đường kính thép đai:</label>
                   <select
                     value={selectedSection.tieDia}
-                    onChange={(e) => patchSection({ tieDia: Number(e.target.value) }, applyUpper)}
+                    onChange={(e) => patchSection({ tieDia: clampTieDia(Number(e.target.value)) }, applyUpper)}
                   >
-                    {[6, 8, 10].map((n) => (
+                    {TIE_DIAMETERS.map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
@@ -874,7 +878,7 @@ export default function App() {
                         value={selectedSection.extraDia}
                         onChange={(e) => patchSection({ extraDia: Number(e.target.value) }, applyUpper)}
                       >
-                        {DIAMETERS.filter((d) => d >= 10).map((n) => (
+                        {MAIN_DIAMETERS.map((n) => (
                           <option key={n} value={n}>
                             {n}
                           </option>
@@ -887,7 +891,7 @@ export default function App() {
                         value={selectedSection.extraTieDia}
                         onChange={(e) => patchSection({ extraTieDia: Number(e.target.value) }, applyUpper)}
                       >
-                        {[6, 8, 10].map((n) => (
+                        {TIE_DIAMETERS.map((n) => (
                           <option key={n} value={n}>
                             {n}
                           </option>
@@ -1418,7 +1422,7 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
   const originY = 28;
   const innerW = 300;
   const innerH = 390;
-  const barR = 14;
+  const barR = Math.max(2.5, Math.min(14, 90 / Math.max(section.barsX, section.barsY, 2)));
   const stirrupStroke = 6;
   const stirrupOffset = 24;
   const cover = 5;
