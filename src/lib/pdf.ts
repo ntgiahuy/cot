@@ -29,6 +29,8 @@ const PAGE_W = 2384;
 const PAGE_H = 1684;
 const BLACK = rgb(0, 0, 0);
 const WHITE = rgb(1, 1, 1);
+const GRAY = rgb(0.9, 0.9, 0.9);
+const GRAY2 = rgb(0.96, 0.96, 0.96);
 
 type Ctx = {
   page: PDFPage;
@@ -80,13 +82,13 @@ function rect(ctx: Ctx, x: number, y: number, w: number, h: number, t = 0.8, das
   });
 }
 
-function fillRect(ctx: Ctx, x: number, y: number, w: number, h: number) {
+function fillRect(ctx: Ctx, x: number, y: number, w: number, h: number, color = BLACK) {
   ctx.page.drawRectangle({
     x,
     y: ty(ctx, y + h),
     width: w,
     height: h,
-    color: BLACK,
+    color,
   });
 }
 
@@ -231,12 +233,6 @@ function barPoints(section: FloorSection, x: number, y: number, w: number, h: nu
   return { pts, barR, m };
 }
 
-function elevMarkerH(ctx: Ctx, x: number, y: number, label: string, size = 7) {
-  fillRect(ctx, x - 2.4, y - 2.4, 4.8, 4.8);
-  line(ctx, x - 10, y, x + 4, y, 0.5);
-  text(ctx, label, x + 7, y + 3, size);
-}
-
 function drawSectionCompact(
   ctx: Ctx,
   x: number,
@@ -355,6 +351,62 @@ function drawShaftBarsV(
   });
 }
 
+function floorBandYs(floors: Floor[], scale: number, elevBot: number) {
+  const bands: Array<{ floor: Floor; index: number; yTop: number; yBot: number }> = [];
+  let yBot = elevBot;
+  floors.forEach((floor, index) => {
+    const hPx = floor.heightMm * scale;
+    const yTop = yBot - hPx;
+    bands.push({ floor, index, yTop, yBot });
+    yBot = yTop;
+  });
+  return bands;
+}
+
+function drawFloorAxis(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  project: Project,
+  scale: number,
+  elevTop: number,
+  elevBot: number,
+  gridRight: number,
+) {
+  rect(ctx, x, y, w, h, 1);
+  fillRect(ctx, x, y, w, elevTop - y, GRAY);
+  text(ctx, "CAO ĐỘ", x + w / 2, y + (elevTop - y) * 0.62, 9, true, "center");
+  line(ctx, x, elevTop, gridRight, elevTop, 0.7);
+  line(ctx, x, elevBot, gridRight, elevBot, 0.7);
+
+  const elevations = floorElevations(project.floors);
+  const bands = floorBandYs(project.floors, scale, elevBot);
+  const nameX = x + 54;
+  const dimX = x + w - 14;
+
+  bands.forEach(({ floor, index, yTop, yBot }) => {
+    line(ctx, x, yTop, gridRight, yTop, 0.55);
+    text(ctx, `TẦNG ${floor.name}`, nameX, (yTop + yBot) / 2 + 4, 8.5, true, "center");
+    fillRect(ctx, x + 5, yBot - 2.2, 4.4, 4.4);
+    line(ctx, x, yBot, x + 18, yBot, 0.45);
+    vtext(ctx, `+${(elevations[floor.id - 1] ?? 0).toFixed(3)}`, x + 20, yBot, 6.5);
+    let zy = yBot;
+    elevationZones(floor, index).forEach((zone) => {
+      const zh = zone.len * scale;
+      dimV(ctx, dimX, zy - zh, zy, String(Math.round(zone.len)), 6.5);
+      zy -= zh;
+    });
+  });
+  const last = project.floors[project.floors.length - 1];
+  if (last) {
+    fillRect(ctx, x + 5, elevTop - 2.2, 4.4, 4.4);
+    line(ctx, x, elevTop, x + 18, elevTop, 0.45);
+    vtext(ctx, `+${(elevations[last.id] ?? 0).toFixed(3)}`, x + 20, elevTop, 6.5);
+  }
+}
+
 function drawColumnPanel(
   ctx: Ctx,
   px: number,
@@ -363,159 +415,201 @@ function drawColumnPanel(
   ph: number,
   project: Project,
   column: Column,
+  scale: number,
+  elevTop: number,
+  elevBot: number,
 ) {
-  rect(ctx, px, py, pw, ph, 0.95);
-  const title = `${column.name} (SL: ${column.quantity})`;
-  text(ctx, title, px + pw / 2, py + 14, 9, true, "center");
-  text(ctx, "CAO ĐỘ", px + 8, py + 26, 6, true);
-  text(ctx, "MẶT ĐỨNG", px + pw * 0.38, py + 26, 6, true, "center");
-  text(ctx, "MẶT CẮT", px + pw - 48, py + 26, 6, true, "center");
-  line(ctx, px + 4, py + 30, px + pw - 4, py + 30, 0.55);
+  rect(ctx, px, py, pw, ph, 0.85);
+  fillRect(ctx, px, py, pw, elevTop - py, GRAY2);
+  text(ctx, `${column.name} (SL: ${column.quantity})`, px + pw / 2, py + (elevTop - py) * 0.62, 9, true, "center");
 
-  const floors = columnFloors(column, project.floors);
-  if (!floors.length) return;
-  const elevations = floorElevations(project.floors);
-  const totalMm = floors.reduce((s, f) => s + f.heightMm, 0);
-  const elevTop = py + 36;
-  const elevBot = py + ph - 8;
-  const elevH = elevBot - elevTop;
-  const scale = elevH / Math.max(totalMm, 1);
-  const shaftW = Math.max(22, Math.min(36, (floors[0] ? sectionFor(column, floors[0].id).cx : 300) * scale));
-  const shaftX = px + 58;
-  const secX = px + pw - 92;
+  const active = new Set(columnFloors(column, project.floors).map((f) => f.id));
+  const shaftW = Math.max(20, Math.min(34, (sectionFor(column, column.startFloor).cx || 300) * scale));
+  const shaftX = px + 14;
+  const secX = px + pw - 78;
 
   line(ctx, shaftX, elevTop, shaftX, elevBot, 1.05);
   line(ctx, shaftX + shaftW, elevTop, shaftX + shaftW, elevBot, 1.05);
 
-  let yBot = elevBot;
-  floors.forEach((floor, index) => {
+  floorBandYs(project.floors, scale, elevBot).forEach(({ floor, index, yTop, yBot }) => {
+    if (!active.has(floor.id)) return;
     const section = sectionFor(column, floor.id);
-    const hPx = floor.heightMm * scale;
-    const yTop = yBot - hPx;
-    line(ctx, px + 4, yTop, shaftX + shaftW + 10, yTop, 0.45);
-    text(ctx, `T${floor.name}`, px + 8, yTop + 11, 6.5, true);
-    elevMarkerH(ctx, px + 28, yBot, `+${(elevations[floor.id - 1] ?? 0).toFixed(3)}`, 6.5);
-
+    const hPx = yBot - yTop;
     let y = yBot;
     elevationZones(floor, index).forEach((zone) => {
       const zh = zone.len * scale;
       const zTop = y - zh;
-      if (zone.dashed) {
-        drawBeamBoxV(ctx, shaftX, zTop, shaftW, zh);
-      } else {
-        stirrupTicksH(ctx, shaftX, shaftX + shaftW, zTop, y, zone.spacing, scale);
-      }
-      dimV(ctx, shaftX - 14, zTop, y, String(Math.round(zone.len)), 6);
+      if (zone.dashed) drawBeamBoxV(ctx, shaftX, zTop, shaftW, zh);
+      else stirrupTicksH(ctx, shaftX, shaftX + shaftW, zTop, y, zone.spacing, scale);
       if (zone.label) {
-        const mid = (zTop + y) / 2;
-        text(ctx, `2Ø${section.tieDia}${zone.label}`, shaftX + shaftW + 4, mid + 3, 6);
+        text(ctx, `2Ø${section.tieDia}${zone.label}`, shaftX + shaftW + 3, (zTop + y) / 2 + 3, 6);
       }
       y = zTop;
     });
-
     drawShaftBarsV(ctx, shaftX, shaftX + shaftW, yTop, yBot, column, floor, section, scale);
-    dimV(ctx, shaftX + shaftW + 36, yTop, yBot, String(floor.heightMm), 6.5);
-
-    const sec = drawSectionCompact(ctx, secX, yTop + Math.max(4, (hPx - 70) / 2), section, column.shape);
-    void sec;
-    yBot = yTop;
+    drawSectionCompact(ctx, secX, yTop + Math.max(2, (hPx - 68) / 2), section, column.shape);
   });
-  const last = floors[floors.length - 1];
-  elevMarkerH(ctx, px + 28, elevTop, `+${(elevations[last.id] ?? 0).toFixed(3)}`, 6.5);
+}
+
+function cellText(
+  ctx: Ctx,
+  str: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  size: number,
+  align: "left" | "center" | "right" = "center",
+  bold = false,
+) {
+  const cx = align === "left" ? x + 4 : align === "right" ? x + w - 4 : x + w / 2;
+  text(ctx, str, cx, y + h * 0.72, size, bold, align);
 }
 
 function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number, project: Project) {
-  rect(ctx, x, y, w, h, 0.95);
-  text(ctx, "BẢNG THỐNG KÊ CỐT THÉP", x + 14, y + 16, 11, true);
+  rect(ctx, x, y, w, h, 1.05);
+  fillRect(ctx, x, y, w, 22, GRAY);
+  text(ctx, "BẢNG THỐNG KÊ CỐT THÉP", x + w / 2, y + 16, 10, true, "center");
+  line(ctx, x, y + 22, x + w, y + 22, 0.8);
 
-  const tableW = w * 0.72;
-  const sumX = x + tableW + 8;
-  const headers = [
-    [0, "KIỆN CẤU"],
-    [92, "STT"],
-    [122, "HÌNH DẠNG, KÍCH THƯỚC (mm)"],
-    [360, "Ø"],
-    [390, "DÀI"],
-    [438, "1 CK"],
-    [486, "T.BỘ"],
-    [540, "TONG L (m)"],
-    [620, "KL (kg)"],
-  ] as const;
+  const pad = 8;
+  const tableX = x + pad;
   const tableY = y + 28;
-  headers.forEach(([dx, label]) => text(ctx, label, x + 10 + dx, tableY, 6.5, true));
-  line(ctx, x + 8, tableY + 6, x + tableW - 8, tableY + 6, 0.55);
-
-  const { rows, byDia, stirrupCounts } = buildSchedule(project);
-  const rowH = 10.2;
-  const maxY = y + h - 8;
-  let rowY = tableY + 16;
-  let lastMember = "";
-  rows.forEach((row) => {
-    if (rowY > maxY - 6) return;
-    if (row.member !== lastMember) {
-      if (lastMember) rowY += 2;
-      text(ctx, `${row.member} (SL:${row.quantity})`, x + 10, rowY, 6, true);
-      lastMember = row.member;
-      rowY += 9;
-    }
-    text(ctx, String(row.stt), x + 102, rowY, 6.5);
-    if (row.kind === "stirrup") {
-      const [hook, a, b] = row.segs;
-      line(ctx, x + 138, rowY + 1, x + 188, rowY + 1, 0.65);
-      line(ctx, x + 138, rowY + 1, x + 138, rowY - 8, 0.65);
-      line(ctx, x + 188, rowY + 1, x + 188, rowY - 8, 0.65);
-      text(ctx, String(a), x + 163, rowY - 9, 5.5, false, "center");
-      text(ctx, String(b), x + 192, rowY - 2, 5.5);
-      text(ctx, String(hook), x + 134, rowY - 2, 5.5, false, "right");
-    } else if (row.kind === "long-hook") {
-      line(ctx, x + 138, rowY, x + 200, rowY, 0.65);
-      line(ctx, x + 138, rowY, x + 138, rowY - 8, 0.65);
-      text(ctx, String(row.segs[0]), x + 134, rowY - 8, 5.5, false, "right");
-      text(ctx, String(row.segs[1]), x + 169, rowY - 9, 5.5, false, "center");
-      text(ctx, row.shapeLabel, x + 206, rowY, 6.5);
-    } else {
-      line(ctx, x + 138, rowY, x + 210, rowY, 0.65);
-      text(ctx, String(row.lengthMm), x + 174, rowY - 9, 5.5, false, "center");
-      text(ctx, row.shapeLabel, x + 216, rowY, 6.5);
-    }
-    text(ctx, String(row.dia), x + 370, rowY, 6.5);
-    text(ctx, String(row.lengthMm), x + 400, rowY, 6.5);
-    text(ctx, String(row.perMember), x + 448, rowY, 6.5);
-    text(ctx, String(row.totalBars), x + 496, rowY, 6.5);
-    text(ctx, row.totalLengthM.toFixed(1), x + 554, rowY, 6.5);
-    text(ctx, row.weightKg.toFixed(1), x + 630, rowY, 6.5);
-    rowY += rowH;
+  const cols = [
+    { w: 122, label: "KIỆN CẤU" },
+    { w: 32, label: "STT" },
+    { w: 168, label: "HÌNH DẠNG, KT (mm)" },
+    { w: 32, label: "Ø" },
+    { w: 52, label: "DÀI" },
+    { w: 40, label: "1 CK" },
+    { w: 44, label: "T.BỘ" },
+    { w: 58, label: "T.L (m)" },
+    { w: 54, label: "KL (kg)" },
+  ];
+  const tableW = cols.reduce((s, c) => s + c.w, 0);
+  const headH = 20;
+  let cx = tableX;
+  fillRect(ctx, tableX, tableY, tableW, headH, GRAY);
+  cols.forEach((col) => {
+    rect(ctx, cx, tableY, col.w, headH, 0.55);
+    cellText(ctx, col.label, cx, tableY, col.w, headH, 6, "center", true);
+    cx += col.w;
   });
 
-  text(ctx, "TỔNG HỢP", sumX, y + 16, 10, true);
-  text(ctx, "Ø", sumX, y + 32, 7, true);
-  text(ctx, "KL (kg)", sumX + 50, y + 32, 7, true);
-  text(ctx, "L (m)", sumX + 120, y + 32, 7, true);
-  text(ctx, `Cây ${STOCK_M}m`, sumX + 180, y + 32, 7, true);
-  line(ctx, sumX, y + 38, x + w - 10, y + 38, 0.55);
-  let dy = y + 52;
+  const { rows, byDia, stirrupCounts } = buildSchedule(project);
+  const sumH = 168;
+  const bodyTop = tableY + headH;
+  const bodyH = h - (bodyTop - y) - sumH - 10;
+  const rowH = Math.min(20, Math.max(12, bodyH / Math.max(rows.length, 1)));
+  const xs: number[] = [];
+  let acc = tableX;
+  cols.forEach((col) => {
+    xs.push(acc);
+    acc += col.w;
+  });
+
+  let rowY = bodyTop;
+  let lastMember = "";
+  let alt = false;
+  rows.forEach((row) => {
+    if (rowY + rowH > bodyTop + bodyH) return;
+    if (row.member !== lastMember) {
+      lastMember = row.member;
+      alt = !alt;
+    }
+    if (alt) fillRect(ctx, tableX, rowY, tableW, rowH, GRAY2);
+    rect(ctx, tableX, rowY, tableW, rowH, 0.35);
+    cx = tableX;
+    cols.forEach((col) => {
+      line(ctx, cx, rowY, cx, rowY + rowH, 0.35);
+      cx += col.w;
+    });
+
+    cellText(ctx, `${row.member.split(" (")[0]} T${row.floorName}`, xs[0], rowY, cols[0].w, rowH, 5.5, "left", true);
+    cellText(ctx, String(row.stt), xs[1], rowY, cols[1].w, rowH, 6.5, "center");
+
+    const shapeX = xs[2] + 10;
+    const midY = rowY + rowH * 0.55;
+    if (row.kind === "stirrup") {
+      const [hook, a, b] = row.segs;
+      line(ctx, shapeX + 18, midY, shapeX + 62, midY, 0.7);
+      line(ctx, shapeX + 18, midY, shapeX + 18, midY - 8, 0.7);
+      line(ctx, shapeX + 62, midY, shapeX + 62, midY - 8, 0.7);
+      text(ctx, String(a), shapeX + 40, midY - 10, 5.5, false, "center");
+      text(ctx, String(b), shapeX + 66, midY - 2, 5.5);
+      text(ctx, String(hook), shapeX + 14, midY - 2, 5.5, false, "right");
+    } else if (row.kind === "long-hook") {
+      line(ctx, shapeX + 18, midY, shapeX + 78, midY, 0.7);
+      line(ctx, shapeX + 18, midY, shapeX + 18, midY - 8, 0.7);
+      text(ctx, String(row.segs[0]), shapeX + 14, midY - 8, 5.5, false, "right");
+      text(ctx, String(row.segs[1]), shapeX + 48, midY - 10, 5.5, false, "center");
+      text(ctx, row.shapeLabel, shapeX + 84, midY, 6);
+    } else {
+      line(ctx, shapeX + 12, midY, shapeX + 88, midY, 0.7);
+      text(ctx, String(row.lengthMm), shapeX + 50, midY - 10, 5.5, false, "center");
+      text(ctx, row.shapeLabel, shapeX + 94, midY, 6);
+    }
+
+    cellText(ctx, String(row.dia), xs[3], rowY, cols[3].w, rowH, 6.5, "center");
+    cellText(ctx, String(row.lengthMm), xs[4], rowY, cols[4].w, rowH, 6.5, "right");
+    cellText(ctx, String(row.perMember), xs[5], rowY, cols[5].w, rowH, 6.5, "center");
+    cellText(ctx, String(row.totalBars), xs[6], rowY, cols[6].w, rowH, 6.5, "center");
+    cellText(ctx, row.totalLengthM.toFixed(1), xs[7], rowY, cols[7].w, rowH, 6.5, "right");
+    cellText(ctx, row.weightKg.toFixed(1), xs[8], rowY, cols[8].w, rowH, 6.5, "right");
+    rowY += rowH;
+  });
+  rect(ctx, tableX, bodyTop, tableW, rowY - bodyTop, 0.7);
+
+  const sumY = y + h - sumH;
+  line(ctx, x, sumY, x + w, sumY, 0.8);
+  fillRect(ctx, x, sumY, w, 20, GRAY);
+  text(ctx, "TỔNG HỢP THEO ĐƯỜNG KÍNH", x + w / 2, sumY + 14, 8.5, true, "center");
+
+  const sCols = [
+    { w: 70, label: "Ø" },
+    { w: 90, label: "KL (kg)" },
+    { w: 90, label: "L (m)" },
+    { w: 100, label: `Cây ${STOCK_M} m` },
+  ];
+  const sTableW = sCols.reduce((s, c) => s + c.w, 0);
+  const sX = x + (w - sTableW) / 2;
+  const sHeadY = sumY + 26;
+  const sRowH = 16;
+  fillRect(ctx, sX, sHeadY, sTableW, sRowH, GRAY);
+  let sx = sX;
+  sCols.forEach((col) => {
+    rect(ctx, sx, sHeadY, col.w, sRowH, 0.5);
+    cellText(ctx, col.label, sx, sHeadY, col.w, sRowH, 6.5, "center", true);
+    sx += col.w;
+  });
+  let sy = sHeadY + sRowH;
   [...byDia.entries()]
     .sort((a, b) => a[0] - b[0])
     .forEach(([dia, val]) => {
-      text(ctx, `Ø${dia}`, sumX, dy, 7.5);
-      text(ctx, val.weight.toFixed(1), sumX + 50, dy, 7.5);
-      if (dia > 6) {
-        text(ctx, val.length.toFixed(1), sumX + 120, dy, 7.5);
-        text(ctx, String(stockBars(val.length)), sumX + 180, dy, 7.5);
-      }
-      dy += 13;
+      rect(ctx, sX, sy, sTableW, sRowH, 0.4);
+      let dx = sX;
+      const vals = [
+        `Ø${dia}`,
+        val.weight.toFixed(1),
+        dia > 6 ? val.length.toFixed(1) : "—",
+        dia > 6 ? String(stockBars(val.length)) : "—",
+      ];
+      sCols.forEach((col, i) => {
+        line(ctx, dx, sy, dx, sy + sRowH, 0.4);
+        cellText(ctx, vals[i], dx, sy, col.w, sRowH, 7, i === 0 ? "center" : "right", i === 0);
+        dx += col.w;
+      });
+      sy += sRowH;
     });
+  rect(ctx, sX, sHeadY, sTableW, sy - sHeadY, 0.7);
+
   const buckets = summaryBuckets(byDia);
-  dy += 8;
-  text(ctx, `D<=10: ${buckets.le10.toFixed(1)} kg`, sumX, dy, 7.5);
-  dy += 12;
-  text(ctx, `D<=18: ${buckets.le18.toFixed(1)} kg`, sumX, dy, 7.5);
-  dy += 12;
-  text(ctx, `D>18: ${buckets.gt18.toFixed(1)} kg`, sumX, dy, 7.5);
-  dy += 14;
+  const noteY = sy + 10;
+  text(ctx, `D ≤ 10: ${buckets.le10.toFixed(1)} kg    D ≤ 18: ${buckets.le18.toFixed(1)} kg    D > 18: ${buckets.gt18.toFixed(1)} kg`, x + w / 2, noteY, 7, false, "center");
+  let dy = noteY + 12;
   stirrupCounts.forEach((count, key) => {
-    text(ctx, `Đai ${key}: ${count} cái`, sumX, dy, 7);
-    dy += 12;
+    text(ctx, `Đai ${key}: ${count} cái`, x + w / 2, dy, 6.5, false, "center");
+    dy += 11;
   });
 }
 
@@ -542,14 +636,23 @@ export async function generateColumnPdf(
 
   const innerY = my + 28;
   const innerH = frameH - 36;
-  const schedH = Math.min(780, Math.max(640, innerH * 0.46));
-  const colH = innerH - schedH - 6;
+  const leftW = 138;
+  const schedW = 742;
+  const colsX = mx + leftW;
+  const colsW = frameW - leftW - schedW;
+  const titleH = 24;
+  const elevTop = innerY + titleH;
+  const elevBot = innerY + innerH - 6;
+  const totalMm = project.floors.reduce((s, f) => s + f.heightMm, 0);
+  const scale = (elevBot - elevTop) / Math.max(totalMm, 1);
   const n = Math.max(project.columns.length, 1);
-  const colW = frameW / n;
+  const colW = colsW / n;
+
+  drawFloorAxis(ctx, mx, innerY, leftW, innerH, project, scale, elevTop, elevBot, colsX + colsW);
   project.columns.forEach((column, i) => {
-    drawColumnPanel(ctx, mx + i * colW, innerY, colW, colH, project, column);
+    drawColumnPanel(ctx, colsX + i * colW, innerY, colW, innerH, project, column, scale, elevTop, elevBot);
   });
-  drawSchedulePanel(ctx, mx, innerY + colH + 4, frameW, schedH - 4, project);
+  drawSchedulePanel(ctx, mx + frameW - schedW, innerY, schedW, innerH, project);
   text(ctx, "Shop drawing thép cột", mx + 10, my + frameH - 6, 7);
   text(ctx, `${project.columns.length} cột  ·  ${project.floors.length} tầng`, mx + frameW - 10, my + frameH - 6, 7, false, "right");
 

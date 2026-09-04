@@ -2,10 +2,10 @@
 
 Tiện ích web nhập số liệu **cột bê tông cốt thép** (tầng, tiết diện, bố trí thép dọc/đai) rồi xuất **PDF shop drawing** khổ **A1 ngang**, gồm:
 
-- **Một trang duy nhất**: tất cả cột + chi tiết + bảng thống kê cốt thép
-- Mặt đứng từng cột (tầng xếp dọc): vùng đai `a100 / a200`, dầm nét đứt, nối so le, cao độ
+- **Một trang A1 ngang**: trục tầng/cao độ bên trái, chi tiết các cột ở giữa, bảng thống kê bên phải
+- Mặt đứng từng cột (cùng cao độ): vùng đai `a100 / a200`, dầm nét đứt, nối so le
 - Mặt cắt tiết diện (HCN / tròn) với thép dọc và đai
-- **Bảng thống kê cốt thép** cùng trang, tổng hợp theo Ø, cây 11.7 m và số đai
+- **Bảng thống kê cốt thép** dạng lưới + bảng tổng hợp theo Ø, cây 11.7 m và số đai
 
 Giao diện bám theo tiện ích desktop shop drawing cột / dầm (nền tối, hộp thoại tầng – cột – thép).
 

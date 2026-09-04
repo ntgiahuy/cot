@@ -297,7 +297,7 @@ export default function App() {
           </a>
           <div className="brand-copy">
             <div className="brand-title">Shop drawing thép cột</div>
-            <div className="brand-sub">Nhập tầng, tiết diện cột và thép, bấm Xuất PDF để lấy bản vẽ A1 ngang (mọi cột, chi tiết và thống kê trên một trang).</div>
+            <div className="brand-sub">Nhập tầng, tiết diện cột và thép, bấm Xuất PDF để lấy bản vẽ A1 ngang (tầng trái, cột giữa, thống kê phải).</div>
           </div>
         </div>
         <div className="header-actions">
