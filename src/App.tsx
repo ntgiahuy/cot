@@ -787,7 +787,7 @@ export default function App() {
                       );
                     }}
                   >
-                    {[2, 3, 4, 5, 6].map((n) => (
+                    {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>
@@ -822,7 +822,7 @@ export default function App() {
                       );
                     }}
                   >
-                    {[2, 3, 4, 5, 6].map((n) => (
+                    {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>

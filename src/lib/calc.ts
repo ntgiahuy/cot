@@ -121,17 +121,22 @@ export function nestedAlongY(section: FloorSection) {
   return Boolean(section.tieNested.enabled && section.tieNested.alongY && section.barsY >= 4);
 }
 
+export function nestedMinWrap(bars: number) {
+  return Math.max(bars >= 5 ? 3 : 2, Math.ceil(bars / 3));
+}
+
 export function nestedWrapOptions(bars: number) {
-  const max = Math.max(2, bars - 2);
+  const min = nestedMinWrap(bars);
+  const max = Math.max(min, bars - 2);
   const opts: number[] = [];
-  for (let n = 2; n <= max; n += 1) opts.push(n);
+  for (let n = min; n <= max; n += 1) opts.push(n);
   return opts;
 }
 
 export function nestedWrapCount(bars: number, requested: number) {
   const opts = nestedWrapOptions(bars);
   if (opts.includes(requested)) return requested;
-  return opts[opts.length - 1] ?? 2;
+  return nestedMinWrap(bars);
 }
 
 export function nestedShortMm(innerSpan: number, bars: number, wrapCount: number, mainDia: number) {
