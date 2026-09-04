@@ -24,9 +24,9 @@ import {
 } from "./calc";
 import { EMBED_MM, STOCK_M, type Column, type Floor, type FloorSection, type Project } from "./types";
 
-/** A2 ngang — khớp file mẫu AutoCAD (1684 × 1191 pt). */
-const PAGE_W = 1684;
-const PAGE_H = 1191;
+/** A1 ngang — 841 × 594 mm (2384 × 1684 pt). */
+const PAGE_W = 2384;
+const PAGE_H = 1684;
 const BLACK = rgb(0, 0, 0);
 const WHITE = rgb(1, 1, 1);
 
@@ -144,14 +144,6 @@ function tick(ctx: Ctx, x: number, y: number, s = 3.2) {
   line(ctx, x - s, y + s, x + s, y - s, 0.55);
 }
 
-function dimH(ctx: Ctx, x0: number, x1: number, y: number, label: string, size = 8) {
-  if (Math.abs(x1 - x0) < 2) return;
-  line(ctx, x0, y, x1, y, 0.45);
-  tick(ctx, x0, y);
-  tick(ctx, x1, y);
-  text(ctx, label, (x0 + x1) / 2, y - 11, size, false, "center");
-}
-
 function dimV(ctx: Ctx, x: number, y0: number, y1: number, label: string, size = 8) {
   line(ctx, x, y0, x, y1, 0.45);
   tick(ctx, x, y0);
@@ -165,11 +157,6 @@ function dimV(ctx: Ctx, x: number, y0: number, y1: number, label: string, size =
   }
 }
 
-function balloon(ctx: Ctx, x: number, y: number, n: number, r = 6.2) {
-  circle(ctx, x, y, r, false);
-  text(ctx, String(n), x, y + r * 0.72, 8, true, "center");
-}
-
 function elevationZones(floor: Floor, index: number): Zone[] {
   const { top: beam, bot: dense, mid } = denseZones(floor, index);
   const zones: Zone[] = [
@@ -181,36 +168,10 @@ function elevationZones(floor: Floor, index: number): Zone[] {
   return zones.filter((z) => z.len > 1);
 }
 
-function packFloorPages(floors: Floor[], usableW: number) {
-  const MIN = 0.072;
-  const MAX = 0.2;
-  const total = floors.reduce((s, f) => s + f.heightMm, 0);
-  const scaleAll = usableW / Math.max(total, 1);
-  if (scaleAll >= MIN || floors.length <= 1) {
-    return [{ floors, scale: Math.min(Math.max(scaleAll, 0.04), MAX), totalMm: total }];
-  }
-  const pages: Array<{ floors: Floor[]; scale: number; totalMm: number }> = [];
-  let chunk: Floor[] = [];
-  let acc = 0;
-  for (const floor of floors) {
-    if (chunk.length && (acc + floor.heightMm) * MIN > usableW) {
-      pages.push({ floors: chunk, scale: Math.min(usableW / acc, MAX), totalMm: acc });
-      chunk = [];
-      acc = 0;
-    }
-    chunk.push(floor);
-    acc += floor.heightMm;
-  }
-  if (chunk.length) {
-    pages.push({ floors: chunk, scale: Math.min(usableW / acc, MAX), totalMm: acc });
-  }
-  return pages;
-}
-
-function stirrupTicks(
+function stirrupTicksH(
   ctx: Ctx,
-  x0: number,
-  x1: number,
+  xL: number,
+  xR: number,
   yTop: number,
   yBot: number,
   spacingMm: number,
@@ -219,112 +180,38 @@ function stirrupTicks(
   if (spacingMm <= 0) return;
   const step = spacingMm * scale;
   if (step < 2.2) return;
-  const span = Math.abs(x1 - x0);
+  const span = Math.abs(yBot - yTop);
   const n = Math.max(2, Math.round(span / step));
   for (let i = 0; i <= n; i += 1) {
-    const x = x0 + (span * i) / n;
-    line(ctx, x, yTop + 1.2, x, yBot - 1.2, 0.4);
+    const y = yTop + (span * i) / n;
+    line(ctx, xL + 1.2, y, xR - 1.2, y, 0.4);
   }
 }
 
-function zigzag(ctx: Ctx, x0: number, x1: number, y: number) {
-  const mid = (x0 + x1) / 2;
+function zigzagV(ctx: Ctx, x: number, y0: number, y1: number) {
+  const mid = (y0 + y1) / 2;
   const z = 4.2;
   const g = 7;
-  line(ctx, x0, y, mid - g, y, 0.7, [5, 3.2]);
-  line(ctx, mid - g, y, mid - g / 2, y - z, 0.7);
-  line(ctx, mid - g / 2, y - z, mid + g / 2, y + z, 0.7);
-  line(ctx, mid + g / 2, y + z, mid + g, y, 0.7);
-  line(ctx, mid + g, y, x1, y, 0.7, [5, 3.2]);
+  line(ctx, x, y0, x, mid - g, 0.7, [5, 3.2]);
+  line(ctx, x, mid - g, x - z, mid - g / 2, 0.7);
+  line(ctx, x - z, mid - g / 2, x + z, mid + g / 2, 0.7);
+  line(ctx, x + z, mid + g / 2, x, mid + g, 0.7);
+  line(ctx, x, mid + g, x, y1, 0.7, [5, 3.2]);
 }
 
-function drawBeamBox(ctx: Ctx, x: number, y: number, w: number, h: number) {
-  line(ctx, x, y, x, y + h, 0.7, [5, 3.2]);
-  line(ctx, x + w, y, x + w, y + h, 0.7, [5, 3.2]);
-  zigzag(ctx, x, x + w, y);
-  zigzag(ctx, x, x + w, y + h);
+function drawBeamBoxV(ctx: Ctx, x: number, y: number, w: number, h: number) {
+  line(ctx, x, y, x + w, y, 0.7, [5, 3.2]);
+  line(ctx, x, y + h, x + w, y + h, 0.7, [5, 3.2]);
+  zigzagV(ctx, x, y, y + h);
+  zigzagV(ctx, x + w, y, y + h);
 }
 
-function kinkBar(ctx: Ctx, x0: number, x1: number, y: number, kinkX: number, amp: number, w = 1.15) {
-  const k = Math.min(x1 - 6, Math.max(x0 + 6, kinkX));
-  line(ctx, x0, y, k - 5, y, w);
-  line(ctx, k - 5, y, k, y + amp, w);
-  line(ctx, k, y + amp, k + 5, y, w);
-  line(ctx, k + 5, y, x1, y, w);
-}
-
-function drawExplodedSplice(
-  ctx: Ctx,
-  x0: number,
-  floorW: number,
-  y: number,
-  floor: Floor,
-  column: Column,
-  section: FloorSection,
-  scale: number,
-) {
-  const H = floor.heightMm;
-  const x1 = x0 + floorW;
-  if (column.baseSplice) {
-    const d = lapMm(section.mainDia, column.baseSpliceD);
-    const a = d * scale;
-    const b = 2 * d * scale;
-    kinkBar(ctx, x0, x1, y, x0 + a, -4.5, 1.2);
-    kinkBar(ctx, x0, x1, y + 8, x0 + b, 4.5, 1.2);
-    dimH(ctx, x0, x0 + a, y + 22, String(Math.round(d)), 7.5);
-    dimH(ctx, x0 + a, x0 + b, y + 22, String(Math.round(d)), 7.5);
-    dimH(ctx, x0 + b, x1, y + 22, String(Math.round(H - 2 * d)), 7.5);
-  } else if (column.midSplice) {
-    const mid = midSplicePosMm(floor);
-    const d = lapMm(section.mainDia, column.midSpliceD);
-    const xm = x0 + mid * scale;
-    const xn = x0 + (mid + d) * scale;
-    kinkBar(ctx, x0, x1, y, xm, -4.5, 1.2);
-    kinkBar(ctx, x0, x1, y + 8, xn, 4.5, 1.2);
-    dimH(ctx, x0, xm, y + 22, String(Math.round(mid)), 7.5);
-    dimH(ctx, xm, xn, y + 22, String(Math.round(d)), 7.5);
-    dimH(ctx, xn, x1, y + 22, String(Math.round(H - mid - d)), 7.5);
-  } else {
-    line(ctx, x0, y + 4, x1, y + 4, 1.2);
-    dimH(ctx, x0, x1, y + 22, String(H), 7.5);
-  }
-  dimH(ctx, x0, x1, y + 38, String(H), 8);
-}
-
-function drawShaftBars(
-  ctx: Ctx,
-  x0: number,
-  x1: number,
-  yTop: number,
-  yBot: number,
-  column: Column,
-  floor: Floor,
-  section: FloorSection,
-  scale: number,
-) {
-  const inset = 5;
-  const yA = yTop + inset;
-  const yB = yBot - inset;
-  const yC = (yTop + yBot) / 2;
-  const nShow = Math.min(4, Math.max(2, section.barsY));
-  const ys = nShow === 2 ? [yA, yB] : nShow === 3 ? [yA, yC, yB] : [yA, (yA + yC) / 2, (yB + yC) / 2, yB];
-  const kinks: number[] = [];
-  if (column.baseSplice) {
-    const d = lapMm(section.mainDia, column.baseSpliceD) * scale;
-    kinks.push(x0 + d, x0 + 2 * d);
-  } else if (column.midSplice) {
-    const mid = midSplicePosMm(floor) * scale;
-    const d = lapMm(section.mainDia, column.midSpliceD) * scale;
-    kinks.push(x0 + mid, x0 + mid + d);
-  }
-  ys.forEach((y, i) => {
-    const amp = i % 2 === 0 ? -3.2 : 3.2;
-    if (kinks.length) {
-      kinkBar(ctx, x0 + 1, x1 - 1, y, kinks[i % kinks.length], amp, 1.05);
-    } else {
-      line(ctx, x0 + 1, y, x1 - 1, y, 1.05);
-    }
-  });
+function kinkBarV(ctx: Ctx, x: number, yTop: number, yBot: number, kinkY: number, amp: number, w = 1.1) {
+  const k = Math.min(yBot - 6, Math.max(yTop + 6, kinkY));
+  line(ctx, x, yBot, x, k + 5, w);
+  line(ctx, x, k + 5, x + amp, k, w);
+  line(ctx, x + amp, k, x, k - 5, w);
+  line(ctx, x, k - 5, x, yTop, w);
 }
 
 function barPoints(section: FloorSection, x: number, y: number, w: number, h: number) {
@@ -344,7 +231,13 @@ function barPoints(section: FloorSection, x: number, y: number, w: number, h: nu
   return { pts, barR, m };
 }
 
-function drawSectionDetail(
+function elevMarkerH(ctx: Ctx, x: number, y: number, label: string, size = 7) {
+  fillRect(ctx, x - 2.4, y - 2.4, 4.8, 4.8);
+  line(ctx, x - 10, y, x + 4, y, 0.5);
+  text(ctx, label, x + 7, y + 3, size);
+}
+
+function drawSectionCompact(
   ctx: Ctx,
   x: number,
   y: number,
@@ -352,337 +245,278 @@ function drawSectionDetail(
   shape: Column["shape"],
 ) {
   const aspect = section.cy / Math.max(section.cx, 1);
-  const w = 52;
-  const h = Math.max(40, Math.min(78, w * aspect));
-  const pad = 6;
+  const w = 42;
+  const h = Math.max(34, Math.min(56, w * aspect));
+  const pad = 5;
 
   if (shape === "TRON") {
     const r = Math.min(w, h) / 2 - 1;
     circle(ctx, x + w / 2, y + h / 2, r, false);
     if (hasMainStirrup(section)) circle(ctx, x + w / 2, y + h / 2, r - pad, false);
   } else {
-    rect(ctx, x, y, w, h, 1.05);
-    if (hasMainStirrup(section)) rect(ctx, x + pad, y + pad, w - 2 * pad, h - 2 * pad, 0.85);
+    rect(ctx, x, y, w, h, 0.95);
+    if (hasMainStirrup(section)) rect(ctx, x + pad, y + pad, w - 2 * pad, h - 2 * pad, 0.75);
     const sLeft = x + pad;
     const sTop = y + pad;
     const sW = w - 2 * pad;
     const sH = h - 2 * pad;
     const sRight = sLeft + sW;
     const sBottom = sTop + sH;
-    const hook = 5;
-    const ret = 3;
-    const barR = 2.1;
-    const barInset = pad + 0.45 + barR + 0.6;
+    const hook = 4;
+    const ret = 2.5;
+    const barR = 1.7;
+    const barInset = pad + 0.4 + barR + 0.5;
     const insetPad = barInset - pad;
     const xs = edgeBarCenters(section.barsX, x + barInset, w - 2 * barInset);
     const ys = edgeBarCenters(section.barsY, y + barInset, h - 2 * barInset);
     if (nestedAlongX(section) && !section.tieDouble.enabled) {
       const box = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x");
-      rect(ctx, box.x, box.y, box.w, box.h, 0.75);
+      rect(ctx, box.x, box.y, box.w, box.h, 0.65);
     }
     if (nestedAlongY(section) && !section.tieDouble.enabled) {
       const box = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y");
-      rect(ctx, box.x, box.y, box.w, box.h, 0.75);
+      rect(ctx, box.x, box.y, box.w, box.h, 0.65);
     }
     if (doubleAlongX(section) && !section.tieNested.enabled) {
       const wrap = doubleMinWrap(section.barsX);
       const leftBox = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "start");
       const rightBox = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "end");
-      rect(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.75);
-      rect(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.75);
+      rect(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.65);
+      rect(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.65);
     }
     if (doubleAlongY(section) && !section.tieNested.enabled) {
       const wrap = doubleMinWrap(section.barsY);
       const topBox = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "start");
       const botBox = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "end");
-      rect(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.75);
-      rect(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.75);
+      rect(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.65);
+      rect(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.65);
     }
     if (cTieAlongX(section)) {
       const cx = sLeft + sW / 2;
-      line(ctx, cx + hook, sTop + ret, cx + hook, sTop, 0.85);
-      line(ctx, cx + hook, sTop, cx, sTop, 0.85);
-      line(ctx, cx, sTop, cx, sBottom, 0.85);
-      line(ctx, cx, sBottom, cx + hook, sBottom, 0.85);
-      line(ctx, cx + hook, sBottom, cx + hook, sBottom - ret, 0.85);
+      line(ctx, cx + hook, sTop + ret, cx + hook, sTop, 0.75);
+      line(ctx, cx + hook, sTop, cx, sTop, 0.75);
+      line(ctx, cx, sTop, cx, sBottom, 0.75);
+      line(ctx, cx, sBottom, cx + hook, sBottom, 0.75);
+      line(ctx, cx + hook, sBottom, cx + hook, sBottom - ret, 0.75);
     }
     if (cTieAlongY(section)) {
       const cy = sTop + sH / 2;
-      line(ctx, sLeft + ret, cy + hook, sLeft, cy + hook, 0.85);
-      line(ctx, sLeft, cy + hook, sLeft, cy, 0.85);
-      line(ctx, sLeft, cy, sRight, cy, 0.85);
-      line(ctx, sRight, cy, sRight, cy + hook, 0.85);
-      line(ctx, sRight, cy + hook, sRight - ret, cy + hook, 0.85);
+      line(ctx, sLeft + ret, cy + hook, sLeft, cy + hook, 0.75);
+      line(ctx, sLeft, cy + hook, sLeft, cy, 0.75);
+      line(ctx, sLeft, cy, sRight, cy, 0.75);
+      line(ctx, sRight, cy, sRight, cy + hook, 0.75);
+      line(ctx, sRight, cy + hook, sRight - ret, cy + hook, 0.75);
     }
   }
 
   const { pts, barR } = barPoints(section, x, y, w, h);
-  pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
-
-  dimH(ctx, x, x + w, y - 14, String(section.cx), 8);
-  dimV(ctx, x + w + 12, y, y + h, String(section.cy), 8);
-
-  const b1x = x + w + 24;
-  const b1y = y + 2;
-  balloon(ctx, b1x, b1y, 1);
-  line(ctx, b1x - 6.5, b1y + 1, x + w - 7, y + 9, 0.5);
-  text(ctx, formatBarLabel(section), b1x + 10, b1y + 4, 8.5, true);
-
-  const b2x = x + w + 24;
-  const b2y = y + h * 0.58;
-  balloon(ctx, b2x, b2y, 2);
-  line(ctx, b2x - 6.5, b2y, x + w - pad, y + h / 2, 0.5);
-  text(ctx, `Ø${section.tieDia}a200(100)`, b2x + 10, b2y + 4, 8.5);
-
-  const ex = x;
-  const ey = y + h + 32;
-  const ew = 30;
-  rect(ctx, ex, ey, ew, ew, 0.8);
-  if (hasMainStirrup(section)) rect(ctx, ex + 4.5, ey + 4.5, ew - 9, ew - 9, 0.7);
-  balloon(ctx, ex + ew + 14, ey + ew / 2, 2);
-
-  const tableX = x + 58;
-  const tableY = y + h + 28;
-  const colW = 80;
-  const rowH = 22;
-  rect(ctx, tableX, tableY, colW * 2, rowH * 2, 0.7);
-  line(ctx, tableX + colW, tableY, tableX + colW, tableY + rowH * 2, 0.7);
-  line(ctx, tableX, tableY + rowH, tableX + colW * 2, tableY + rowH, 0.7);
-  text(ctx, "THÉP DỌC", tableX + colW / 2, tableY + 16, 7, true, "center");
-  text(ctx, "THÉP ĐAI CHÍNH", tableX + colW + colW / 2, tableY + 16, 6.5, true, "center");
-  text(ctx, formatBarLabel(section), tableX + colW / 2, tableY + rowH + 16, 9, true, "center");
-  text(ctx, `Ø${section.tieDia}`, tableX + colW + colW / 2, tableY + rowH + 16, 9, false, "center");
-
-  return { w, h };
+  pts.forEach(([px, py]) => circle(ctx, px, py, Math.min(barR, 1.9), true));
+  text(ctx, String(section.cx), x + w / 2, y - 3, 6.5, false, "center");
+  text(ctx, String(section.cy), x + w + 3, y + h / 2 + 3, 6.5);
+  text(ctx, `1 ${formatBarLabel(section)}`, x + w / 2, y + h + 11, 6.5, true, "center");
+  text(ctx, `2 Ø${section.tieDia}a200(100)`, x + w / 2, y + h + 21, 6, false, "center");
+  return { w, h: h + 24 };
 }
 
-function elevMarker(ctx: Ctx, x: number, y: number, label: string) {
-  fillRect(ctx, x - 3.1, y - 3.1, 6.2, 6.2);
-  line(ctx, x, y - 18, x, y + 18, 0.55);
-  vtext(ctx, label, x + 12, y, 8.5);
-}
-
-function drawColumnSheet(
+function drawShaftBarsV(
   ctx: Ctx,
+  xL: number,
+  xR: number,
+  yTop: number,
+  yBot: number,
+  column: Column,
+  floor: Floor,
+  section: FloorSection,
+  scale: number,
+) {
+  const inset = 4;
+  const xA = xL + inset;
+  const xB = xR - inset;
+  const xC = (xL + xR) / 2;
+  const nShow = Math.min(4, Math.max(2, section.barsX));
+  const xs =
+    nShow === 2 ? [xA, xB] : nShow === 3 ? [xA, xC, xB] : [xA, (xA + xC) / 2, (xB + xC) / 2, xB];
+  const kinks: number[] = [];
+  if (column.baseSplice) {
+    const d = lapMm(section.mainDia, column.baseSpliceD) * scale;
+    kinks.push(yBot - d, yBot - 2 * d);
+  } else if (column.midSplice) {
+    const mid = midSplicePosMm(floor) * scale;
+    const d = lapMm(section.mainDia, column.midSpliceD) * scale;
+    kinks.push(yBot - mid, yBot - mid - d);
+  }
+  xs.forEach((x, i) => {
+    const amp = i % 2 === 0 ? -2.8 : 2.8;
+    if (kinks.length) {
+      kinkBarV(ctx, x, yTop + 1, yBot - 1, kinks[i % kinks.length], amp, 0.95);
+    } else {
+      line(ctx, x, yTop + 1, x, yBot - 1, 0.95);
+    }
+  });
+}
+
+function drawColumnPanel(
+  ctx: Ctx,
+  px: number,
+  py: number,
+  pw: number,
+  ph: number,
   project: Project,
   column: Column,
-  floors: Floor[],
-  scale: number,
-  pageIndex: number,
-  pageCount: number,
 ) {
-  ctx.page.drawRectangle({ x: 0, y: 0, width: ctx.W, height: ctx.H, color: WHITE });
+  rect(ctx, px, py, pw, ph, 0.95);
+  const title = `${column.name} (SL: ${column.quantity})`;
+  text(ctx, title, px + pw / 2, py + 14, 9, true, "center");
+  text(ctx, "CAO ĐỘ", px + 8, py + 26, 6, true);
+  text(ctx, "MẶT ĐỨNG", px + pw * 0.38, py + 26, 6, true, "center");
+  text(ctx, "MẶT CẮT", px + pw - 48, py + 26, 6, true, "center");
+  line(ctx, px + 4, py + 30, px + pw - 4, py + 30, 0.55);
 
-  const frameX = 48;
-  const frameY = 36;
-  const frameW = ctx.W - 96;
-  const frameH = ctx.H - 72;
-  rect(ctx, frameX, frameY, frameW, frameH, 1.15);
-
-  const leftW = 86;
-  const drawX = frameX + leftW;
-  const headerH = frameH * 0.132;
-  const elevH = frameH * 0.434;
-  const sectH = frameH - headerH - elevH;
-  const y0 = frameY;
-  const yHeader = y0;
-  const yElev = y0 + headerH;
-  const ySect = yElev + elevH;
-  const yEnd = y0 + frameH;
-  const headerMid = yHeader + headerH * 0.46;
-
-  line(ctx, drawX, yHeader, drawX, yEnd, 0.75);
-  line(ctx, frameX, yElev, frameX + frameW, yElev, 0.75);
-  line(ctx, frameX, ySect, frameX + frameW, ySect, 0.75);
-  line(ctx, drawX, headerMid, frameX + frameW, headerMid, 0.65);
-
-  vtext(ctx, "CAO ĐỘ", frameX + leftW / 2, yHeader + headerH / 2, 9.2, true);
-  vtext(ctx, "MẶT ĐỨNG", frameX + leftW / 2, yElev + elevH / 2, 9.2, true);
-
-  const name = `${column.name} (SL: ${column.quantity})`;
-  const split = frameX + 42;
-  line(ctx, split, ySect, split, yEnd, 0.65);
-  vtext(ctx, "MẶT CẮT", frameX + 21, ySect + sectH / 2, 9, true);
-  vtext(ctx, name, (split + drawX) / 2, ySect + sectH / 2, 9, true);
-
+  const floors = columnFloors(column, project.floors);
+  if (!floors.length) return;
   const elevations = floorElevations(project.floors);
-  const floorW = (f: Floor) => f.heightMm * scale;
-  let x = drawX;
-  const lastX = drawX + floors.reduce((s, f) => s + floorW(f), 0);
+  const totalMm = floors.reduce((s, f) => s + f.heightMm, 0);
+  const elevTop = py + 36;
+  const elevBot = py + ph - 8;
+  const elevH = elevBot - elevTop;
+  const scale = elevH / Math.max(totalMm, 1);
+  const shaftW = Math.max(22, Math.min(36, (floors[0] ? sectionFor(column, floors[0].id).cx : 300) * scale));
+  const shaftX = px + 58;
+  const secX = px + pw - 92;
 
-  floors.forEach((floor, i) => {
-    const w = floorW(floor);
-    const x1 = x + w;
-    text(ctx, `TẦNG ${floor.name}`, x + w / 2, yHeader + (headerMid - yHeader) * 0.62, 9.2, true, "center");
-    if (i > 0) {
-      line(ctx, x, yHeader, x, yElev, 0.7);
-      line(ctx, x, ySect, x, yEnd, 0.7);
-    }
-    const elev0 = elevations[floor.id - 1] ?? 0;
-    elevMarker(ctx, x + 1, headerMid + (yElev - headerMid) * 0.5, `+${elev0.toFixed(3)}`);
-    x = x1;
-  });
-  const lastFloor = floors[floors.length - 1];
-  const elevTop = elevations[lastFloor.id] ?? 0;
-  elevMarker(ctx, lastX - 1, headerMid + (yElev - headerMid) * 0.5, `+${elevTop.toFixed(3)}`);
-  line(ctx, lastX, yHeader, lastX, yElev, 0.7);
-  line(ctx, lastX, ySect, lastX, yEnd, 0.7);
+  line(ctx, shaftX, elevTop, shaftX, elevBot, 1.05);
+  line(ctx, shaftX + shaftW, elevTop, shaftX + shaftW, elevBot, 1.05);
 
-  const shaftH = Math.max(24, Math.min(40, floors[0] ? sectionFor(column, floors[0].id).cx * scale : 32));
-  const shaftY = yElev + 82;
-  const dimY = shaftY - 58;
-  const labelY = shaftY - 32;
-
-  x = drawX;
+  let yBot = elevBot;
   floors.forEach((floor, index) => {
     const section = sectionFor(column, floor.id);
-    const w = floorW(floor);
-    const zones = elevationZones(floor, index);
-    const yTop = shaftY;
-    const yBot = shaftY + shaftH;
-    let zx = x;
-    zones.forEach((zone) => {
-      const zw = zone.len * scale;
-      const zx1 = zx + zw;
+    const hPx = floor.heightMm * scale;
+    const yTop = yBot - hPx;
+    line(ctx, px + 4, yTop, shaftX + shaftW + 10, yTop, 0.45);
+    text(ctx, `T${floor.name}`, px + 8, yTop + 11, 6.5, true);
+    elevMarkerH(ctx, px + 28, yBot, `+${(elevations[floor.id - 1] ?? 0).toFixed(3)}`, 6.5);
+
+    let y = yBot;
+    elevationZones(floor, index).forEach((zone) => {
+      const zh = zone.len * scale;
+      const zTop = y - zh;
       if (zone.dashed) {
-        drawBeamBox(ctx, zx, yTop, zw, shaftH);
+        drawBeamBoxV(ctx, shaftX, zTop, shaftW, zh);
       } else {
-        line(ctx, zx, yTop, zx1, yTop, 1.05);
-        line(ctx, zx, yBot, zx1, yBot, 1.05);
-        if (zx === x) line(ctx, zx, yTop, zx, yBot, 1.05);
-        stirrupTicks(ctx, zx, zx1, yTop, yBot, zone.spacing, scale);
+        stirrupTicksH(ctx, shaftX, shaftX + shaftW, zTop, y, zone.spacing, scale);
       }
-      dimH(ctx, zx, zx1, dimY, String(Math.round(zone.len)), 8);
+      dimV(ctx, shaftX - 14, zTop, y, String(Math.round(zone.len)), 6);
       if (zone.label) {
-        const mx = (zx + zx1) / 2;
-        balloon(ctx, mx, labelY - 8, 2, 5.4);
-        text(ctx, `Ø${section.tieDia}${zone.label}`, mx, labelY + 8, 8, false, "center");
-        line(ctx, mx, labelY + 10, mx, yTop, 0.4);
+        const mid = (zTop + y) / 2;
+        text(ctx, `2Ø${section.tieDia}${zone.label}`, shaftX + shaftW + 4, mid + 3, 6);
       }
-      zx = zx1;
+      y = zTop;
     });
-    if (index === 0) line(ctx, x, yTop, x, yBot, 1.1);
-    if (index === floors.length - 1) line(ctx, x + w, yTop, x + w, yBot, 1.1);
-    drawShaftBars(ctx, x, x + w, yTop, yBot, column, floor, section, scale);
-    drawExplodedSplice(ctx, x, w, yBot + 26, floor, column, section, scale);
 
-    const secX = x + Math.max(18, w - 230);
-    const secY = ySect + 52;
-    drawSectionDetail(ctx, secX, secY, section, column.shape);
-    x += w;
+    drawShaftBarsV(ctx, shaftX, shaftX + shaftW, yTop, yBot, column, floor, section, scale);
+    dimV(ctx, shaftX + shaftW + 36, yTop, yBot, String(floor.heightMm), 6.5);
+
+    const sec = drawSectionCompact(ctx, secX, yTop + Math.max(4, (hPx - 70) / 2), section, column.shape);
+    void sec;
+    yBot = yTop;
   });
-
-  const note = pageCount > 1 ? `  ·  trang ${pageIndex + 1}/${pageCount}` : "";
-  text(ctx, `CHI TIẾT CỘT ${column.name}  ·  SL: ${column.quantity}${note}`, frameX, yEnd + 16, 8, true);
-  text(ctx, "Shop drawing thép cột  ·  A2", frameX + frameW, yEnd + 16, 8, false, "right");
+  const last = floors[floors.length - 1];
+  elevMarkerH(ctx, px + 28, elevTop, `+${(elevations[last.id] ?? 0).toFixed(3)}`, 6.5);
 }
 
-function drawSchedulePage(ctx: Ctx, project: Project, startRow: number, maxRows: number) {
-  ctx.page.drawRectangle({ x: 0, y: 0, width: ctx.W, height: ctx.H, color: WHITE });
-  const x = 36;
-  const y = 36;
-  const w = ctx.W - 72;
-  const h = ctx.H - 72;
-  rect(ctx, x, y, w, h, 1.15);
-  text(ctx, "BẢNG THỐNG KÊ CỐT THÉP", x + w / 2, y + 22, 13, true, "center");
+function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number, project: Project) {
+  rect(ctx, x, y, w, h, 0.95);
+  text(ctx, "BẢNG THỐNG KÊ CỐT THÉP", x + 14, y + 16, 11, true);
 
+  const tableW = w * 0.72;
+  const sumX = x + tableW + 8;
   const headers = [
     [0, "KIỆN CẤU"],
-    [110, "STT"],
-    [150, "HÌNH DẠNG, KÍCH THƯỚC (mm)"],
-    [430, "Ø"],
-    [470, "DÀI"],
-    [530, "1 CK"],
-    [590, "T.BỘ"],
-    [660, "TONG L (m)"],
-    [760, "KL (kg)"],
+    [92, "STT"],
+    [122, "HÌNH DẠNG, KÍCH THƯỚC (mm)"],
+    [360, "Ø"],
+    [390, "DÀI"],
+    [438, "1 CK"],
+    [486, "T.BỘ"],
+    [540, "TONG L (m)"],
+    [620, "KL (kg)"],
   ] as const;
-  const tableY = y + 42;
-  headers.forEach(([dx, label]) => text(ctx, label, x + 14 + dx, tableY, 8, true));
-  line(ctx, x + 10, tableY + 8, x + w - 10, tableY + 8, 0.7);
+  const tableY = y + 28;
+  headers.forEach(([dx, label]) => text(ctx, label, x + 10 + dx, tableY, 6.5, true));
+  line(ctx, x + 8, tableY + 6, x + tableW - 8, tableY + 6, 0.55);
 
   const { rows, byDia, stirrupCounts } = buildSchedule(project);
-  const slice = rows.slice(startRow, startRow + maxRows);
-  let rowY = tableY + 24;
+  const rowH = 10.2;
+  const maxY = y + h - 8;
+  let rowY = tableY + 16;
   let lastMember = "";
-  slice.forEach((row) => {
+  rows.forEach((row) => {
+    if (rowY > maxY - 6) return;
     if (row.member !== lastMember) {
-      if (lastMember) rowY += 8;
-      text(ctx, row.member, x + 14, rowY, 8, true);
-      text(ctx, `(SL: ${row.quantity})`, x + 14, rowY + 11, 6.5);
+      if (lastMember) rowY += 2;
+      text(ctx, `${row.member} (SL:${row.quantity})`, x + 10, rowY, 6, true);
       lastMember = row.member;
+      rowY += 9;
     }
-    text(ctx, String(row.stt), x + 124, rowY, 8);
+    text(ctx, String(row.stt), x + 102, rowY, 6.5);
     if (row.kind === "stirrup") {
       const [hook, a, b] = row.segs;
-      line(ctx, x + 168, rowY + 2, x + 230, rowY + 2, 0.8);
-      line(ctx, x + 168, rowY + 2, x + 168, rowY - 12, 0.8);
-      line(ctx, x + 230, rowY + 2, x + 230, rowY - 12, 0.8);
-      text(ctx, String(a), x + 199, rowY - 14, 6.5, false, "center");
-      text(ctx, String(b), x + 238, rowY - 4, 6.5);
-      text(ctx, String(hook), x + 160, rowY - 4, 6.5, false, "right");
+      line(ctx, x + 138, rowY + 1, x + 188, rowY + 1, 0.65);
+      line(ctx, x + 138, rowY + 1, x + 138, rowY - 8, 0.65);
+      line(ctx, x + 188, rowY + 1, x + 188, rowY - 8, 0.65);
+      text(ctx, String(a), x + 163, rowY - 9, 5.5, false, "center");
+      text(ctx, String(b), x + 192, rowY - 2, 5.5);
+      text(ctx, String(hook), x + 134, rowY - 2, 5.5, false, "right");
     } else if (row.kind === "long-hook") {
-      line(ctx, x + 168, rowY, x + 250, rowY, 0.8);
-      line(ctx, x + 168, rowY, x + 168, rowY - 12, 0.8);
-      text(ctx, String(row.segs[0]), x + 162, rowY - 10, 6.5, false, "right");
-      text(ctx, String(row.segs[1]), x + 209, rowY - 12, 6.5, false, "center");
-      text(ctx, row.shapeLabel, x + 258, rowY, 8);
+      line(ctx, x + 138, rowY, x + 200, rowY, 0.65);
+      line(ctx, x + 138, rowY, x + 138, rowY - 8, 0.65);
+      text(ctx, String(row.segs[0]), x + 134, rowY - 8, 5.5, false, "right");
+      text(ctx, String(row.segs[1]), x + 169, rowY - 9, 5.5, false, "center");
+      text(ctx, row.shapeLabel, x + 206, rowY, 6.5);
     } else {
-      line(ctx, x + 168, rowY, x + 268, rowY, 0.8);
-      text(ctx, String(row.lengthMm), x + 218, rowY - 12, 6.5, false, "center");
-      text(ctx, row.shapeLabel, x + 276, rowY, 8);
+      line(ctx, x + 138, rowY, x + 210, rowY, 0.65);
+      text(ctx, String(row.lengthMm), x + 174, rowY - 9, 5.5, false, "center");
+      text(ctx, row.shapeLabel, x + 216, rowY, 6.5);
     }
-    text(ctx, String(row.dia), x + 444, rowY, 8);
-    text(ctx, String(row.lengthMm), x + 484, rowY, 8);
-    text(ctx, String(row.perMember), x + 544, rowY, 8);
-    text(ctx, String(row.totalBars), x + 604, rowY, 8);
-    text(ctx, row.totalLengthM.toFixed(1), x + 674, rowY, 8);
-    text(ctx, row.weightKg.toFixed(1), x + 774, rowY, 8);
-    rowY += 20;
+    text(ctx, String(row.dia), x + 370, rowY, 6.5);
+    text(ctx, String(row.lengthMm), x + 400, rowY, 6.5);
+    text(ctx, String(row.perMember), x + 448, rowY, 6.5);
+    text(ctx, String(row.totalBars), x + 496, rowY, 6.5);
+    text(ctx, row.totalLengthM.toFixed(1), x + 554, rowY, 6.5);
+    text(ctx, row.weightKg.toFixed(1), x + 630, rowY, 6.5);
+    rowY += rowH;
   });
 
-  const more = startRow + maxRows < rows.length;
-  if (!more) {
-    const sumY = y + h - 168;
-    line(ctx, x + 10, sumY - 10, x + w - 10, sumY - 10, 0.7);
-    text(ctx, "ĐƯỜNG KÍNH", x + 16, sumY, 8, true);
-    text(ctx, "TRỌNG LƯỢNG (kg)", x + 130, sumY, 8, true);
-    text(ctx, "CHIỀU DÀI (m)", x + 280, sumY, 8, true);
-    text(ctx, `SỐ LƯỢNG THÉP ${STOCK_M}m (cây)`, x + 410, sumY, 8, true);
-    let dy = sumY + 16;
-    [...byDia.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .forEach(([dia, val]) => {
-        text(ctx, `Ø${dia}`, x + 16, dy, 8);
-        text(ctx, val.weight.toFixed(1), x + 130, dy, 8);
-        if (dia > 6) {
-          text(ctx, val.length.toFixed(2), x + 280, dy, 8);
-          text(ctx, String(stockBars(val.length)), x + 410, dy, 8);
-        }
-        dy += 13;
-      });
-    const buckets = summaryBuckets(byDia);
-    dy += 4;
-    text(ctx, `- Tổng hợp thép D<=10: ${buckets.le10.toFixed(1)} kg`, x + 16, dy, 8);
-    dy += 13;
-    text(ctx, `- Tổng hợp thép D<=18: ${buckets.le18.toFixed(1)} kg`, x + 16, dy, 8);
-    dy += 13;
-    text(ctx, `- Tổng hợp thép D>18: ${buckets.gt18.toFixed(1)} kg`, x + 16, dy, 8);
-    dy += 13;
-    stirrupCounts.forEach((count, key) => {
-      text(ctx, `- Thép đai ${key}: ${count} cái`, x + 16, dy, 8);
+  text(ctx, "TỔNG HỢP", sumX, y + 16, 10, true);
+  text(ctx, "Ø", sumX, y + 32, 7, true);
+  text(ctx, "KL (kg)", sumX + 50, y + 32, 7, true);
+  text(ctx, "L (m)", sumX + 120, y + 32, 7, true);
+  text(ctx, `Cây ${STOCK_M}m`, sumX + 180, y + 32, 7, true);
+  line(ctx, sumX, y + 38, x + w - 10, y + 38, 0.55);
+  let dy = y + 52;
+  [...byDia.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .forEach(([dia, val]) => {
+      text(ctx, `Ø${dia}`, sumX, dy, 7.5);
+      text(ctx, val.weight.toFixed(1), sumX + 50, dy, 7.5);
+      if (dia > 6) {
+        text(ctx, val.length.toFixed(1), sumX + 120, dy, 7.5);
+        text(ctx, String(stockBars(val.length)), sumX + 180, dy, 7.5);
+      }
       dy += 13;
     });
-  } else {
-    text(ctx, `… tiếp theo (${rows.length - startRow - maxRows} dòng)`, x + 16, y + h - 20, 8, false);
-  }
-
-  return { total: rows.length };
-}
-
-function newPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont): Ctx {
-  const page = doc.addPage([PAGE_W, PAGE_H]);
-  return { page, font, fontBold, W: PAGE_W, H: PAGE_H };
+  const buckets = summaryBuckets(byDia);
+  dy += 8;
+  text(ctx, `D<=10: ${buckets.le10.toFixed(1)} kg`, sumX, dy, 7.5);
+  dy += 12;
+  text(ctx, `D<=18: ${buckets.le18.toFixed(1)} kg`, sumX, dy, 7.5);
+  dy += 12;
+  text(ctx, `D>18: ${buckets.gt18.toFixed(1)} kg`, sumX, dy, 7.5);
+  dy += 14;
+  stirrupCounts.forEach((count, key) => {
+    text(ctx, `Đai ${key}: ${count} cái`, sumX, dy, 7);
+    dy += 12;
+  });
 }
 
 export async function generateColumnPdf(
@@ -693,25 +527,31 @@ export async function generateColumnPdf(
   doc.registerFontkit(fontkit);
   const font = await doc.embedFont(fonts.regular, { subset: true });
   const fontBold = await doc.embedFont(fonts.bold, { subset: true });
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  const ctx: Ctx = { page, font, fontBold, W: PAGE_W, H: PAGE_H };
 
-  for (const column of project.columns) {
-    const floors = columnFloors(column, project.floors);
-    if (!floors.length) continue;
-    const usableW = PAGE_W - 96 - 86;
-    const packs = packFloorPages(floors, usableW);
-    packs.forEach((pack, i) => {
-      const ctx = newPage(doc, font, fontBold);
-      drawColumnSheet(ctx, project, column, pack.floors, pack.scale, i, packs.length);
-    });
-  }
+  page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: WHITE });
+  const mx = 18;
+  const my = 16;
+  const frameW = PAGE_W - mx * 2;
+  const frameH = PAGE_H - my * 2;
+  rect(ctx, mx, my, frameW, frameH, 1.2);
+  text(ctx, "SHOP DRAWING CỘT  ·  CHI TIẾT + THỐNG KÊ", mx + 12, my + 16, 12, true);
+  text(ctx, "A1 ngang", mx + frameW - 12, my + 16, 9, false, "right");
+  line(ctx, mx, my + 22, mx + frameW, my + 22, 0.7);
 
-  const { rows } = buildSchedule(project);
-  const perPage = 36;
-  const pages = Math.max(1, Math.ceil(rows.length / perPage));
-  for (let i = 0; i < pages; i += 1) {
-    const ctx = newPage(doc, font, fontBold);
-    drawSchedulePage(ctx, project, i * perPage, perPage);
-  }
+  const innerY = my + 28;
+  const innerH = frameH - 36;
+  const schedH = Math.min(780, Math.max(640, innerH * 0.46));
+  const colH = innerH - schedH - 6;
+  const n = Math.max(project.columns.length, 1);
+  const colW = frameW / n;
+  project.columns.forEach((column, i) => {
+    drawColumnPanel(ctx, mx + i * colW, innerY, colW, colH, project, column);
+  });
+  drawSchedulePanel(ctx, mx, innerY + colH + 4, frameW, schedH - 4, project);
+  text(ctx, "Shop drawing thép cột", mx + 10, my + frameH - 6, 7);
+  text(ctx, `${project.columns.length} cột  ·  ${project.floors.length} tầng`, mx + frameW - 10, my + frameH - 6, 7, false, "right");
 
   return doc.save();
 }
