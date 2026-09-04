@@ -22,11 +22,12 @@ import {
   columnFloors,
   floorElevations,
   formatBarLabel,
+  normalizeColumn,
   sectionFor,
   steelRatioPercent,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
-import { DIAMETERS, type Column, type Floor, type FloorSection, type Project } from "./lib/types";
+import { DIAMETERS, SPLICE_FACTORS, type Column, type Floor, type FloorSection, type Project, type SpliceFactor } from "./lib/types";
 import "./App.css";
 
 const STORE_KEY = "thep-cot-project-v1";
@@ -67,6 +68,7 @@ export default function App() {
       if (raw) {
         const loaded = JSON.parse(raw) as Project;
         if (loaded.floors?.length && loaded.columns?.length) {
+          loaded.columns = loaded.columns.map(normalizeColumn);
           setProject(loaded);
           setSelectedColumnId(loaded.columns[loaded.columns.length - 1]?.id ?? "C1");
         }
@@ -77,7 +79,7 @@ export default function App() {
   }, []);
 
   const selectedColumn = useMemo(
-    () => project.columns.find((column) => column.id === selectedColumnId) ?? project.columns[0],
+    () => normalizeColumn(project.columns.find((column) => column.id === selectedColumnId) ?? project.columns[0]),
     [project.columns, selectedColumnId],
   );
   const selectedFloor = useMemo(
@@ -154,6 +156,10 @@ export default function App() {
       endFloor: project.floors.length,
       shape: "HCN",
       sections,
+      baseSplice: true,
+      baseSpliceD: 30,
+      midSplice: false,
+      midSpliceD: 35,
     };
     persist({ ...project, columns: [...project.columns, column] });
     setSelectedColumnId(id);
@@ -632,6 +638,52 @@ export default function App() {
                   </button>
                 </div>
               </div>
+              <fieldset>
+                <legend>Nối thép cột</legend>
+                <p className="splice-hint">Chiều dài nối = n × Ø thép chủ (30D / 35D / 40D).</p>
+                <div className="form-row">
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={selectedColumn.baseSplice}
+                      onChange={(e) => patchColumn({ baseSplice: e.target.checked })}
+                    />
+                    Nối so le tại chân cột
+                  </label>
+                  <select
+                    value={selectedColumn.baseSpliceD}
+                    disabled={!selectedColumn.baseSplice}
+                    onChange={(e) => patchColumn({ baseSpliceD: Number(e.target.value) as SpliceFactor })}
+                  >
+                    {SPLICE_FACTORS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}D
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={selectedColumn.midSplice}
+                      onChange={(e) => patchColumn({ midSplice: e.target.checked })}
+                    />
+                    Nối so le tại giữa cột
+                  </label>
+                  <select
+                    value={selectedColumn.midSpliceD}
+                    disabled={!selectedColumn.midSplice}
+                    onChange={(e) => patchColumn({ midSpliceD: Number(e.target.value) as SpliceFactor })}
+                  >
+                    {SPLICE_FACTORS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}D
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </fieldset>
               <div className="shape-switch">
                 <button
                   type="button"

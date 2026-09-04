@@ -1,4 +1,4 @@
-import { COVER_MM, EMBED_MM, STOCK_M, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type ScheduleRow } from "./types";
+import { COVER_MM, EMBED_MM, STOCK_M, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor } from "./types";
 
 export function barCount(section: FloorSection) {
   const edge = section.barsX * 2 + section.barsY * 2 - 4;
@@ -47,8 +47,28 @@ export function columnFloors(column: Column, floors: Floor[]) {
   return floors.filter((floor) => floor.id >= column.startFloor && floor.id <= column.endFloor);
 }
 
-export function lapMm(dia: number) {
-  return 30 * Math.min(dia, 16);
+export function lapMm(dia: number, factor: number = 30) {
+  return factor * dia;
+}
+
+export function spliceFactor(value: unknown, fallback: SpliceFactor = 30): SpliceFactor {
+  return value === 30 || value === 35 || value === 40 ? value : fallback;
+}
+
+export function normalizeColumn(column: Column): Column {
+  return {
+    ...column,
+    baseSplice: column.baseSplice ?? true,
+    baseSpliceD: spliceFactor(column.baseSpliceD, 30),
+    midSplice: column.midSplice ?? false,
+    midSpliceD: spliceFactor(column.midSpliceD, 35),
+  };
+}
+
+function spliceExtraMm(column: Column, dia: number) {
+  const base = column.baseSplice ? lapMm(dia, column.baseSpliceD) : 0;
+  const mid = column.midSplice ? lapMm(dia, column.midSpliceD) : 0;
+  return base + mid;
 }
 
 export function stirrupInner(section: FloorSection) {
@@ -96,25 +116,31 @@ export function buildSchedule(project: Project): {
   const stirrupCounts = new Map<string, number>();
   const lastFloorId = project.floors[project.floors.length - 1]?.id;
 
-  for (const column of project.columns) {
+  for (const column of project.columns.map(normalizeColumn)) {
     const active = columnFloors(column, project.floors);
     active.forEach((floor, floorIndex) => {
       const section = sectionFor(column, floor.id);
       const nBars = barCount(section);
       const isTop = floor.id === lastFloorId;
       const member = `${column.name} (TẦNG ${floor.name})`;
+      const baseLap = column.baseSplice ? lapMm(section.mainDia, column.baseSpliceD) : 0;
+      const midLap = column.midSplice ? lapMm(section.mainDia, column.midSpliceD) : 0;
 
       if (isTop) {
         const hook = 10 * section.mainDia;
-        const longStraight = floor.heightMm - COVER_MM;
-        const shortStraight = longStraight - lapMm(section.mainDia);
-        const half = Math.floor(nBars / 2);
+        const longStraight = floor.heightMm - COVER_MM + midLap;
+        const shortStraight = longStraight - (baseLap || 0);
+        const half = column.baseSplice ? Math.floor(nBars / 2) : 0;
         const other = nBars - half;
-        const specs = [
-          { stt: 1, straight: longStraight, qty: other, mark: "1" },
-          { stt: 1, straight: shortStraight, qty: half, mark: "1*" },
-        ];
-        specs.forEach((spec) => {
+        const specs = column.baseSplice
+          ? [
+              { stt: 1, straight: longStraight, qty: other, mark: "1" },
+              { stt: 1, straight: shortStraight, qty: half, mark: "1*" },
+            ]
+          : [{ stt: 1, straight: longStraight, qty: nBars, mark: "1" }];
+        specs
+          .filter((spec) => spec.qty > 0)
+          .forEach((spec) => {
           const lengthMm = spec.straight + hook;
           const totalBars = spec.qty * column.quantity;
           const totalLengthM = (lengthMm / 1000) * totalBars;
@@ -137,7 +163,7 @@ export function buildSchedule(project: Project): {
           });
         });
       } else {
-        const lengthMm = floor.heightMm + lapMm(section.mainDia);
+        const lengthMm = floor.heightMm + spliceExtraMm(column, section.mainDia);
         const totalBars = nBars * column.quantity;
         const totalLengthM = (lengthMm / 1000) * totalBars;
         const weightKg = totalLengthM * kgPerMeter(section.mainDia);

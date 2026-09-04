@@ -20,6 +20,19 @@ function floorsFor(column: Omit<Column, "sections">, make: (floorId: number) => 
   return { ...column, sections };
 }
 
+function col(
+  partial: Omit<Column, "sections" | "baseSplice" | "baseSpliceD" | "midSplice" | "midSpliceD"> &
+    Partial<Pick<Column, "baseSplice" | "baseSpliceD" | "midSplice" | "midSpliceD">>,
+): Omit<Column, "sections"> {
+  return {
+    baseSplice: true,
+    baseSpliceD: 30,
+    midSplice: false,
+    midSpliceD: 35,
+    ...partial,
+  };
+}
+
 export function createSampleProject(): Project {
   const floors: Floor[] = [
     { id: 1, name: "1", heightMm: 4150, beamHeightMm: 500 },
@@ -29,11 +42,11 @@ export function createSampleProject(): Project {
 
   const columns: Column[] = [
     floorsFor(
-      { id: "BT1", name: "BT1", quantity: 2, startFloor: 1, endFloor: 3, shape: "HCN" },
+      col({ id: "BT1", name: "BT1", quantity: 2, startFloor: 1, endFloor: 3, shape: "HCN" }),
       () => section({ cx: 300, cy: 300, barsX: 2, barsY: 2, mainDia: 10 }),
     ),
     floorsFor(
-      { id: "C3", name: "C3", quantity: 2, startFloor: 1, endFloor: 3, shape: "HCN" },
+      col({ id: "C3", name: "C3", quantity: 2, startFloor: 1, endFloor: 3, shape: "HCN" }),
       (id) =>
         section({
           cx: 200,
@@ -44,7 +57,7 @@ export function createSampleProject(): Project {
         }),
     ),
     floorsFor(
-      { id: "C4", name: "C4", quantity: 4, startFloor: 1, endFloor: 3, shape: "HCN" },
+      col({ id: "C4", name: "C4", quantity: 4, startFloor: 1, endFloor: 3, shape: "HCN" }),
       (id) =>
         section({
           cx: 200,
@@ -55,7 +68,7 @@ export function createSampleProject(): Project {
         }),
     ),
     floorsFor(
-      { id: "C2", name: "C2", quantity: 8, startFloor: 1, endFloor: 3, shape: "HCN" },
+      col({ id: "C2", name: "C2", quantity: 8, startFloor: 1, endFloor: 3, shape: "HCN" }),
       (id) =>
         section({
           cx: 200,
@@ -66,7 +79,7 @@ export function createSampleProject(): Project {
         }),
     ),
     floorsFor(
-      { id: "C1", name: "C1", quantity: 4, startFloor: 1, endFloor: 3, shape: "HCN" },
+      col({ id: "C1", name: "C1", quantity: 4, startFloor: 1, endFloor: 3, shape: "HCN" }),
       (id) =>
         section({
           cx: 200,

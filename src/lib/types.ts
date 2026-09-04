@@ -21,6 +21,8 @@ export type FloorSection = {
   extraTieY: number;
 };
 
+export type SpliceFactor = 30 | 35 | 40;
+
 export type Column = {
   id: string;
   name: string;
@@ -29,6 +31,10 @@ export type Column = {
   endFloor: number;
   shape: ColumnShape;
   sections: Record<number, FloorSection>;
+  baseSplice: boolean;
+  baseSpliceD: SpliceFactor;
+  midSplice: boolean;
+  midSpliceD: SpliceFactor;
 };
 
 export type Project = {
@@ -53,6 +59,7 @@ export type ScheduleRow = {
 };
 
 export const DIAMETERS = [6, 8, 10, 12, 14, 16, 18, 20, 22, 25] as const;
+export const SPLICE_FACTORS: SpliceFactor[] = [30, 35, 40];
 export const COVER_MM = 25;
 export const STIRRUP_HOOK_MM = 50;
 export const STOCK_M = 11.7;

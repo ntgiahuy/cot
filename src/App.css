@@ -700,6 +700,16 @@ legend {
   font-size: 14px;
 }
 
+.form-row .checkbox-row {
+  margin: 0;
+}
+
+.splice-hint {
+  margin: 0 0 8px;
+  color: #71717a;
+  font-size: 13px;
+}
+
 .checkbox-row.highlight {
   background: #1e3a5f;
   padding: 10px 12px;
