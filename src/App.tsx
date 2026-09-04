@@ -1280,6 +1280,7 @@ function NestedWrapNote({
     <div className="nested-wrap-note">
       <p className="splice-hint">
         Bo ngoài {info.wrap} sắt chủ ({frac} × {info.bars} cây) – {label}
+        {kind === "double" ? ", ôm ngoài 2 thanh góc" : ""}
       </p>
       <p className="nested-wrap-mm">{info.nestedMm} mm</p>
       {!info.ok ? (

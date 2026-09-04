@@ -151,7 +151,7 @@ export function nestedMinWrap(bars: number) {
   return Math.max(2, Math.ceil(bars / 3));
 }
 
-/** Đai kép ôm ≥ 2/3 số thép mặt đó (làm tròn lên, tối thiểu 2). */
+/** Đai kép ôm ≥ 2/3 số thép mặt đó (làm tròn lên, luôn gồm ≥ 2 thanh góc). */
 export function doubleMinWrap(bars: number) {
   return Math.min(bars, Math.max(2, Math.ceil((2 * bars) / 3)));
 }
@@ -202,21 +202,25 @@ export function barClearGapMm(innerSpan: number, bars: number, dia: number) {
   return (innerSpan - bars * dia) / (bars - 1);
 }
 
+export function barPitchMm(innerSpan: number, bars: number, dia: number) {
+  if (bars <= 1) return 0;
+  return (innerSpan - dia) / (bars - 1);
+}
+
 export function wrappedShortMm(innerSpan: number, bars: number, wrapCount: number, mainDia: number) {
   const n = Math.min(bars, Math.max(1, wrapCount));
-  const gap = barClearGapMm(innerSpan, bars, mainDia);
-  return Math.max(40, Math.round(n * mainDia + Math.max(0, n - 1) * gap));
+  if (n <= 1) return Math.max(40, Math.round(mainDia));
+  const pitch = barPitchMm(innerSpan, bars, mainDia);
+  return Math.max(40, Math.round((n - 1) * pitch + mainDia));
 }
 
 export function nestedShortMm(innerSpan: number, bars: number, wrapCount: number, mainDia: number) {
   return wrappedShortMm(innerSpan, bars, nestedWrapCount(bars, wrapCount), mainDia);
 }
 
+/** Cạnh ngắn đai kép: ôm ≥ 2/3 số thép, tính từ mặt ngoài 2 thanh góc của nhóm. */
 export function doubleShortMm(innerSpan: number, bars: number, mainDia: number) {
-  const wrap = doubleMinWrap(bars);
-  const envelope = wrappedShortMm(innerSpan, bars, wrap, mainDia);
-  const minSpan = (2 / 3) * innerSpan;
-  return Math.max(envelope, Math.round(minSpan));
+  return wrappedShortMm(innerSpan, bars, doubleMinWrap(bars), mainDia);
 }
 
 export function faceClearance(section: FloorSection, axis: "x" | "y", kind: "nested" | "double" = "nested") {
