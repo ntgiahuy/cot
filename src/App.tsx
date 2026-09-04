@@ -274,7 +274,7 @@ export default function App() {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
       const url = downloadPdf(bytes, "output.pdf");
       setPdfUrl(url);
-      setStatus("Đã xuất output.pdf — kiểm tra thư mục Tải xuống.");
+      setStatus("Đã tải output.pdf.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không xuất được PDF.";
       setError(message);
@@ -466,12 +466,11 @@ export default function App() {
         {pdfUrl ? (
           <section className="pdf-box">
             <div className="topbar">
-              <h2>Preview output.pdf</h2>
+              <h2>Đã xuất output.pdf</h2>
               <a className="primary-button" href={pdfUrl} download="output.pdf">
                 Tải lại output.pdf
               </a>
             </div>
-            <iframe title="PDF preview" src={pdfUrl} />
           </section>
         ) : null}
 
@@ -1013,14 +1012,7 @@ export default function App() {
             Sử dụng cốt thép đã bố trí cho các tầng trên
           </label>
           <div className="button-row align-end">
-            <button
-              type="button"
-              className="success-button"
-              onClick={() => {
-                setDialog("none");
-                void exportPdf();
-              }}
-            >
+            <button type="button" className="success-button" onClick={() => setDialog("none")}>
               <Check size={16} /> Xong
             </button>
             <button type="button" className="ghost-button" onClick={() => setDialog("none")}>
