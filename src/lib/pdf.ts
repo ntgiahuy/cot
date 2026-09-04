@@ -228,8 +228,15 @@ function balloon(ctx: Ctx, x: number, y: number, n: number, r = 7.4) {
   });
 }
 
-function specAbove(ctx: Ctx, label: string, x: number, lineY: number, size: number) {
-  textVCenter(ctx, label, x, lineY - size * 0.82, size, true, "center");
+function specAbove(
+  ctx: Ctx,
+  label: string,
+  x: number,
+  lineY: number,
+  size: number,
+  align: "left" | "center" = "center",
+) {
+  textVCenter(ctx, label, x, lineY - size * 0.88, size, true, align);
 }
 
 /** Số hiệu ở đầu line; chữ quy cách nằm trên line, line đi suốt không bị che. */
@@ -243,6 +250,7 @@ function leaderCallout(
   label?: string,
   r = 7.4,
   labelSize = 8,
+  specX?: number,
 ) {
   const dx = tx - bx;
   const dy = typt - by;
@@ -253,7 +261,10 @@ function leaderCallout(
   const sy = by + uy * (r + 0.7);
   line(ctx, sx, sy, tx, typt, 0.4);
   balloon(ctx, bx, by, n, r);
-  if (label) specAbove(ctx, label, (sx + tx) / 2, (sy + typt) / 2, labelSize);
+  if (label) {
+    const ax = specX ?? (sx + tx) / 2;
+    specAbove(ctx, label, ax, (sy + typt) / 2, labelSize, specX != null ? "left" : "center");
+  }
 }
 
 /** Leader chữ L úp: ngang rồi xuống; chữ quy cách trên thanh ngang. */
@@ -267,12 +278,16 @@ function leaderCalloutInvL(
   label?: string,
   r = 7.4,
   labelSize = 8,
+  specX?: number,
 ) {
   const sx = bx + r + 0.7;
   line(ctx, sx, by, elbowX, by, 0.4);
   line(ctx, elbowX, by, elbowX, targetY, 0.4);
   balloon(ctx, bx, by, n, r);
-  if (label) specAbove(ctx, label, (sx + elbowX) / 2, by, labelSize);
+  if (label) {
+    const ax = specX ?? (sx + elbowX) / 2;
+    specAbove(ctx, label, ax, by, labelSize, specX != null ? "left" : "center");
+  }
 }
 
 function n2(v: number) {
@@ -494,21 +509,43 @@ function crankBarV(
   line(ctx, xAlign, yHi, xAlign, yTop, w);
 }
 
-function barPoints(section: FloorSection, x: number, y: number, w: number, h: number) {
+/** Cùng hệ tọa độ: đai ôm ngoài sắt chủ, tâm thanh nằm trong lòng đai. */
+function sectionGeom(section: FloorSection, x: number, y: number, w: number, h: number) {
   const barR = Math.max(2.2, Math.min(3.6, Math.min(w, h) / 14));
-  const m = Math.max(7, Math.min(w, h) * 0.15);
+  const stroke = 0.85;
+  const cover = Math.max(6.2, Math.min(w, h) * 0.105);
+  const gap = 0.9;
+  const wrapPad = stroke / 2 + gap + barR;
+  const barInset = cover + wrapPad;
+  const sLeft = x + cover;
+  const sTop = y + cover;
+  const sW = w - 2 * cover;
+  const sH = h - 2 * cover;
+  const xs = edgeBarCenters(section.barsX, x + barInset, w - 2 * barInset);
+  const ys = edgeBarCenters(section.barsY, y + barInset, h - 2 * barInset);
   const pts: Array<[number, number]> = [];
-  for (let i = 0; i < section.barsX; i += 1) {
-    const t = section.barsX === 1 ? 0.5 : i / (section.barsX - 1);
-    const px = x + m + t * (w - 2 * m);
-    pts.push([px, y + m], [px, y + h - m]);
-  }
-  for (let i = 1; i < section.barsY - 1; i += 1) {
-    const t = i / (section.barsY - 1);
-    const py = y + m + t * (h - 2 * m);
-    pts.push([x + m, py], [x + w - m, py]);
-  }
-  return { pts, barR, m };
+  xs.forEach((px) => {
+    pts.push([px, y + barInset], [px, y + h - barInset]);
+  });
+  ys.slice(1, -1).forEach((py) => {
+    pts.push([x + barInset, py], [x + w - barInset, py]);
+  });
+  return {
+    barR,
+    stroke,
+    cover,
+    wrapPad,
+    barInset,
+    sLeft,
+    sTop,
+    sW,
+    sH,
+    sRight: sLeft + sW,
+    sBottom: sTop + sH,
+    xs,
+    ys,
+    pts,
+  };
 }
 
 function drawSectionTies(
@@ -518,51 +555,41 @@ function drawSectionTies(
   y: number,
   w: number,
   h: number,
-  pad: number,
 ) {
-  const sLeft = x + pad;
-  const sTop = y + pad;
-  const sW = w - 2 * pad;
-  const sH = h - 2 * pad;
-  const sRight = sLeft + sW;
-  const sBottom = sTop + sH;
-  const barR = Math.max(2.2, Math.min(3.6, Math.min(w, h) / 14));
-  const barInset = pad + 0.4 + barR + 0.8;
-  const insetPad = barInset - pad;
-  const xs = edgeBarCenters(section.barsX, x + barInset, w - 2 * barInset);
-  const ys = edgeBarCenters(section.barsY, y + barInset, h - 2 * barInset);
+  const g = sectionGeom(section, x, y, w, h);
+  const { sLeft, sTop, sW, sH, sRight, sBottom, xs, ys, wrapPad, stroke } = g;
   if (hasMainStirrup(section)) {
-    drawRoundedStirrup(ctx, sLeft, sTop, sW, sH, 0.85, 0.26);
+    drawRoundedStirrup(ctx, sLeft, sTop, sW, sH, stroke, 0.26);
   }
   if (nestedAlongX(section) && !section.tieDouble.enabled) {
-    const box = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x");
+    const box = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x");
     drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7);
   }
   if (nestedAlongY(section) && !section.tieDouble.enabled) {
-    const box = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y");
+    const box = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y");
     drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7);
   }
   if (doubleAlongX(section) && !section.tieNested.enabled) {
     const wrap = doubleMinWrap(section.barsX);
-    const leftBox = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "start");
-    const rightBox = nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "end");
+    const leftBox = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "start");
+    const rightBox = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "end");
     drawRoundedStirrup(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.7);
     drawRoundedStirrup(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.7);
   }
   if (doubleAlongY(section) && !section.tieNested.enabled) {
     const wrap = doubleMinWrap(section.barsY);
-    const topBox = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "start");
-    const botBox = nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "end");
+    const topBox = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "start");
+    const botBox = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "end");
     drawRoundedStirrup(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.7);
     drawRoundedStirrup(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.7);
   }
   if (cTieAlongX(section)) {
     const cx = sLeft + sW / 2;
-    drawCStirrup(ctx, cx, sTop, cx + Math.max(8, pad * 0.9), sBottom, "right", 0.8);
+    drawCStirrup(ctx, cx, sTop, cx + Math.max(8, g.cover * 0.9), sBottom, "right", 0.8);
   }
   if (cTieAlongY(section)) {
     const cy = sTop + sH / 2;
-    drawCStirrup(ctx, sLeft, cy, sRight, cy + Math.max(8, pad * 0.9), "down", 0.8);
+    drawCStirrup(ctx, sLeft, cy, sRight, cy + Math.max(8, g.cover * 0.9), "down", 0.8);
   }
 }
 
@@ -572,43 +599,35 @@ function extraTieTargets(
   y: number,
   w: number,
   h: number,
-  pad: number,
   kind: SectionMark["kind"],
 ): Array<{ x: number; y: number; w: number; h: number }> {
-  const sLeft = x + pad;
-  const sTop = y + pad;
-  const sW = w - 2 * pad;
-  const sH = h - 2 * pad;
-  const barR = Math.max(2.2, Math.min(3.6, Math.min(w, h) / 14));
-  const barInset = pad + 0.4 + barR + 0.8;
-  const insetPad = barInset - pad;
-  const xs = edgeBarCenters(section.barsX, x + barInset, w - 2 * barInset);
-  const ys = edgeBarCenters(section.barsY, y + barInset, h - 2 * barInset);
+  const g = sectionGeom(section, x, y, w, h);
+  const { sLeft, sTop, sW, sH, xs, ys, wrapPad } = g;
   const out: Array<{ x: number; y: number; w: number; h: number }> = [];
   if (kind === "nested" && !section.tieDouble.enabled) {
-    if (nestedAlongX(section)) out.push(nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x"));
-    if (nestedAlongY(section)) out.push(nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y"));
+    if (nestedAlongX(section)) out.push(nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x"));
+    if (nestedAlongY(section)) out.push(nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y"));
   }
   if (kind === "double" && !section.tieNested.enabled) {
     if (doubleAlongX(section)) {
       const wrap = doubleMinWrap(section.barsX);
-      out.push(nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "start"));
-      out.push(nestedTieRect(section.barsX, xs, insetPad, sTop, sH, "x", wrap, "end"));
+      out.push(nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "start"));
+      out.push(nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "end"));
     }
     if (doubleAlongY(section)) {
       const wrap = doubleMinWrap(section.barsY);
-      out.push(nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "start"));
-      out.push(nestedTieRect(section.barsY, ys, insetPad, sLeft, sW, "y", wrap, "end"));
+      out.push(nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "start"));
+      out.push(nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "end"));
     }
   }
   if (kind === "c") {
     if (cTieAlongX(section)) {
       const cx = sLeft + sW / 2;
-      out.push({ x: cx, y: sTop, w: Math.max(8, pad * 0.9), h: sH });
+      out.push({ x: cx, y: sTop, w: Math.max(8, g.cover * 0.9), h: sH });
     }
     if (cTieAlongY(section)) {
       const cy = sTop + sH / 2;
-      out.push({ x: sLeft, y: cy, w: sW, h: Math.max(8, pad * 0.9) });
+      out.push({ x: sLeft, y: cy, w: sW, h: Math.max(8, g.cover * 0.9) });
     }
   }
   return out.filter((b) => b.w > 1 && b.h > 1);
@@ -663,7 +682,9 @@ function drawSectionDetail(
   h = Math.max(52, h);
   const x = boxX + leftAnno;
   const y = boxY + topAnno;
-  const pad = Math.max(8, Math.min(w, h) * 0.13);
+  const geom = sectionGeom(section, x, y, w, h);
+  const pad = geom.cover;
+  const { pts, barR } = geom;
 
   if (shape === "TRON") {
     const r = Math.min(w, h) / 2 - 1;
@@ -671,22 +692,22 @@ function drawSectionDetail(
     if (hasMainStirrup(section)) circle(ctx, x + w / 2, y + h / 2, r - pad, false);
   } else {
     rect(ctx, x, y, w, h, 1.15);
-    drawSectionTies(ctx, section, x, y, w, h, pad);
+    drawSectionTies(ctx, section, x, y, w, h);
   }
 
-  const { pts, barR } = barPoints(section, x, y, w, h);
   pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
 
   dimH(ctx, x, x + w, y + h + 18, String(section.cx), 8);
   dimChainV(ctx, x + w + 18, [y, y + h], [String(section.cy)], 8, "right", 13);
 
   const leadX = x - 64;
+  const specX = leadX + 7.4 + 5;
   const longBar = pts[0];
   let mark1Y = y + 10;
   if (longBar) {
     const yL = longBar[1];
     mark1Y = yL;
-    leaderCallout(ctx, leadX, yL, longBar[0] - barR - 0.5, yL, 1, formatBarLabel(section), 7.4, 9);
+    leaderCallout(ctx, leadX, yL, longBar[0] - barR - 0.5, yL, 1, formatBarLabel(section), 7.4, 9, specX);
   }
 
   const mainMark = markOf(section, "main");
@@ -701,6 +722,7 @@ function drawSectionDetail(
       marks.find((row) => row.kind === "main")?.spec ?? tieSpec(section, "main"),
       7.4,
       8,
+      specX,
     );
   }
 
@@ -708,12 +730,12 @@ function drawSectionDetail(
   extraKinds.forEach((kind) => {
     const mark = markOf(section, kind);
     if (mark == null || kind === "long" || kind === "main") return;
-    extraTieTargets(section, x, y, w, h, pad, kind).slice(0, 1).forEach((box) => {
+    extraTieTargets(section, x, y, w, h, kind).slice(0, 1).forEach((box) => {
       const cy = box.y + box.h / 2;
       let yL = Math.min(y + h - 10, Math.max(y + 14, cy));
       if (Math.abs(yL - mark1Y) < 18) yL = Math.min(y + h - 10, mark1Y + 22);
       const spec = marks.find((row) => row.kind === kind)?.spec ?? tieSpec(section, kind);
-      leaderCallout(ctx, leadX, yL, box.x, yL, mark, spec, 7.4, 8);
+      leaderCallout(ctx, leadX, yL, box.x, yL, mark, spec, 7.4, 8, specX);
     });
   });
 
