@@ -2,8 +2,7 @@ import { COVER_MM, EMBED_MM, MIN_BAR_CLEAR_MM, STOCK_M, STIRRUP_HOOK_MM, clampMa
 
 export function barCount(section: FloorSection) {
   const edge = section.barsX * 2 + section.barsY * 2 - 4;
-  const extra = section.extraSteel ? section.extraTieX * 2 + section.extraTieY * 2 : 0;
-  return Math.max(edge + extra, 0);
+  return Math.max(edge, 0);
 }
 
 export function barAreaCm2(dia: number) {
@@ -42,8 +41,11 @@ export function normalizeSection(section: FloorSection): FloorSection {
     ...section,
     mainDia: clampMainDia(section.mainDia),
     tieDia: clampTieDia(section.tieDia),
+    extraSteel: false,
     extraDia: clampMainDia(section.extraDia),
     extraTieDia: clampTieDia(section.extraTieDia),
+    extraTieX: 0,
+    extraTieY: 0,
     tieC: normalizeTie(section.tieC),
     tieNested: {
       ...nested,

@@ -905,61 +905,7 @@ export default function App() {
                 </div>
               </fieldset>
               <fieldset>
-                <legend>Thép bổ sung</legend>
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={selectedSection.extraSteel}
-                    onChange={(e) => patchSection({ extraSteel: e.target.checked }, applyUpper)}
-                  />
-                  Thép cột
-                </label>
-                {selectedSection.extraSteel ? (
-                  <div>
-                    <div className="form-row">
-                      <label>Đường kính thép bổ sung:</label>
-                      <select
-                        value={selectedSection.extraDia}
-                        onChange={(e) => patchSection({ extraDia: clampMainDia(Number(e.target.value)) }, applyUpper)}
-                      >
-                        {BAR_DIAMETERS.map((n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-row">
-                      <label>Thép đai (bổ sung):</label>
-                      <select
-                        value={selectedSection.extraTieDia}
-                        onChange={(e) => patchSection({ extraTieDia: clampTieDia(Number(e.target.value)) }, applyUpper)}
-                      >
-                        {BAR_DIAMETERS.map((n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-row">
-                      <label>Số đai phụ X:</label>
-                      <input
-                        type="number"
-                        value={selectedSection.extraTieX}
-                        onChange={(e) => patchSection({ extraTieX: Number(e.target.value) || 0 }, applyUpper)}
-                      />
-                    </div>
-                    <div className="form-row">
-                      <label>Số đai phụ Y:</label>
-                      <input
-                        type="number"
-                        value={selectedSection.extraTieY}
-                        onChange={(e) => patchSection({ extraTieY: Number(e.target.value) || 0 }, applyUpper)}
-                      />
-                    </div>
-                  </div>
-                ) : null}
+                <legend>Đai bổ sung</legend>
                 <TieOptionFields
                   title="Đai C"
                   variant="c"
