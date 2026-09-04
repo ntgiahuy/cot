@@ -304,7 +304,7 @@ function strokeSvg(ctx: Ctx, d: string, originX: number, originPdfY: number, w =
   });
 }
 
-/** Đai chữ nhật: 3 góc bo, móc 135° chồng tại góc trên-trái. (x,y) góc trên-trái, y xuống. */
+/** Đai chữ nhật. Mặc định 3 góc bo + móc 135°. `closedR` = bo 4 góc ôm ngoài sắt chủ (mặt cắt). */
 function drawRoundedStirrup(
   ctx: Ctx,
   x: number,
@@ -313,9 +313,29 @@ function drawRoundedStirrup(
   h: number,
   stroke = 0.85,
   hookRatio = 0.22,
+  closedR?: number,
 ) {
   if (w < 8 || h < 8) {
     rect(ctx, x, y, w, h, stroke);
+    return;
+  }
+  const k = 0.5522847498;
+  const L = (px: number, py: number) => `${n2(px)} ${n2(py)}`;
+  if (closedR != null) {
+    const r = Math.max(2.4, Math.min(closedR, Math.min(w, h) / 2 - 0.8));
+    const rk = r * k;
+    const path = [
+      `M ${L(r, 0)}`,
+      `L ${L(w - r, 0)}`,
+      `C ${L(w - r + rk, 0)} ${L(w, rk)} ${L(w, r)}`,
+      `L ${L(w, h - r)}`,
+      `C ${L(w, h - r + rk)} ${L(w - rk, h)} ${L(w - r, h)}`,
+      `L ${L(r, h)}`,
+      `C ${L(r - rk, h)} ${L(0, h - rk)} ${L(0, h - r)}`,
+      `L ${L(0, r)}`,
+      `C ${L(0, r - rk)} ${L(rk, 0)} ${L(r, 0)}`,
+    ].join(" ");
+    strokeSvg(ctx, path, x, ty(ctx, y), stroke);
     return;
   }
   const r = Math.max(2.6, Math.min(Math.min(w, h) * 0.18, Math.min(w, h) / 2 - 1.1));
@@ -324,10 +344,7 @@ function drawRoundedStirrup(
   let gap = Math.max(1.8, Math.min(3.6, stroke * 2.2));
   if (h - gap < r + 2) gap = Math.max(1.2, h - r - 2);
   if (w - gap < r + 2) gap = Math.max(1.2, w - r - 2);
-  const k = 0.5522847498;
   const rk = r * k;
-  const L = (px: number, py: number) => `${n2(px)} ${n2(py)}`;
-  // pdf-lib SVG: gốc trên-trái, y xuống (scale y = -1).
   const path = [
     `M ${L(gap + d, d)}`,
     `L ${L(gap, 0)}`,
@@ -559,29 +576,29 @@ function drawSectionTies(
   const g = sectionGeom(section, x, y, w, h);
   const { sLeft, sTop, sW, sH, sRight, sBottom, xs, ys, wrapPad, stroke } = g;
   if (hasMainStirrup(section)) {
-    drawRoundedStirrup(ctx, sLeft, sTop, sW, sH, stroke, 0.26);
+    drawRoundedStirrup(ctx, sLeft, sTop, sW, sH, stroke, 0.26, wrapPad);
   }
   if (nestedAlongX(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x");
-    drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7);
+    drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7, 0.22, wrapPad);
   }
   if (nestedAlongY(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y");
-    drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7);
+    drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7, 0.22, wrapPad);
   }
   if (doubleAlongX(section) && !section.tieNested.enabled) {
     const wrap = doubleMinWrap(section.barsX);
     const leftBox = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "start");
     const rightBox = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "end");
-    drawRoundedStirrup(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.7);
-    drawRoundedStirrup(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.7);
+    drawRoundedStirrup(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.7, 0.22, wrapPad);
+    drawRoundedStirrup(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.7, 0.22, wrapPad);
   }
   if (doubleAlongY(section) && !section.tieNested.enabled) {
     const wrap = doubleMinWrap(section.barsY);
     const topBox = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "start");
     const botBox = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "end");
-    drawRoundedStirrup(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.7);
-    drawRoundedStirrup(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.7);
+    drawRoundedStirrup(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.7, 0.22, wrapPad);
+    drawRoundedStirrup(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.7, 0.22, wrapPad);
   }
   if (cTieAlongX(section)) {
     const cx = sLeft + sW / 2;
