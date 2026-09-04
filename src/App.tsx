@@ -800,13 +800,14 @@ export default function App() {
                 </div>
               </fieldset>
               <fieldset>
+                <legend>Thép bổ sung</legend>
                 <label className="checkbox-row">
                   <input
                     type="checkbox"
                     checked={selectedSection.extraSteel}
                     onChange={(e) => patchSection({ extraSteel: e.target.checked }, applyUpper)}
                   />
-                  Có thép bổ sung
+                  Thép cột bổ xung
                 </label>
                 {selectedSection.extraSteel ? (
                   <div>
@@ -855,21 +856,21 @@ export default function App() {
                   </div>
                 ) : null}
                 <TieOptionFields
-                  title="Đai C"
+                  title="Thép đai C bổ sung"
                   value={selectedSection.tieC}
                   onChange={(partial) =>
                     patchSection({ tieC: { ...selectedSection.tieC, ...partial } }, applyUpper)
                   }
                 />
                 <TieOptionFields
-                  title="Đai lồng"
+                  title="Đai lồng bổ sung"
                   value={selectedSection.tieNested}
                   onChange={(partial) =>
                     patchSection({ tieNested: { ...selectedSection.tieNested, ...partial } }, applyUpper)
                   }
                 />
                 <TieOptionFields
-                  title="Đai kép"
+                  title="Đai nhánh bổ sung"
                   value={selectedSection.tieDouble}
                   onChange={(partial) =>
                     patchSection({ tieDouble: { ...selectedSection.tieDouble, ...partial } }, applyUpper)

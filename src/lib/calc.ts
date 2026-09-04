@@ -106,17 +106,17 @@ function extraTieCount(floor: Floor, spacingMm: number) {
 
 function extraTieSpecs(section: FloorSection) {
   return [
-    { key: "C", label: "Đai C", tie: section.tieC, lengthMm: cTieLengthMm(section.tieC.xMm, section.tieC.yMm), copies: 1 },
+    { key: "C", label: "Thép đai C bổ sung", tie: section.tieC, lengthMm: cTieLengthMm(section.tieC.xMm, section.tieC.yMm), copies: 1 },
     {
       key: "Lồng",
-      label: "Đai lồng",
+      label: "Đai lồng bổ sung",
       tie: section.tieNested,
       lengthMm: closedTieLengthMm(section.tieNested.xMm, section.tieNested.yMm),
       copies: 1,
     },
     {
-      key: "Kép",
-      label: "Đai kép",
+      key: "Nhánh",
+      label: "Đai nhánh bổ sung",
       tie: section.tieDouble,
       lengthMm: closedTieLengthMm(section.tieDouble.xMm, section.tieDouble.yMm),
       copies: 2,
