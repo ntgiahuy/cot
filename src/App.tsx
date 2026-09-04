@@ -67,7 +67,6 @@ export default function App() {
   const [status, setStatus] = useState<string | null>("Mẫu 3 tầng / 5 cột đã sẵn sàng.");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState("");
   const [applyUpper, setApplyUpper] = useState(true);
 
   const persist = useCallback((next: Project) => {
@@ -271,9 +270,7 @@ export default function App() {
         fontRes[1].arrayBuffer(),
       ]);
       const bytes = await generateColumnPdf(project, { regular, bold });
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      const url = downloadPdf(bytes, "output.pdf");
-      setPdfUrl(url);
+      downloadPdf(bytes, "output.pdf");
       setStatus("Đã tải output.pdf.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không xuất được PDF.";
@@ -291,7 +288,6 @@ export default function App() {
     persist(createSampleProject());
     setSelectedColumnId("C1");
     setSelectedFloorId(1);
-    setPdfUrl("");
     setError(null);
     setStatus("Đã tạo dự án mới.");
   }
@@ -462,17 +458,6 @@ export default function App() {
           </span>
         </footer>
       </main>
-
-        {pdfUrl ? (
-          <section className="pdf-box">
-            <div className="topbar">
-              <h2>Đã xuất output.pdf</h2>
-              <a className="primary-button" href={pdfUrl} download="output.pdf">
-                Tải lại output.pdf
-              </a>
-            </div>
-          </section>
-        ) : null}
 
       {dialog === "floors" ? (
         <Modal title="Thiết lập tầng" onClose={() => setDialog("none")}>

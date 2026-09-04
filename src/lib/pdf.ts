@@ -907,5 +907,5 @@ export function downloadPdf(bytes: Uint8Array, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  return url;
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
