@@ -8,6 +8,8 @@ import {
   floorElevations,
   formatBarLabel,
   alignedClosedTie,
+  cTieAlongX,
+  cTieAlongY,
   hasMainStirrup,
   sectionFor,
   stockBars,
@@ -153,7 +155,7 @@ function drawSection(
         rect(ctx, sLeft, sBottom - dh, dw, dh, 0.8);
       }
     }
-    if (section.tieC.enabled && section.barsX % 2 === 1) {
+    if (cTieAlongX(section)) {
       const cx = sLeft + sW / 2;
       line(ctx, cx + hook, sTop + ret, cx + hook, sTop, 0.9);
       line(ctx, cx + hook, sTop, cx, sTop, 0.9);
@@ -161,7 +163,7 @@ function drawSection(
       line(ctx, cx, sBottom, cx + hook, sBottom, 0.9);
       line(ctx, cx + hook, sBottom, cx + hook, sBottom - ret, 0.9);
     }
-    if (section.tieC.enabled && section.barsY % 2 === 1) {
+    if (cTieAlongY(section)) {
       const cy = sTop + sH / 2;
       line(ctx, sLeft + ret, cy + hook, sLeft, cy + hook, 0.9);
       line(ctx, sLeft, cy + hook, sLeft, cy, 0.9);

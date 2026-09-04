@@ -101,6 +101,14 @@ export function canUseTieC(section: FloorSection) {
   return section.barsX % 2 === 1 || section.barsY % 2 === 1;
 }
 
+export function cTieAlongX(section: FloorSection) {
+  return Boolean(section.tieC.enabled && section.tieC.alongX && section.barsX % 2 === 1);
+}
+
+export function cTieAlongY(section: FloorSection) {
+  return Boolean(section.tieC.enabled && section.tieC.alongY && section.barsY % 2 === 1);
+}
+
 export function cTieLengthMm(spanMm: number) {
   return Math.max(spanMm, 0) + 2 * STIRRUP_HOOK_MM;
 }
@@ -143,7 +151,7 @@ function extraTieSpecs(section: FloorSection) {
     xMm: number;
     yMm: number;
   }> = [];
-  if (section.barsX % 2 === 1) {
+  if (cTieAlongX(section)) {
     specs.push({
       key: "C-X",
       label: "Đai C đứng (móc thép giữa Cx)",
@@ -156,7 +164,7 @@ function extraTieSpecs(section: FloorSection) {
       yMm: b,
     });
   }
-  if (section.barsY % 2 === 1) {
+  if (cTieAlongY(section)) {
     specs.push({
       key: "C-Y",
       label: "Đai C ngang (móc thép giữa Cy)",

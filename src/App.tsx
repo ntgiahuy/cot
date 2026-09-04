@@ -21,7 +21,8 @@ import {
   barAreaCm2,
   barCount,
   canUseTieC,
-  cTieLengthMm,
+  cTieAlongX,
+  cTieAlongY,
   columnFloors,
   floorElevations,
   formatBarLabel,
@@ -761,7 +762,12 @@ export default function App() {
                       patchSection(
                         {
                           barsX,
-                          tieC: evenBoth ? { ...selectedSection.tieC, enabled: false } : selectedSection.tieC,
+                          tieC: {
+                            ...selectedSection.tieC,
+                            enabled: evenBoth ? false : selectedSection.tieC.enabled,
+                            alongX: barsX % 2 === 1 ? selectedSection.tieC.alongX !== false : false,
+                            alongY: selectedSection.barsY % 2 === 1 ? selectedSection.tieC.alongY !== false : false,
+                          },
                         },
                         applyUpper,
                       );
@@ -784,7 +790,12 @@ export default function App() {
                       patchSection(
                         {
                           barsY,
-                          tieC: evenBoth ? { ...selectedSection.tieC, enabled: false } : selectedSection.tieC,
+                          tieC: {
+                            ...selectedSection.tieC,
+                            enabled: evenBoth ? false : selectedSection.tieC.enabled,
+                            alongX: selectedSection.barsX % 2 === 1 ? selectedSection.tieC.alongX !== false : false,
+                            alongY: barsY % 2 === 1 ? selectedSection.tieC.alongY !== false : false,
+                          },
                         },
                         applyUpper,
                       );
@@ -988,7 +999,6 @@ function TieOptionFields({
 }) {
   const allowC = variant !== "c" || (section ? canUseTieC(section) : false);
   const allow = allowC && !blocked;
-  const inner = section ? stirrupInner(section) : { a: 0, b: 0 };
   const aligned = section && variant === "box" ? alignedClosedTie(section, value, kind) : null;
 
   return (
@@ -1009,45 +1019,50 @@ function TieOptionFields({
               onChange({ enabled: true, xMm: next.xMm, yMm: next.yMm });
               return;
             }
+            if (variant === "c" && section) {
+              onChange({
+                enabled: true,
+                alongX: section.barsX % 2 === 1,
+                alongY: section.barsY % 2 === 1,
+              });
+              return;
+            }
             onChange({ enabled: true });
           }}
         />
         {title}
       </label>
-      {variant === "c" && !allowC ? (
-        <p className="splice-hint">Đai C móc vào thép chủ giữa — chỉ chọn khi số thanh Cx hoặc Cy là số lẻ.</p>
-      ) : null}
       {blocked && blockedHint ? <p className="splice-hint">{blockedHint}</p> : null}
       {value.enabled && allow && kind === "double" ? (
         <p className="splice-hint">Đai nhánh thay đai đơn — không vẽ và không thống kê đai đơn.</p>
       ) : null}
-      {value.enabled && allowC && variant === "c" && section ? (
-        <div>
-          {section.barsX % 2 === 1 ? (
-            <p className="splice-hint">
-              Cx = {section.barsX} (lẻ): đai C đứng, móc thanh giữa cạnh trên và dưới. Dài theo phương Y (đai đơn): {inner.b} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.b)} mm
-            </p>
-          ) : null}
-          {section.barsY % 2 === 1 ? (
-            <p className="splice-hint">
-              Cy = {section.barsY} (lẻ): đai C ngang, móc thanh giữa cạnh trái và phải. Dài theo phương X (đai đơn): {inner.a} mm + móc 2×{STIRRUP_HOOK_MM} mm = {cTieLengthMm(inner.a)} mm
-            </p>
-          ) : null}
-          {section.barsY % 2 === 0 ? (
-            <p className="splice-hint">Cy chẵn: không đặt đai C ngang — cạnh trái/phải không có thép chủ giữa.</p>
-          ) : null}
-          {section.barsX % 2 === 0 ? (
-            <p className="splice-hint">Cx chẵn: không đặt đai C đứng — cạnh trên/dưới không có thép chủ giữa.</p>
-          ) : null}
-          <div className="form-row">
-            <label>Khoảng cách (mm):</label>
+      {value.enabled && allow && variant === "c" && section ? (
+        <div className="form-row c-tie-spacing">
+          <label>Khoảng cách (mm):</label>
+          <input
+            type="number"
+            min={0}
+            value={value.spacingMm}
+            onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 0 })}
+          />
+          <label className={section.barsX % 2 === 1 ? "checkbox-row" : "checkbox-row disabled"}>
             <input
-              type="number"
-              min={0}
-              value={value.spacingMm}
-              onChange={(e) => onChange({ spacingMm: Number(e.target.value) || 0 })}
+              type="checkbox"
+              checked={Boolean(value.alongX) && section.barsX % 2 === 1}
+              disabled={section.barsX % 2 === 0}
+              onChange={(e) => onChange({ alongX: e.target.checked })}
             />
-          </div>
+            Bố trí theo phương Cx
+          </label>
+          <label className={section.barsY % 2 === 1 ? "checkbox-row" : "checkbox-row disabled"}>
+            <input
+              type="checkbox"
+              checked={Boolean(value.alongY) && section.barsY % 2 === 1}
+              disabled={section.barsY % 2 === 0}
+              onChange={(e) => onChange({ alongY: e.target.checked })}
+            />
+            Bố trí theo phương Cy
+          </label>
         </div>
       ) : null}
       {value.enabled && variant === "box" && aligned ? (
@@ -1224,7 +1239,7 @@ function ExtraTiesPreview({
     const sRight = outerX + outerW;
     const sTop = outerY;
     const sBottom = outerY + outerH;
-    if (section.barsX % 2 === 1) {
+    if (cTieAlongX(section)) {
       const x = sLeft + outerW / 2;
       nodes.push(
         <path
@@ -1238,7 +1253,7 @@ function ExtraTiesPreview({
         />,
       );
     }
-    if (section.barsY % 2 === 1) {
+    if (cTieAlongY(section)) {
       const y = sTop + outerH / 2;
       nodes.push(
         <path

@@ -12,6 +12,8 @@ export type TieOption = {
   xMm: number;
   yMm: number;
   spacingMm: number;
+  alongX: boolean;
+  alongY: boolean;
 };
 
 export type FloorSection = {
@@ -76,7 +78,7 @@ export const STOCK_M = 11.7;
 export const EMBED_MM = 600;
 
 export function emptyTie(): TieOption {
-  return { enabled: false, xMm: 0, yMm: 0, spacingMm: 0 };
+  return { enabled: false, xMm: 0, yMm: 0, spacingMm: 0, alongX: true, alongY: true };
 }
 
 export function normalizeTie(value?: Partial<TieOption> | null): TieOption {
@@ -85,5 +87,7 @@ export function normalizeTie(value?: Partial<TieOption> | null): TieOption {
     xMm: Number(value?.xMm) || 0,
     yMm: Number(value?.yMm) || 0,
     spacingMm: Number(value?.spacingMm) || 0,
+    alongX: value?.alongX !== false,
+    alongY: value?.alongY !== false,
   };
 }
