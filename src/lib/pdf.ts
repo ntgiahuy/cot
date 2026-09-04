@@ -1020,15 +1020,16 @@ function cellText(
 }
 
 function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number, project: Project, focus?: Column) {
+  const titleH = 22;
   rect(ctx, x, y, w, h, 1.05);
-  fillRect(ctx, x, y, w, 22, GRAY);
+  fillRect(ctx, x, y, w, titleH, GRAY);
   const title = focus ? `BẢNG THỐNG KÊ  ·  ${focus.name}` : "BẢNG THỐNG KÊ CỐT THÉP";
-  text(ctx, title, x + w / 2, y + 16, 10, true, "center");
-  line(ctx, x, y + 22, x + w, y + 22, 0.8);
+  cellText(ctx, title, x, y, w, titleH, 10, "center", true);
+  line(ctx, x, y + titleH, x + w, y + titleH, 0.8);
 
   const pad = 8;
   const tableX = x + pad;
-  const tableY = y + 28;
+  const tableY = y + titleH + 6;
   const cols = [
     { w: 122, label: "KIỆN CẤU" },
     { w: 32, label: "STT" },
@@ -1200,12 +1201,13 @@ export async function generateColumnPdf(
   const perPage = Math.max(1, Math.min(3, Math.floor((frameW + COLUMN_SHEET_GAP) / (COLUMN_SHEET_W + COLUMN_SHEET_GAP))));
   const pages = Math.max(1, Math.ceil(columns.length / perPage));
 
+  const headerH = 22;
   const drawPageFrame = (ctx: Ctx, title: string, pageNo: number, pageCount: number) => {
     ctx.page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: WHITE });
     rect(ctx, mx, my, frameW, frameH, 1.15);
-    text(ctx, title, mx + 12, my + 16, 12, true);
-    text(ctx, `A1 ngang  ·  trang ${pageNo}/${pageCount}`, mx + frameW - 12, my + 16, 9, false, "right");
-    line(ctx, mx, my + 22, mx + frameW, my + 22, 0.7);
+    textVCenter(ctx, title, mx + 12, my + headerH / 2, 12, true);
+    textVCenter(ctx, `A1 ngang  ·  trang ${pageNo}/${pageCount}`, mx + frameW - 12, my + headerH / 2, 9, false, "right");
+    line(ctx, mx, my + headerH, mx + frameW, my + headerH, 0.7);
   };
 
   if (!columns.length) {
