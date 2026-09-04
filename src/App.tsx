@@ -657,13 +657,6 @@ export default function App() {
               </div>
               <fieldset>
                 <legend>Nối thép cột</legend>
-                <p className="splice-hint">
-                  Chân cột (+0.000): thép đi thẳng, không bẻ cổ chai. Cổ chai chỉ vẽ bên ngoài thân cột, tại đỉnh sắt tầng dưới; chọn nối giữa cột thì mới hiện ở giữa tầng 1.
-                </p>
-                <p className="splice-hint">
-                  Giữa cột: vị trí (H tầng − H dầm) / 2; 50% thép chủ tại đó, 50% lệch thêm nD.
-                </p>
-                <p className="splice-hint">Chỉ chọn một: chân cột hoặc giữa cột.</p>
                 <div className="form-row">
                   <label className="checkbox-row">
                     <input
