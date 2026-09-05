@@ -222,15 +222,48 @@ export default function App() {
     persist({ ...project, columns });
   }
 
-  function saveJson() {
-    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "[Giahuy.net]-shop_cot.json";
-    a.click();
-    URL.revokeObjectURL(url);
-    setStatus("Đã lưu file JSON.");
+  async function saveJson() {
+    setError(null);
+    const body = JSON.stringify(project, null, 2);
+    const picker = (
+      window as Window & {
+        showSaveFilePicker?: (options: {
+          suggestedName?: string;
+          types?: { description?: string; accept: Record<string, string[]> }[];
+        }) => Promise<{
+          name: string;
+          createWritable: () => Promise<{
+            write: (data: Blob | string) => Promise<void>;
+            close: () => Promise<void>;
+          }>;
+        }>;
+      }
+    ).showSaveFilePicker;
+    if (typeof picker !== "function") {
+      setError("Trình duyệt không mở được hộp thoại lưu. Hãy dùng Chrome hoặc Edge.");
+      return;
+    }
+    try {
+      const handle = await picker({
+        suggestedName: "[Giahuy.net]-shop_cot.json",
+        types: [
+          {
+            description: "Shop drawing JSON",
+            accept: { "application/json": [".json"] },
+          },
+        ],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(body);
+      await writable.close();
+      setStatus(`Đã lưu ${handle.name}`);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setStatus("Đã hủy lưu.");
+        return;
+      }
+      setError("Không lưu được file JSON.");
+    }
   }
 
   function openJson() {
