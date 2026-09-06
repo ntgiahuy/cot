@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Mặc định: [http://127.0.0.1:43123/](http://127.0.0.1:43123/)
+Mặc định: [http://127.0.0.1:43123/cot/](http://127.0.0.1:43123/cot/)
 
 ## Cách dùng
 
@@ -34,4 +34,4 @@ Trọng lượng tính theo `d² / 162.2` (kg/m). **Nối so le** chỉ chọn m
 npm run build
 ```
 
-Thư mục `docs/` là site tĩnh cho GitHub Pages.
+Thư mục `docs/` là site tĩnh cho GitHub Pages: [https://ntgiahuy.github.io/cot/](https://ntgiahuy.github.io/cot/).

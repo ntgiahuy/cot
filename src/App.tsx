@@ -50,6 +50,10 @@ import "./App.css";
 const STORE_KEY = "thep-cot-project-v1";
 const COLUMN_ACCENTS = ["#fff12d", "#73ff31", "#79b8ff", "#ff8c42", "#e879f9", "#ff6b6b"];
 
+function publicUrl(path: string) {
+  return `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+}
+
 type DialogId = "none" | "floors" | "floorEdit" | "column" | "rebar";
 
 function cloneProject(project: Project): Project {
@@ -291,8 +295,8 @@ export default function App() {
     setStatus("Đang tạo bản vẽ PDF…");
     try {
       const fontRes = await Promise.all([
-        fetch("/fonts/BeVietnamPro-Regular.ttf"),
-        fetch("/fonts/BeVietnamPro-Bold.ttf"),
+        fetch(publicUrl("fonts/BeVietnamPro-Regular.ttf")),
+        fetch(publicUrl("fonts/BeVietnamPro-Bold.ttf")),
       ]);
       if (fontRes.some((res) => !res.ok)) {
         throw new Error("Không tải được font chữ cho PDF.");
@@ -335,7 +339,7 @@ export default function App() {
       <header className="site-header">
         <div className="brand">
           <a href="https://www.giahuy.net/" target="_blank" rel="noopener noreferrer" title="GiaHuy.Net">
-            <img src="/giahuy-logo.png" alt="GiaHuy" width={171} height={47} />
+            <img src={publicUrl("giahuy-logo.png")} alt="GiaHuy" width={171} height={47} />
           </a>
           <div className="brand-copy">
             <div className="brand-title">Shop drawing thép cột</div>
