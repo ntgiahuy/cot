@@ -57,52 +57,8 @@ export function createSampleProject(): Project {
 
   const columns: Column[] = [
     floorsFor(
-      col({ id: "BT1", name: "BT1", quantity: 2, startFloor: 1, endFloor: 3, shape: "HCN" }),
-      () => section({ cx: 300, cy: 300, barsX: 2, barsY: 2, mainDia: 10 }),
-    ),
-    floorsFor(
-      col({ id: "C3", name: "C3", quantity: 2, startFloor: 1, endFloor: 3, shape: "HCN" }),
-      (id) =>
-        section({
-          cx: 200,
-          cy: 300,
-          barsX: 3,
-          barsY: id === 1 ? 3 : 2,
-          mainDia: 16,
-        }),
-    ),
-    floorsFor(
-      col({ id: "C4", name: "C4", quantity: 4, startFloor: 1, endFloor: 3, shape: "HCN" }),
-      (id) =>
-        section({
-          cx: 200,
-          cy: 300,
-          barsX: id === 3 ? 2 : 3,
-          barsY: 2,
-          mainDia: 16,
-        }),
-    ),
-    floorsFor(
-      col({ id: "C2", name: "C2", quantity: 8, startFloor: 1, endFloor: 3, shape: "HCN" }),
-      (id) =>
-        section({
-          cx: 200,
-          cy: 300,
-          barsX: 3,
-          barsY: id === 3 ? 2 : 3,
-          mainDia: 16,
-        }),
-    ),
-    floorsFor(
-      col({ id: "C1", name: "C1", quantity: 4, startFloor: 1, endFloor: 3, shape: "HCN" }),
-      (id) =>
-        section({
-          cx: 200,
-          cy: 300,
-          barsX: 3,
-          barsY: id === 3 ? 2 : 3,
-          mainDia: id === 1 ? 18 : 16,
-        }),
+      col({ id: "C1", name: "C1", quantity: 1, startFloor: 1, endFloor: 3, shape: "HCN" }),
+      () => section({ cx: 300, cy: 300, barsX: 3, barsY: 3, mainDia: 16 }),
     ),
   ];
 

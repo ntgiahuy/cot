@@ -24,7 +24,7 @@ Mặc định: [http://127.0.0.1:43123/cot/](http://127.0.0.1:43123/cot/)
 4. **Đai bổ sung** — **Đai C** tick bố trí Cx/Cy (cạnh lẻ). **Đai lồng** cùng bố cục, chỉ khi Cx/Cy ≥ 4 thanh. Số cây ôm = 1/3 số thép mặt đó (làm tròn lên, tối thiểu 2). Cạnh ngắn = `n×Ø + (n−1)×hở`. **Đai kép** cùng form Cx/Cy; cạnh ngắn ôm ≥ 2/3 số thép chủ phương đó, tính từ mặt ngoài hai thanh góc của nhóm. Đai lồng và đai kép không dùng đồng thời; đai kép thì bỏ đai đơn.
 5. **Draw / Xuất PDF** — tải `output.pdf`.
 
-Dữ liệu lưu tự động trên trình duyệt (`localStorage`). **New** khôi phục bộ mẫu 3 tầng / 5 cột (BT1, C3, C4, C2, C1) khớp file PDF tham chiếu.
+Dữ liệu lưu tự động trên trình duyệt (`localStorage`). **Mới** khôi phục mặc định: 3 tầng, một cột **C1 (HCN · SL:1)**.
 
 Trọng lượng tính theo `d² / 162.2` (kg/m). **Nối so le** chỉ chọn một: chân cột (50% nD / 50% 2nD) hoặc giữa cột (vị trí (H tầng − H dầm)/2; 50% tại đó, 50% lệch thêm nD). Tầng mái bẻ móc 10d.
 

@@ -47,7 +47,7 @@ import { createSampleProject, emptySection } from "./lib/sample";
 import { BAR_COUNT_MAX, BAR_COUNT_MIN, BAR_DIAMETERS, clampBarCount, clampMainDia, clampTieDia, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
 import "./App.css";
 
-const STORE_KEY = "thep-cot-project-v1";
+const STORE_KEY = "thep-cot-project-v2";
 const COLUMN_ACCENTS = ["#fff12d", "#73ff31", "#79b8ff", "#ff8c42", "#e879f9", "#ff6b6b"];
 
 function publicUrl(path: string) {
@@ -68,7 +68,7 @@ export default function App() {
   const [draftFloorCount, setDraftFloorCount] = useState(3);
   const [draftFloorHeight, setDraftFloorHeight] = useState(4150);
   const [draftBeamHeight, setDraftBeamHeight] = useState(500);
-  const [status, setStatus] = useState<string | null>("Mẫu 3 tầng / 5 cột đã sẵn sàng.");
+  const [status, setStatus] = useState<string | null>("Mặc định: Cột C1 (HCN · SL:1).");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [applyUpper, setApplyUpper] = useState(true);
@@ -326,7 +326,7 @@ export default function App() {
     setSelectedColumnId("C1");
     setSelectedFloorId(1);
     setError(null);
-    setStatus("Đã tạo dự án mới.");
+    setStatus("Đã tạo dự án mới — Cột C1 (HCN · SL:1).");
   }
 
   function saveProject() {
