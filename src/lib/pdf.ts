@@ -812,9 +812,9 @@ function extraTieTargets(
 }
 
 function drawMarkTable(ctx: Ctx, x: number, y: number, rows: SectionMark[]) {
-  const sttW = 22;
-  const nameW = 112;
-  const specW = 96;
+  const sttW = 20;
+  const nameW = 100;
+  const specW = 86;
   const tw = sttW + nameW + specW;
   const rh = 19;
   rows.forEach((row, i) => {
@@ -843,14 +843,14 @@ function drawSectionDetail(
   const marks = sectionMarks(section);
   const tableRows = uniqueSectionMarks(section);
   const tableH = tableRows.length * 19;
-  const leftAnno = 92;
+  const leftAnno = 76;
   const topAnno = 32;
   const botDim = 44;
-  const dimGap = 28;
+  const dimGap = 26;
   const availH = Math.max(58, maxH - topAnno - botDim - tableH - 14);
-  const availW = Math.max(52, maxW - leftAnno - dimGap - 8);
+  const availW = Math.max(48, maxW - leftAnno - dimGap - 8);
   const aspect = section.cy / Math.max(section.cx, 1);
-  let w = Math.min(108, availW);
+  let w = Math.min(88, availW);
   let h = w * aspect;
   if (h > availH) {
     h = availH;
@@ -923,7 +923,7 @@ function drawSectionDetail(
     });
   });
 
-  const tx = x;
+  const tx = boxX;
   const ty0 = y + h + botDim;
   drawMarkTable(ctx, tx, Math.min(ty0, boxY + maxH - tableH - 2), tableRows);
 }
@@ -968,7 +968,7 @@ function drawColumnSheet(
   const explodedX = shaftX + shaftW + 12;
   const dimSpliceX = explodedX + 62;
   const dimTotalX = dimSpliceX + 20;
-  const xD = Math.min(dimTotalX + 16, xE - 320);
+  const xD = Math.max(dimTotalX + 16, xE - SECTION_COL_W);
 
   rect(ctx, gx, gy, gw, gh, 1.05);
   line(ctx, xB, gy, xB, workBot, 0.65);
@@ -1313,9 +1313,10 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   });
 }
 
-/** Chiều rộng một khung cột (mặt đứng ép sát mặt cắt). */
-const COLUMN_SHEET_W = 820;
+/** Chiều rộng một khung cột (mặt đứng ép sát mặt cắt hẹp). */
+const COLUMN_SHEET_W = 590;
 const COLUMN_SHEET_GAP = 8;
+const SECTION_COL_W = 248;
 const SCHEDULE_MIN_W = 400;
 
 export async function generateColumnPdf(
