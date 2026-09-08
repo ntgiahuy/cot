@@ -168,9 +168,12 @@ function dimChainV(
     const b = yEdges[i + 1];
     const mid = (a + b) / 2;
     const tw = ctx.font.widthOfTextAtSize(labels[i], size);
-    const lx = textSide === "left" ? x - textGap : x + textGap;
-    if (Math.abs(b - a) > tw + 12) vtext(ctx, labels[i], lx, mid, size);
-    else textVCenter(ctx, labels[i], lx, mid, size, false, textSide === "left" ? "right" : "left");
+    const lx = textSide === "left" ? x - 4 : x + textGap;
+    if (Math.abs(b - a) > tw + 12) {
+      vtext(ctx, labels[i], lx + size * 0.35, mid, size);
+    } else {
+      textVCenter(ctx, labels[i], lx, mid, size, false, textSide === "left" ? "right" : "left");
+    }
   }
 }
 
