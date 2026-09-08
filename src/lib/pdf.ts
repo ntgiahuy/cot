@@ -28,7 +28,7 @@ import {
   summaryBuckets,
   type SectionMark,
 } from "./calc";
-import { EMBED_MM, STOCK_M, TOP_COVER_MM, type Column, type Floor, type FloorSection, type Project } from "./types";
+import { EMBED_MM, SLAB_HIDE_MM, STOCK_M, TOP_COVER_MM, type Column, type Floor, type FloorSection, type Project } from "./types";
 
 /** A1 ngang — 841 × 594 mm (2384 × 1684 pt). Nhiều cột / trang. */
 const PAGE_W = 2384;
@@ -659,8 +659,9 @@ function stirrupTicksH(
   }
 }
 
-function beamDashInset(h: number) {
-  return Math.max(3.2, Math.min(6.2, Math.abs(h) * 0.16));
+function slabHidePx(scale: number, beamHpx: number) {
+  if (beamHpx < 1) return 0;
+  return Math.min(Math.max(2.2, SLAB_HIDE_MM * scale), beamHpx - 0.8);
 }
 
 function beamEndBreak(ctx: Ctx, x: number, yTop: number, yBot: number, dir: 1 | -1) {
@@ -682,15 +683,15 @@ function drawElevationBeam(
   shaftW: number,
   yTop: number,
   yBot: number,
+  hidePx: number,
 ) {
   const stub = 28;
   const xL = shaftX - stub;
   const xR = shaftX + shaftW + stub;
   const x0 = shaftX;
   const x1 = shaftX + shaftW;
-  const h = Math.abs(yBot - yTop);
-  const d = beamDashInset(h);
   const dash = [3.4, 2.1];
+  const d = Math.max(2.2, hidePx);
 
   line(ctx, xL, yTop, xR, yTop, 0.85);
   line(ctx, xL, yBot, xR, yBot, 0.85);
@@ -1079,12 +1080,14 @@ function drawColumnSheet(
     const prevSection = prevFloor && !isColumnBase ? sectionFor(col, prevFloor.id) : null;
     const section = sectionFor(col, floor.id);
     const zones = storyZones(floor, index, section, col);
+    const beamH = Math.max(0, floor.beamHeightMm) * scale;
+    const hidePx = slabHidePx(scale, beamH);
     const zoneEdges = [yBot];
     let zy = yBot;
     zones.forEach((zone) => {
       const zh = zone.len * scale;
       const zTop = zy - zh;
-      if (zone.dashed) drawElevationBeam(ctx, shaftX, shaftW, zTop, zTop + zh);
+      if (zone.dashed) drawElevationBeam(ctx, shaftX, shaftW, zTop, zTop + zh, hidePx);
       else stirrupTicksH(ctx, shaftX, shaftX + shaftW, zTop, zy, zone.spacing, scale);
       if (zone.label) {
         const mid = (zTop + zy) / 2;
@@ -1103,18 +1106,17 @@ function drawColumnSheet(
       7.5,
     );
 
-    /* Da bê tông cột: trong dầm là nét đứt; từ nét đứt ngang lên tới phân tầng thì bỏ. */
+    /* Da bê tông cột: trong dầm/sàn là nét đứt từ 120 mm dưới cao độ sàn; phía trên bỏ vì sàn che. */
     {
-      const beamH = Math.max(0, floor.beamHeightMm) * scale;
-      const dashY = yTop + beamDashInset(beamH);
       const beamBot = yTop + beamH;
+      const dashY = yTop + hidePx;
       const skinDash = [3.4, 2.1];
       for (const x of [shaftX, shaftX + shaftW]) {
         if (beamH < 1) {
           line(ctx, x, yTop, x, yBot, 1.15);
           continue;
         }
-        line(ctx, x, dashY, x, beamBot, 1.15, skinDash);
+        if (dashY < beamBot - 0.4) line(ctx, x, dashY, x, beamBot, 1.15, skinDash);
         if (beamBot < yBot - 0.4) line(ctx, x, beamBot, x, yBot, 1.15);
       }
     }

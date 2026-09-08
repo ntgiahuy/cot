@@ -111,6 +111,8 @@ export const SPLICE_FACTORS: SpliceFactor[] = [30, 35, 40];
 export const COVER_MM = 25;
 /** Da bảo vệ đỉnh cột — thép dọc mái dừng và bẻ móc dưới mặt bê tông. */
 export const TOP_COVER_MM = 50;
+/** Phần sàn/dầm che da cột trên mặt đứng — nét đứt ngang cách cao độ sàn. */
+export const SLAB_HIDE_MM = 120;
 export const STIRRUP_HOOK_MM = 50;
 export const STOCK_M = 11.7;
 export const EMBED_MM = 600;
