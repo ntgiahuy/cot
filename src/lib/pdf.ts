@@ -11,6 +11,7 @@ import {
   ringBarCenters,
   circularTieCalloutAngle,
   circularTieGeom,
+  type CircularTieOpts,
   columnDiameterMm,
   cTieAlongX,
   cTieAlongY,
@@ -531,13 +532,14 @@ function drawScheduleStirrup(
   textVCenter(ctx, hookLabel, sx + bw + 4.6, sy + Math.min(3.8, bh * 0.28), size, false, "left");
 }
 
-function drawCircularTie(ctx: Ctx, cx: number, cy: number, r: number, stroke: number) {
-  const geom = circularTieGeom(cx, cy, r);
+function drawCircularTie(ctx: Ctx, cx: number, cy: number, r: number, stroke: number, opts: CircularTieOpts = {}) {
+  const geom = circularTieGeom(cx, cy, r, opts);
   arcDeg(ctx, cx, cy, r, geom.startDeg, geom.endDeg, stroke, 48);
   geom.hooks.forEach(([a, b, c]) => {
     line(ctx, a[0], a[1], b[0], b[1], stroke);
     line(ctx, b[0], b[1], c[0], c[1], stroke);
   });
+  return geom;
 }
 
 function drawScheduleRoundStirrup(
@@ -554,15 +556,25 @@ function drawScheduleRoundStirrup(
   const r = Math.min(h * 0.32, w * 0.15);
   const cx = x + w * 0.42;
   const cy = y + h / 2 + 0.6;
-  drawCircularTie(ctx, cx, cy, r, 0.7);
-  const geom = circularTieGeom(cx, cy, r);
-  const [, lowerMid] = geom.hooks[0];
-  const [, upperMid] = geom.hooks[1];
-  textVCenter(ctx, String(Math.round(dia)), cx, cy, size, false, "center");
-  textVCenter(ctx, String(Math.round(hook)), upperMid[0] + 3.4, upperMid[1] - 1.4, size, false, "left");
-  textVCenter(ctx, String(Math.round(hook)), lowerMid[0] + 3.4, lowerMid[1] + 3.2, size, false, "left");
+  const barR = Math.max(1.5, r * (mainDia / Math.max(dia, 1)));
+  const geom = drawCircularTie(ctx, cx, cy, r, 0.7, {
+    gapCenter: 0,
+    gapChord: 2 * barR,
+    bar: {
+      x: cx + (r - barR) * 1,
+      y: cy,
+      r: barR,
+    },
+    hookLen: Math.max(6, r * 0.55),
+  });
+  circle(ctx, geom.bar.x, geom.bar.y, geom.bar.r, true);
+  const [, , lowerTip] = geom.hooks[0];
+  const [, , upperTip] = geom.hooks[1];
+  textVCenter(ctx, String(Math.round(dia)), cx - r * 0.12, cy, size, false, "center");
+  textVCenter(ctx, String(Math.round(hook)), upperTip[0] + 2.8, upperTip[1] - 0.6, size, false, "left");
+  textVCenter(ctx, String(Math.round(hook)), lowerTip[0] + 2.8, lowerTip[1] + 3.4, size, false, "left");
   if (mainDia > 0) {
-    textVCenter(ctx, `2Ø${Math.round(mainDia)}`, cx, y + h - 3.2, 4.8, false, "center");
+    textVCenter(ctx, `Ø${Math.round(mainDia)}`, geom.bar.x + barR + 5.4, geom.bar.y, 4.8, false, "left");
   }
 }
 
@@ -1024,8 +1036,15 @@ function drawSectionDetail(
     const barRingR = Math.max(barR * 1.5, stirrupR - stroke / 2 - gap - barR);
     const pts = ringBarCenters(nBars, cx, cy, barRingR);
 
+    const wrapBar = pts.reduce((best, p) => (p[0] > best[0] ? p : best), pts[0] ?? [cx, cy]);
     circle(ctx, cx, cy, outerR, false);
-    if (hasMainStirrup(section, shape)) drawCircularTie(ctx, cx, cy, stirrupR, stroke);
+    if (hasMainStirrup(section, shape)) {
+      drawCircularTie(ctx, cx, cy, stirrupR, stroke, {
+        gapCenter: Math.atan2(wrapBar[1] - cy, wrapBar[0] - cx),
+        gapChord: 2 * barR,
+        bar: { x: wrapBar[0], y: wrapBar[1], r: barR },
+      });
+    }
     pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
 
     const dMm = columnDiameterMm(section);

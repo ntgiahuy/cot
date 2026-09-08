@@ -20,7 +20,7 @@ Mặc định: [http://127.0.0.1:43123/cot/](http://127.0.0.1:43123/cot/)
 
 1. **Tầng** — nhập số tầng, chiều cao tầng, chiều cao dầm.
 2. **Add / Edit** — khai báo tên cột, số lượng, phạm vi tầng; **Cột HCN** nhập Cx × Cy, **Cột tròn** chỉ nhập **Đường kính**.
-3. Nhấp ô cột trên mặt đứng để **bố trí thép** (số thanh cạnh Cx/Cy từ 2 đến 100; Ø 6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32, 36, 40, 45, 50, 55). Tick *Sử dụng cốt thép đã bố trí cho các tầng trên* nếu muốn copy lên tầng trên. **Cột tròn**: thép chủ xếp đều trên vòng tròn **trong** đai; đai vẽ hở móc 75 mm mỗi đầu; chiều dài `πD + 2Ø thép chủ + 2×75`.
+3. Nhấp ô cột trên mặt đứng để **bố trí thép** (số thanh cạnh Cx/Cy từ 2 đến 100; Ø 6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32, 36, 40, 45, 50, 55). Tick *Sử dụng cốt thép đã bố trí cho các tầng trên* nếu muốn copy lên tầng trên. **Cột tròn**: thép chủ xếp đều trên vòng tròn **trong** đai; khe đai = Ø thép chủ và ôm một thanh; móc 75 mm mỗi đầu; chiều dài `πD + 2Ø thép chủ + 2×75`.
 4. **Đai bổ sung** — **Đai C** tick bố trí Cx/Cy (cạnh lẻ). **Đai lồng** cùng bố cục, chỉ khi Cx/Cy ≥ 4 thanh. Số cây ôm = 1/3 số thép mặt đó (làm tròn lên, tối thiểu 2). Cạnh ngắn = `n×Ø + (n−1)×hở`. **Đai kép** cùng form Cx/Cy; cạnh ngắn ôm ≥ 2/3 số thép chủ phương đó, tính từ mặt ngoài hai thanh góc của nhóm. Đai lồng và đai kép không dùng đồng thời; đai kép thì bỏ đai đơn.
 5. **Draw / Xuất PDF** — tải `output.pdf`.
 

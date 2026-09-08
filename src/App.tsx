@@ -1611,14 +1611,21 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
     }
   }
 
+  const wrapBar = points.length ? points.reduce((best, p) => (p.x > best.x ? p : best), points[0]) : null;
+
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="column-preview" role="img" aria-label="Mặt cắt cột">
       {shape === "TRON" ? (
         <>
           <circle cx={roundCx} cy={roundCy} r={outerR} fill="none" stroke="#f5f5f5" strokeWidth="3" />
-          {hasMainStirrup(section, shape) ? (
+          {hasMainStirrup(section, shape) && wrapBar ? (
             <path
-              d={svgCircularTie(roundCx, roundCy, stirrupR, Math.max(18, stirrupR * 0.22))}
+              d={svgCircularTie(roundCx, roundCy, stirrupR, {
+                gapCenter: Math.atan2(wrapBar.y - roundCy, wrapBar.x - roundCx),
+                gapChord: 2 * barR,
+                bar: { x: wrapBar.x, y: wrapBar.y, r: barR },
+                hookLen: Math.max(barR * 2.8, stirrupR * 0.2),
+              })}
               fill="none"
               stroke="#b0db34"
               strokeWidth={stirrupStroke}

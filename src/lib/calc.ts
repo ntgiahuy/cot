@@ -22,31 +22,55 @@ export function circularStirrupLengthMm(section: FloorSection) {
 
 type Pt = [number, number];
 
-/** Đai vòng mở giữa hai thanh (mặc định 22.5°), hai móc 135° hướng vào tâm. */
-export function circularTieGeom(cx: number, cy: number, r: number, hookLen?: number) {
-  const gapCenter = (22.5 * Math.PI) / 180;
-  const half = (16 * Math.PI) / 180;
-  const hook = hookLen ?? Math.max(6, r * 0.38);
-  const ret = hook * 0.72;
+export type CircularTieOpts = {
+  hookLen?: number;
+  /** Góc tâm khe (rad). Mặc định 0 — thanh bên phải. */
+  gapCenter?: number;
+  /** Khoảng hở (dây cung) = đường kính thép chủ, đơn vị vẽ. */
+  gapChord?: number;
+  /** Thanh chủ bị ôm trong khe. */
+  bar?: { x: number; y: number; r: number };
+};
+
+function rot2(vx: number, vy: number, ang: number): Pt {
+  const c = Math.cos(ang);
+  const s = Math.sin(ang);
+  return [vx * c - vy * s, vx * s + vy * c];
+}
+
+/** Đai vòng: khe = Ø thép chủ, ôm đúng một thanh, móc 135° quanh thanh đó. */
+export function circularTieGeom(cx: number, cy: number, r: number, opts: CircularTieOpts = {}) {
+  const gapCenter = opts.gapCenter ?? 0;
+  const chord = Math.max(1.2, opts.gapChord ?? r * 0.12);
+  const half = Math.asin(Math.min(0.92, chord / (2 * Math.max(r, 1))));
+  const bar = opts.bar ?? {
+    x: cx + Math.max(r - chord / 2, r * 0.55) * Math.cos(gapCenter),
+    y: cy + Math.max(r - chord / 2, r * 0.55) * Math.sin(gapCenter),
+    r: chord / 2,
+  };
+  const hook = opts.hookLen ?? Math.max(bar.r * 2.6, r * 0.22);
   const startA = gapCenter + half;
   const endA = gapCenter - half;
-  const pt = (a: number): Pt => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-  const start = pt(startA);
-  const end = pt(endA);
-  const tStart: Pt = [Math.sin(startA), -Math.cos(startA)];
-  const inStart: Pt = [-Math.cos(startA), -Math.sin(startA)];
-  const s1: Pt = [start[0] + tStart[0] * hook, start[1] + tStart[1] * hook];
-  const s2: Pt = [
-    s1[0] + (-tStart[0] * 0.5 + inStart[0] * 0.87) * ret,
-    s1[1] + (-tStart[1] * 0.5 + inStart[1] * 0.87) * ret,
-  ];
-  const tEnd: Pt = [-Math.sin(endA), Math.cos(endA)];
-  const inEnd: Pt = [-Math.cos(endA), -Math.sin(endA)];
-  const e1: Pt = [end[0] + tEnd[0] * hook, end[1] + tEnd[1] * hook];
-  const e2: Pt = [
-    e1[0] + (-tEnd[0] * 0.5 + inEnd[0] * 0.87) * ret,
-    e1[1] + (-tEnd[1] * 0.5 + inEnd[1] * 0.87) * ret,
-  ];
+  const onRing = (a: number): Pt => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  const start = onRing(startA);
+  const end = onRing(endA);
+  const toward: Pt = [cx - bar.x, cy - bar.y];
+  const wrap = (P: Pt): [Pt, Pt] => {
+    const vx = P[0] - bar.x;
+    const vy = P[1] - bar.y;
+    const cross = vx * toward[1] - vy * toward[0];
+    const sign = cross >= 0 ? 1 : -1;
+    const v1 = rot2(vx, vy, sign * 0.95);
+    const v2 = rot2(vx, vy, sign * 2.2);
+    const n1 = Math.hypot(v1[0], v1[1]) || 1;
+    const n2 = Math.hypot(v2[0], v2[1]) || 1;
+    const len = Math.hypot(vx, vy) || 1;
+    const mid: Pt = [bar.x + (v1[0] / n1) * len, bar.y + (v1[1] / n1) * len];
+    const tip: Pt = [bar.x + (v2[0] / n2) * (bar.r + hook * 0.42), bar.y + (v2[1] / n2) * (bar.r + hook * 0.42)];
+    return [mid, tip];
+  };
+  const [s1, s2] = wrap(start);
+  const [e1, e2] = wrap(end);
   return {
     r,
     startDeg: (startA * 180) / Math.PI,
@@ -55,6 +79,7 @@ export function circularTieGeom(cx: number, cy: number, r: number, hookLen?: num
     endA,
     start,
     end,
+    bar,
     hooks: [
       [start, s1, s2],
       [end, e1, e2],
@@ -62,8 +87,8 @@ export function circularTieGeom(cx: number, cy: number, r: number, hookLen?: num
   };
 }
 
-export function svgCircularTie(cx: number, cy: number, r: number, hookLen?: number) {
-  const p = circularTieGeom(cx, cy, r, hookLen);
+export function svgCircularTie(cx: number, cy: number, r: number, opts: CircularTieOpts = {}) {
+  const p = circularTieGeom(cx, cy, r, opts);
   const n = (v: number) => v.toFixed(2);
   const [ls, l1, l2] = p.hooks[0];
   const [us, u1, u2] = p.hooks[1];
