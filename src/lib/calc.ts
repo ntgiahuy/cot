@@ -61,79 +61,90 @@ export type CircularTieOpts = {
 };
 
 export type CircularTieHook = {
-  innerR: number;
-  outerR: number;
-  a0: number;
-  a1: number;
-  bar: { x: number; y: number; r: number };
+  tanCircle: Pt;
+  tanLine: Pt;
+  tip: Pt;
+  fillet: { x: number; y: number; r: number; a0: number; a1: number; sweep: 0 | 1 };
   flower: BarEndMark;
-  startInner: Pt;
-  startOuter: Pt;
-  endInner: Pt;
-  endOuter: Pt;
-  sweep: 0 | 1;
 };
 
-/** Đai vòng: khe = Ø thép chủ, ôm đúng một thanh; móc = hai nét + đầu hoa. */
+function shortSweep(a0: number, a1: number): 0 | 1 {
+  let d = a1 - a0;
+  while (d <= -Math.PI) d += Math.PI * 2;
+  while (d > Math.PI) d -= Math.PI * 2;
+  return d >= 0 ? 1 : 0;
+}
+
+/** Đai vòng: thân cung tròn; hai móc song song hướng tâm, góc bo, ôm một thanh chủ. */
 export function circularTieGeom(cx: number, cy: number, r: number, opts: CircularTieOpts = {}) {
   const gapCenter = opts.gapCenter ?? 0;
   const chord = Math.max(1.2, opts.gapChord ?? r * 0.12);
-  const half = Math.asin(Math.min(0.92, chord / (2 * Math.max(r, 1))));
   const bar = opts.bar ?? {
     x: cx + Math.max(r - chord / 2, r * 0.55) * Math.cos(gapCenter),
     y: cy + Math.max(r - chord / 2, r * 0.55) * Math.sin(gapCenter),
     r: chord / 2,
   };
-  const thick = opts.hookThick ?? Math.max(bar.r * 0.58, r * 0.05, 1.2);
-  const innerR = bar.r * 1.05;
-  const outerR = innerR + thick;
-  const wrap = 2.12;
-  const startA = gapCenter + half;
-  const endA = gapCenter - half;
-  const onRing = (a: number): Pt => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-  const start = onRing(startA);
-  const end = onRing(endA);
-  const toward: Pt = [cx - bar.x, cy - bar.y];
+  const ux = Math.cos(gapCenter);
+  const uy = Math.sin(gapCenter);
+  const px = -uy;
+  const py = ux;
+  const ix = -ux;
+  const iy = -uy;
+  const offset = Math.max(bar.r * 1.02, 1.15);
+  const rf = Math.min(Math.max(bar.r * 0.9, r * 0.07, 2.2), offset * 0.92, r * 0.2);
+  const hookLen = opts.hookLen ?? Math.max(bar.r * 2.6, r * 0.22, rf * 2.4);
 
-  const makeHook = (P: Pt): CircularTieHook => {
-    const vx = P[0] - bar.x;
-    const vy = P[1] - bar.y;
-    const cross = vx * toward[1] - vy * toward[0];
-    const sign = cross >= 0 ? 1 : -1;
-    const a0 = Math.atan2(vy, vx);
-    const a1 = a0 + sign * wrap;
-    const at = (rad: number, ang: number): Pt => [bar.x + rad * Math.cos(ang), bar.y + rad * Math.sin(ang)];
-    const midR = (innerR + outerR) / 2;
-    const flowerR = thick / 2;
+  const makeHook = (sign: 1 | -1): CircularTieHook => {
+    const qx = bar.x + sign * px * offset;
+    const qy = bar.y + sign * py * offset;
+    const nx = -sign * px;
+    const ny = -sign * py;
+    const fx0 = qx + nx * rf - cx;
+    const fy0 = qy + ny * rf - cy;
+    const bq = 2 * (fx0 * ix + fy0 * iy);
+    const c0 = fx0 * fx0 + fy0 * fy0 - (r - rf) * (r - rf);
+    const disc = Math.max(0, bq * bq - 4 * c0);
+    const root = Math.sqrt(disc);
+    const s1 = (-bq + root) / 2;
+    const s2 = (-bq - root) / 2;
+    const s = Math.min(s1, s2);
+    const Fx = qx + nx * rf + ix * s;
+    const Fy = qy + ny * rf + iy * s;
+    const fdx = Fx - cx;
+    const fdy = Fy - cy;
+    const fn = Math.hypot(fdx, fdy) || 1;
+    const tanCircle: Pt = [cx + (r * fdx) / fn, cy + (r * fdy) / fn];
+    const tanLine: Pt = [qx + ix * s, qy + iy * s];
+    const tip: Pt = [tanLine[0] + ix * hookLen, tanLine[1] + iy * hookLen];
+    const a0 = Math.atan2(tanCircle[1] - Fy, tanCircle[0] - Fx);
+    const a1 = Math.atan2(tanLine[1] - Fy, tanLine[0] - Fx);
     return {
-      innerR,
-      outerR,
-      a0,
-      a1,
-      bar,
-      flower: {
-        x: bar.x + midR * Math.cos(a1),
-        y: bar.y + midR * Math.sin(a1),
-        r: flowerR,
-      },
-      startInner: at(innerR, a0),
-      startOuter: at(outerR, a0),
-      endInner: at(innerR, a1),
-      endOuter: at(outerR, a1),
-      sweep: sign > 0 ? 1 : 0,
+      tanCircle,
+      tanLine,
+      tip,
+      fillet: { x: Fx, y: Fy, r: rf, a0, a1, sweep: shortSweep(a0, a1) },
+      flower: { x: tip[0], y: tip[1], r: Math.max(1.2, rf * 0.35) },
     };
   };
 
+  const lower = makeHook(1);
+  const upper = makeHook(-1);
+  const start = lower.tanCircle;
+  const end = upper.tanCircle;
+  let startDeg = (Math.atan2(start[1] - cy, start[0] - cx) * 180) / Math.PI;
+  let endDeg = (Math.atan2(end[1] - cy, end[0] - cx) * 180) / Math.PI;
+  if (endDeg <= startDeg) endDeg += 360;
+
   return {
     r,
-    startDeg: (startA * 180) / Math.PI,
-    endDeg: (endA * 180) / Math.PI + 360,
-    startA,
-    endA,
+    startDeg,
+    endDeg,
+    startA: (startDeg * Math.PI) / 180,
+    endA: (endDeg * Math.PI) / 180,
     start,
     end,
     bar,
-    hooks: [makeHook(start), makeHook(end)],
+    hooks: [lower, upper],
   };
 }
 
@@ -148,12 +159,12 @@ export function svgCircularTie(cx: number, cy: number, r: number, opts: Circular
     `M ${n(p.start[0])} ${n(p.start[1])}`,
     `A ${n(r)} ${n(r)} 0 1 1 ${n(p.end[0])} ${n(p.end[1])}`,
   ];
-  p.hooks.forEach((h, i) => {
-    const join = i === 0 ? p.start : p.end;
-    parts.push(`M ${fmtPt(join)} L ${fmtPt(h.startInner)}`);
-    parts.push(`M ${fmtPt(join)} L ${fmtPt(h.startOuter)}`);
-    parts.push(`M ${fmtPt(h.startInner)} A ${n(h.innerR)} ${n(h.innerR)} 0 0 ${h.sweep} ${fmtPt(h.endInner)}`);
-    parts.push(`M ${fmtPt(h.startOuter)} A ${n(h.outerR)} ${n(h.outerR)} 0 0 ${h.sweep} ${fmtPt(h.endOuter)}`);
+  p.hooks.forEach((h) => {
+    const f = h.fillet;
+    parts.push(
+      `M ${fmtPt(h.tanCircle)} A ${n(f.r)} ${n(f.r)} 0 0 ${f.sweep} ${fmtPt(h.tanLine)}`,
+      `L ${fmtPt(h.tip)}`,
+    );
   });
   return parts.join(" ");
 }

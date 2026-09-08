@@ -45,7 +45,6 @@ import {
   ringBarCenters,
   circularStirrupDiaMm,
   circularStirrupLengthMm,
-  circularTieGeom,
   columnDiameterMm,
   svgBarEndFlowerPetals,
   svgCircularTie,
@@ -1617,10 +1616,9 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
         gapCenter: Math.atan2(wrapBar.y - roundCy, wrapBar.x - roundCx),
         gapChord: 2 * barR,
         bar: { x: wrapBar.x, y: wrapBar.y, r: barR },
-        hookThick: Math.max(14, barR * 1.15),
+        hookLen: Math.max(barR * 3.2, stirrupR * 0.22),
       }
     : null;
-  const circularGeom = circularOpts ? circularTieGeom(roundCx, roundCy, stirrupR, circularOpts) : null;
   const rectStirrup = svgRoundedStirrup(
     originX + stirrupOffset,
     originY + stirrupOffset,
@@ -1633,7 +1631,7 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
       {shape === "TRON" ? (
         <>
           <circle cx={roundCx} cy={roundCy} r={outerR} fill="none" stroke="#f5f5f5" strokeWidth="3" />
-          {hasMainStirrup(section, shape) && circularOpts && circularGeom ? (
+          {hasMainStirrup(section, shape) && circularOpts ? (
             <path
               d={svgCircularTie(roundCx, roundCy, stirrupR, circularOpts)}
               fill="none"
@@ -1673,11 +1671,6 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
       {points.map((point, index) => (
         <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r={barR} fill="#ff2f2f" />
       ))}
-      {shape === "TRON" && circularGeom
-        ? circularGeom.hooks.map((h, i) => (
-            <BarEndFlower key={`cf-${i}`} x={h.flower.x} y={h.flower.y} r={h.flower.r} fill="#b0db34" />
-          ))
-        : null}
       {shape !== "TRON" && hasMainStirrup(section)
         ? rectStirrup.flowers.map((f, i) => (
             <BarEndFlower key={`rf-${i}`} x={f.x} y={f.y} r={f.r} fill="#b0db34" />

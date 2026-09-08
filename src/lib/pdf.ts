@@ -551,18 +551,24 @@ function drawScheduleStirrup(
   textVCenter(ctx, hookLabel, hookGeom.flower.x + hookGeom.flower.r + 3.2, hookGeom.flower.y, size, false, "left");
 }
 
+function arcShort(ctx: Ctx, cx: number, cy: number, r: number, a0: number, a1: number, sweep: 0 | 1, t: number) {
+  let d0 = (a0 * 180) / Math.PI;
+  let d1 = (a1 * 180) / Math.PI;
+  if (sweep === 1) {
+    while (d1 < d0) d1 += 360;
+  } else {
+    while (d1 > d0) d1 -= 360;
+  }
+  arcDeg(ctx, cx, cy, r, d0, d1, t, 16);
+}
+
 function drawCircularTie(ctx: Ctx, cx: number, cy: number, r: number, stroke: number, opts: CircularTieOpts = {}) {
   const geom = circularTieGeom(cx, cy, r, opts);
   arcDeg(ctx, cx, cy, r, geom.startDeg, geom.endDeg, stroke, 48);
-  geom.hooks.forEach((h, i) => {
-    const join = i === 0 ? geom.start : geom.end;
-    const d0 = (h.a0 * 180) / Math.PI;
-    const d1 = (h.a1 * 180) / Math.PI;
-    line(ctx, join[0], join[1], h.startInner[0], h.startInner[1], Math.max(0.45, stroke * 0.85));
-    line(ctx, join[0], join[1], h.startOuter[0], h.startOuter[1], Math.max(0.45, stroke * 0.85));
-    arcDeg(ctx, h.bar.x, h.bar.y, h.innerR, d0, d1, Math.max(0.45, stroke * 0.85), 18);
-    arcDeg(ctx, h.bar.x, h.bar.y, h.outerR, d0, d1, Math.max(0.45, stroke * 0.85), 18);
-    drawBarEndFlower(ctx, h.flower.x, h.flower.y, Math.max(1.35, h.flower.r));
+  geom.hooks.forEach((h) => {
+    const f = h.fillet;
+    arcShort(ctx, f.x, f.y, f.r, f.a0, f.a1, f.sweep, stroke);
+    line(ctx, h.tanLine[0], h.tanLine[1], h.tip[0], h.tip[1], stroke);
   });
   return geom;
 }
@@ -590,15 +596,14 @@ function drawScheduleRoundStirrup(
       y: cy,
       r: barR,
     },
-    hookThick: Math.max(2.8, barR * 1.1),
+    hookLen: Math.max(6, r * 0.55),
   });
   circle(ctx, geom.bar.x, geom.bar.y, geom.bar.r, true);
-  geom.hooks.forEach((h) => drawBarEndFlower(ctx, h.flower.x, h.flower.y, Math.max(1.35, h.flower.r)));
-  const upper = geom.hooks[0].flower.y <= geom.hooks[1].flower.y ? geom.hooks[0] : geom.hooks[1];
+  const upper = geom.hooks[0].tip[1] <= geom.hooks[1].tip[1] ? geom.hooks[0] : geom.hooks[1];
   const lower = upper === geom.hooks[0] ? geom.hooks[1] : geom.hooks[0];
   textVCenter(ctx, String(Math.round(dia)), cx - r * 0.12, cy, size, false, "center");
-  textVCenter(ctx, String(Math.round(hook)), upper.flower.x + upper.flower.r + 2.4, upper.flower.y - 0.4, size, false, "left");
-  textVCenter(ctx, String(Math.round(hook)), lower.flower.x + lower.flower.r + 2.4, lower.flower.y + 3.2, size, false, "left");
+  textVCenter(ctx, String(Math.round(hook)), upper.tip[0] - 2.2, upper.tip[1] - 0.4, size, false, "right");
+  textVCenter(ctx, String(Math.round(hook)), lower.tip[0] - 2.2, lower.tip[1] + 3.2, size, false, "right");
   if (mainDia > 0) {
     textVCenter(ctx, `Ø${Math.round(mainDia)}`, geom.bar.x + barR + 5.4, geom.bar.y, 4.8, false, "left");
   }
@@ -1073,17 +1078,13 @@ function drawSectionDetail(
     const wrapBar = pts.reduce((best, p) => (p[0] > best[0] ? p : best), pts[0] ?? [cx, cy]);
     circle(ctx, cx, cy, outerR, false);
     if (hasMainStirrup(section, shape)) {
-      const tie = drawCircularTie(ctx, cx, cy, stirrupR, stroke, {
+      drawCircularTie(ctx, cx, cy, stirrupR, stroke, {
         gapCenter: Math.atan2(wrapBar[1] - cy, wrapBar[0] - cx),
         gapChord: 2 * barR,
         bar: { x: wrapBar[0], y: wrapBar[1], r: barR },
-        hookThick: Math.max(3.2, barR * 1.05),
       });
-      pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
-      tie.hooks.forEach((h) => drawBarEndFlower(ctx, h.flower.x, h.flower.y, Math.max(1.35, h.flower.r)));
-    } else {
-      pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
     }
+    pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
 
     const dMm = columnDiameterMm(section);
     dimH(ctx, x, x + w, y + h + 18, `D${dMm}`, 8);
