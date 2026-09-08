@@ -7,8 +7,6 @@ import {
   explodedMarksForFloor,
   floorElevations,
   formatBarLabel,
-  uniqueLongBarMarks,
-  barCount,
   cTieAlongX,
   cTieAlongY,
   doubleAlongX,
@@ -248,7 +246,6 @@ function drawExplodedBarMarks(
   ctx: Ctx,
   bars: Array<{ x: number; y0: number; y1: number; mark: string }>,
   balloonX: number,
-  specOf: (mark: string) => string,
 ) {
   const grouped = new Map<string, { mark: string; xBar: number; yMid: number; n: number }>();
   bars.forEach((bar) => {
@@ -261,7 +258,6 @@ function drawExplodedBarMarks(
     }
   });
   const r = 7.4;
-  const labelSize = 6.5;
   const minGap = r * 2 + 6;
   const items = [...grouped.values()].sort((a, b) => a.yMid - b.yMid);
   items.forEach((item, i) => {
@@ -270,11 +266,9 @@ function drawExplodedBarMarks(
     }
   });
   items.forEach((item) => {
-    const spec = specOf(item.mark);
     const sx = balloonX - r - 0.5;
     line(ctx, item.xBar, item.yMid, sx, item.yMid, 0.45);
     balloon(ctx, balloonX, item.yMid, item.mark, r);
-    specAbove(ctx, spec, sx - 0.4, item.yMid, labelSize, "right");
   });
 }
 
@@ -1075,7 +1069,6 @@ function drawColumnSheet(
   const explodedX = shaftX + shaftW + BEAM_STUB + 20;
   const explodeMarkX = explodedX + 40;
   const dimSpliceX = explodeMarkX + 15;
-  const longMarks = uniqueLongBarMarks(col, project.floors);
   const dimTotalX = dimSpliceX + 20;
   const xD = Math.max(dimTotalX + 16, xE - SECTION_COL_W);
 
@@ -1200,10 +1193,6 @@ function drawColumnSheet(
       drawHeadLockHook(ctx, x, explodeTop, dir, headLockLenPx(section.mainDia, scale, room), 1.15);
     };
     const explodeMarks = explodedMarksForFloor(col, project.floors, floor.id);
-    const specOf = (mark: string) => {
-      const row = longMarks.find((item) => item.mark === mark);
-      return `${row?.qty ?? barCount(section)}Ø${section.mainDia}`;
-    };
     const xLeft = explodedX;
     const xRight = explodedX + 14;
     if (topsMm.length) {
@@ -1231,7 +1220,6 @@ function drawColumnSheet(
           { x: xRight, y0: cR, y1: explodeTop, mark: explodeMarks.upper[1] },
         ],
         explodeMarkX,
-        specOf,
       );
     } else {
       line(ctx, explodedX, explodeTop, explodedX, yBot - 2, 1.15);
@@ -1245,7 +1233,6 @@ function drawColumnSheet(
           { x: xRight, y0: yBot, y1: explodeTop, mark: explodeMarks.lower[1] },
         ],
         explodeMarkX,
-        specOf,
       );
     }
 
