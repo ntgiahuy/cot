@@ -328,60 +328,89 @@ function strokeSvg(ctx: Ctx, d: string, originX: number, originPdfY: number, w =
   });
 }
 
-/** Đai chữ nhật. Mặc định 3 góc bo + móc 135°. `closedR` = bo 4 góc ôm ngoài sắt chủ (mặt cắt). */
-function drawRoundedStirrup(
+/** Cung tròn, 0° = +x, 90° = +y (xuống trang). */
+function arcDeg(ctx: Ctx, cx: number, cy: number, r: number, startDeg: number, endDeg: number, t: number) {
+  const steps = 14;
+  const s = (startDeg * Math.PI) / 180;
+  const e = (endDeg * Math.PI) / 180;
+  let px = cx + r * Math.cos(s);
+  let py = cy + r * Math.sin(s);
+  for (let i = 1; i <= steps; i += 1) {
+    const a = s + ((e - s) * i) / steps;
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    line(ctx, px, py, x, y, t);
+    px = x;
+    py = y;
+  }
+}
+
+function dashV(ctx: Ctx, x: number, y1: number, y2: number, on = 3.2, off = 2.4, w = 0.32) {
+  const top = Math.min(y1, y2);
+  const bot = Math.max(y1, y2);
+  for (let y = top; y < bot; y += on + off) {
+    line(ctx, x, y, x, Math.min(y + on, bot), w);
+  }
+}
+
+/** Đai chữ nhật shop thép dầm: 4 cạnh bo + hai móc 135° góc trên-phải. */
+function drawStirrupFrame(ctx: Ctx, x: number, y: number, w: number, h: number, t = 0.7) {
+  if (w < 6 || h < 6) {
+    rect(ctx, x, y, w, h, t);
+    return;
+  }
+  const r = Math.max(0.85, Math.min(3.2, Math.min(w, h) * 0.055));
+  const hook = Math.max(4.5, Math.min(16, Math.min(w, h) * 0.15));
+  const L = x;
+  const R = x + w;
+  const T = y;
+  const B = y + h;
+  line(ctx, L + r, T, R - r, T, t);
+  line(ctx, L, T + r, L, B - r, t);
+  line(ctx, L + r, B, R - r, B, t);
+  line(ctx, R, T + r, R, B - r, t);
+  arcDeg(ctx, L + r, T + r, r, 180, 270, t);
+  arcDeg(ctx, L + r, B - r, r, 90, 180, t);
+  arcDeg(ctx, R - r, B - r, r, 0, 90, t);
+  arcDeg(ctx, R - r, T + r, r, 270, 296, t);
+  const a1 = (296 * Math.PI) / 180;
+  const x1 = R - r + r * Math.cos(a1);
+  const y1 = T + r + r * Math.sin(a1);
+  line(ctx, x1, y1, x1 - hook * 0.78, y1 + hook * 0.78, t);
+  arcDeg(ctx, R - r, T + r, r, 0, -26, t);
+  const a2 = (-26 * Math.PI) / 180;
+  const x2 = R - r + r * Math.cos(a2);
+  const y2 = T + r + r * Math.sin(a2);
+  line(ctx, x2, y2, x2 - hook * 0.78, y2 + hook * 0.78, t);
+}
+
+/** Ô thống kê: cạnh ngang trong lòng, cạnh đứng bên trái, móc bên phải. */
+function drawScheduleStirrup(
   ctx: Ctx,
   x: number,
   y: number,
   w: number,
   h: number,
-  stroke = 0.85,
-  hookRatio = 0.22,
-  closedR?: number,
+  hook: number,
+  a: number,
+  b: number,
 ) {
-  if (w < 8 || h < 8) {
-    rect(ctx, x, y, w, h, stroke);
-    return;
-  }
-  const k = 0.5522847498;
-  const L = (px: number, py: number) => `${n2(px)} ${n2(py)}`;
-  if (closedR != null) {
-    const r = Math.max(2.4, Math.min(closedR, Math.min(w, h) / 2 - 0.8));
-    const rk = r * k;
-    const path = [
-      `M ${L(r, 0)}`,
-      `L ${L(w - r, 0)}`,
-      `C ${L(w - r + rk, 0)} ${L(w, rk)} ${L(w, r)}`,
-      `L ${L(w, h - r)}`,
-      `C ${L(w, h - r + rk)} ${L(w - rk, h)} ${L(w - r, h)}`,
-      `L ${L(r, h)}`,
-      `C ${L(r - rk, h)} ${L(0, h - rk)} ${L(0, h - r)}`,
-      `L ${L(0, r)}`,
-      `C ${L(0, r - rk)} ${L(rk, 0)} ${L(r, 0)}`,
-    ].join(" ");
-    strokeSvg(ctx, path, x, ty(ctx, y), stroke);
-    return;
-  }
-  const r = Math.max(2.6, Math.min(Math.min(w, h) * 0.18, Math.min(w, h) / 2 - 1.1));
-  const hook = Math.max(5.5, Math.min(13, Math.min(w, h) * hookRatio));
-  const d = hook * 0.7071;
-  let gap = Math.max(1.8, Math.min(3.6, stroke * 2.2));
-  if (h - gap < r + 2) gap = Math.max(1.2, h - r - 2);
-  if (w - gap < r + 2) gap = Math.max(1.2, w - r - 2);
-  const rk = r * k;
-  const path = [
-    `M ${L(gap + d, d)}`,
-    `L ${L(gap, 0)}`,
-    `L ${L(w - r, 0)}`,
-    `C ${L(w - r + rk, 0)} ${L(w, rk)} ${L(w, r)}`,
-    `L ${L(w, h - r)}`,
-    `C ${L(w, h - r + rk)} ${L(w - rk, h)} ${L(w - r, h)}`,
-    `L ${L(r, h)}`,
-    `C ${L(r - rk, h)} ${L(0, h - rk)} ${L(0, h - r)}`,
-    `L ${L(0, gap)}`,
-    `L ${L(d, gap + d)}`,
-  ].join(" ");
-  strokeSvg(ctx, path, x, ty(ctx, y), stroke);
+  const size = 5.4;
+  const widthLabel = String(Math.round(a));
+  const heightLabel = String(Math.round(b));
+  const hookLabel = String(Math.round(hook));
+  const leftW = ctx.font.widthOfTextAtSize(heightLabel, size);
+  const rightW = ctx.font.widthOfTextAtSize(hookLabel, size);
+  const bw = Math.min(46, Math.max(22, w * 0.4));
+  const bh = Math.min(h - 4, 12.5);
+  const leftPad = leftW + 5;
+  const rightPad = rightW + 5.2;
+  const sx = x + leftPad + Math.max(0, (w - leftPad - rightPad - bw) / 2);
+  const sy = y + (h - bh) / 2;
+  drawStirrupFrame(ctx, sx, sy, bw, bh, 0.65);
+  textVCenter(ctx, heightLabel, sx - 2.8, sy + bh / 2, size, false, "right");
+  textVCenter(ctx, widthLabel, sx + bw / 2, sy + bh / 2, size, false, "center");
+  textVCenter(ctx, hookLabel, sx + bw + 4.6, sy + Math.min(3.8, bh * 0.28), size, false, "left");
 }
 
 /** Đai C / U: thân bo góc, hai đầu móc. */
@@ -600,29 +629,29 @@ function drawSectionTies(
   const g = sectionGeom(section, x, y, w, h);
   const { sLeft, sTop, sW, sH, sRight, sBottom, xs, ys, wrapPad, stroke } = g;
   if (hasMainStirrup(section)) {
-    drawRoundedStirrup(ctx, sLeft, sTop, sW, sH, stroke, 0.26, wrapPad);
+    drawStirrupFrame(ctx, sLeft, sTop, sW, sH, stroke);
   }
   if (nestedAlongX(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x");
-    drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7, 0.22, wrapPad);
+    drawStirrupFrame(ctx, box.x, box.y, box.w, box.h, 0.7);
   }
   if (nestedAlongY(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y");
-    drawRoundedStirrup(ctx, box.x, box.y, box.w, box.h, 0.7, 0.22, wrapPad);
+    drawStirrupFrame(ctx, box.x, box.y, box.w, box.h, 0.7);
   }
   if (doubleAlongX(section) && !section.tieNested.enabled) {
     const wrap = doubleMinWrap(section.barsX);
     const leftBox = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "start");
     const rightBox = nestedTieRect(section.barsX, xs, wrapPad, sTop, sH, "x", wrap, "end");
-    drawRoundedStirrup(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.7, 0.22, wrapPad);
-    drawRoundedStirrup(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.7, 0.22, wrapPad);
+    drawStirrupFrame(ctx, leftBox.x, leftBox.y, leftBox.w, leftBox.h, 0.7);
+    drawStirrupFrame(ctx, rightBox.x, rightBox.y, rightBox.w, rightBox.h, 0.7);
   }
   if (doubleAlongY(section) && !section.tieNested.enabled) {
     const wrap = doubleMinWrap(section.barsY);
     const topBox = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "start");
     const botBox = nestedTieRect(section.barsY, ys, wrapPad, sLeft, sW, "y", wrap, "end");
-    drawRoundedStirrup(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.7, 0.22, wrapPad);
-    drawRoundedStirrup(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.7, 0.22, wrapPad);
+    drawStirrupFrame(ctx, topBox.x, topBox.y, topBox.w, topBox.h, 0.7);
+    drawStirrupFrame(ctx, botBox.x, botBox.y, botBox.w, botBox.h, 0.7);
   }
   if (cTieAlongX(section)) {
     const cx = sLeft + sW / 2;
@@ -762,6 +791,7 @@ function drawSectionDetail(
   } else {
     rect(ctx, x, y, w, h, 1.15);
     drawSectionTies(ctx, section, x, y, w, h);
+    dashV(ctx, x + w / 2, y - 2, y + h + 6, 2.6, 1.9, 0.28);
   }
 
   pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
@@ -826,7 +856,7 @@ function drawSectionDetail(
     const dx = isoX + i * (isoW + isoGap);
     const dy = isoY + (48 - ih) / 2;
     if (row.kind === "c") drawCStirrup(ctx, dx, dy, dx + iw, dy + ih, "right", 1.05);
-    else drawRoundedStirrup(ctx, dx, dy, iw, ih, 1.05, 0.4);
+    else drawStirrupFrame(ctx, dx, dy, iw, ih, 1.05);
     balloon(ctx, dx + iw / 2, dy + ih + 12, row.mark, 6.6);
   });
 
@@ -1089,12 +1119,16 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
     const midY = rowY + rowH * 0.55;
     if (row.kind === "stirrup") {
       const [hook, a, b] = row.segs;
-      line(ctx, shapeX + 18, midY, shapeX + 62, midY, 0.7);
-      line(ctx, shapeX + 18, midY, shapeX + 18, midY - 8, 0.7);
-      line(ctx, shapeX + 62, midY, shapeX + 62, midY - 8, 0.7);
-      text(ctx, String(a), shapeX + 40, midY - 10, 5.5, false, "center");
-      text(ctx, String(b), shapeX + 66, midY - 2, 5.5);
-      text(ctx, String(hook), shapeX + 14, midY - 2, 5.5, false, "right");
+      if (b === hook) {
+        line(ctx, shapeX + 18, midY, shapeX + 62, midY, 0.7);
+        line(ctx, shapeX + 18, midY, shapeX + 18, midY - 8, 0.7);
+        line(ctx, shapeX + 62, midY, shapeX + 62, midY - 8, 0.7);
+        text(ctx, String(a), shapeX + 40, midY - 10, 5.5, false, "center");
+        text(ctx, String(hook), shapeX + 14, midY - 2, 5.5, false, "right");
+        text(ctx, String(b), shapeX + 66, midY - 2, 5.5);
+      } else {
+        drawScheduleStirrup(ctx, xs[2], rowY, cols[2].w, rowH, hook, a, b);
+      }
     } else if (row.kind === "long-hook") {
       line(ctx, shapeX + 18, midY, shapeX + 78, midY, 0.7);
       line(ctx, shapeX + 18, midY, shapeX + 18, midY - 8, 0.7);
