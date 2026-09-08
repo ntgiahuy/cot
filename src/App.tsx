@@ -47,7 +47,7 @@ import { createSampleProject, emptySection } from "./lib/sample";
 import { BAR_COUNT_MAX, BAR_COUNT_MIN, BAR_DIAMETERS, clampBarCount, clampMainDia, clampTieDia, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
 import "./App.css";
 
-const STORE_KEY = "thep-cot-project-v2";
+const STORE_KEY = "thep-cot-project-v3";
 const COLUMN_ACCENTS = ["#fff12d", "#73ff31", "#79b8ff", "#ff8c42", "#e879f9", "#ff6b6b"];
 
 function publicUrl(path: string) {

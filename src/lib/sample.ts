@@ -58,13 +58,13 @@ export function createSampleProject(): Project {
   const columns: Column[] = [
     floorsFor(
       col({ id: "C1", name: "C1", quantity: 1, startFloor: 1, endFloor: 3, shape: "HCN" }),
-      () => section({ cx: 300, cy: 300, barsX: 3, barsY: 3, mainDia: 16 }),
+      () => section({ cx: 300, cy: 400, barsX: 3, barsY: 3, mainDia: 16 }),
     ),
   ];
 
   return { floors, columns };
 }
 
-export function emptySection(cx = 300, cy = 300): FloorSection {
+export function emptySection(cx = 300, cy = 400): FloorSection {
   return section({ cx, cy, barsX: 3, barsY: 3, mainDia: 16 });
 }
