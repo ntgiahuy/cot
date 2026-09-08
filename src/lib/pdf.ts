@@ -10,7 +10,9 @@ import {
   barCount,
   ringBarCenters,
   circularTieCalloutAngle,
+  barEndFlower,
   circularTieGeom,
+  rectStirrupHook,
   type CircularTieOpts,
   columnDiameterMm,
   cTieAlongX,
@@ -391,35 +393,51 @@ function dashV(ctx: Ctx, x: number, y1: number, y2: number, on = 3.2, off = 2.4,
   }
 }
 
-/** Đai chữ nhật shop thép dầm: 4 cạnh bo + hai móc 135° góc trên-phải. */
+function drawBarEndFlower(ctx: Ctx, cx: number, cy: number, r: number) {
+  if (r < 0.6) return;
+  const f = barEndFlower(cx, cy, r);
+  circle(ctx, cx, cy, r, false);
+  const d = f.tris
+    .map(([a, b, c]) => {
+      const pt = (p: [number, number]) => `${n2(p[0])} ${n2(ty(ctx, p[1]))}`;
+      return `M ${pt(a)} L ${pt(b)} L ${pt(c)} Z`;
+    })
+    .join(" ");
+  ctx.page.drawSvgPath(d, { x: 0, y: 0, color: BLACK });
+  ctx.page.drawEllipse({
+    x: cx,
+    y: ty(ctx, cy),
+    xScale: f.hole,
+    yScale: f.hole,
+    color: WHITE,
+    borderColor: BLACK,
+    borderWidth: Math.max(0.25, r * 0.12),
+    rotate: degrees(0),
+  });
+}
+
+/** Đai chữ nhật: góc móc = hai nét song song + đầu hoa (ôm cạnh trái). */
 function drawStirrupFrame(ctx: Ctx, x: number, y: number, w: number, h: number, t = 0.7) {
   if (w < 6 || h < 6) {
     rect(ctx, x, y, w, h, t);
     return;
   }
   const r = Math.max(0.85, Math.min(3.2, Math.min(w, h) * 0.055));
-  const hook = Math.max(4.5, Math.min(16, Math.min(w, h) * 0.15));
+  const hook = rectStirrupHook(x, y, w, h, t);
   const L = x;
   const R = x + w;
   const T = y;
   const B = y + h;
-  line(ctx, L + r, T, R - r, T, t);
-  line(ctx, L, T + r, L, B - r, t);
+  const open = hook.open;
+  line(ctx, L + open, T, R - r, T, t);
+  line(ctx, L, T + open, L, B - r, t);
   line(ctx, L + r, B, R - r, B, t);
   line(ctx, R, T + r, R, B - r, t);
-  arcDeg(ctx, L + r, T + r, r, 180, 270, t);
   arcDeg(ctx, L + r, B - r, r, 90, 180, t);
   arcDeg(ctx, R - r, B - r, r, 0, 90, t);
-  arcDeg(ctx, R - r, T + r, r, 270, 296, t);
-  const a1 = (296 * Math.PI) / 180;
-  const x1 = R - r + r * Math.cos(a1);
-  const y1 = T + r + r * Math.sin(a1);
-  line(ctx, x1, y1, x1 - hook * 0.78, y1 + hook * 0.78, t);
-  arcDeg(ctx, R - r, T + r, r, 0, -26, t);
-  const a2 = (-26 * Math.PI) / 180;
-  const x2 = R - r + r * Math.cos(a2);
-  const y2 = T + r + r * Math.sin(a2);
-  line(ctx, x2, y2, x2 - hook * 0.78, y2 + hook * 0.78, t);
+  arcDeg(ctx, R - r, T + r, r, 270, 360, t);
+  line(ctx, hook.innerTop.x1, hook.innerTop.y1, hook.innerTop.x2, hook.innerTop.y2, t);
+  drawBarEndFlower(ctx, hook.flower.x, hook.flower.y, hook.flower.r);
 }
 
 function vtextCentered(ctx: Ctx, str: string, cx: number, yMid: number, size = 9, bold = false) {
@@ -526,18 +544,25 @@ function drawScheduleStirrup(
   const rightPad = rightW + 5.2;
   const sx = x + leftPad + Math.max(0, (w - leftPad - rightPad - bw) / 2);
   const sy = y + (h - bh) / 2;
+  const hookGeom = rectStirrupHook(sx, sy, bw, bh, 0.65);
   drawStirrupFrame(ctx, sx, sy, bw, bh, 0.65);
   textVCenter(ctx, heightLabel, sx - 2.8, sy + bh / 2, size, false, "right");
   textVCenter(ctx, widthLabel, sx + bw / 2, sy + bh / 2, size, false, "center");
-  textVCenter(ctx, hookLabel, sx + bw + 4.6, sy + Math.min(3.8, bh * 0.28), size, false, "left");
+  textVCenter(ctx, hookLabel, hookGeom.flower.x + hookGeom.flower.r + 3.2, hookGeom.flower.y, size, false, "left");
 }
 
 function drawCircularTie(ctx: Ctx, cx: number, cy: number, r: number, stroke: number, opts: CircularTieOpts = {}) {
   const geom = circularTieGeom(cx, cy, r, opts);
   arcDeg(ctx, cx, cy, r, geom.startDeg, geom.endDeg, stroke, 48);
-  geom.hooks.forEach(([a, b, c]) => {
-    line(ctx, a[0], a[1], b[0], b[1], stroke);
-    line(ctx, b[0], b[1], c[0], c[1], stroke);
+  geom.hooks.forEach((h, i) => {
+    const join = i === 0 ? geom.start : geom.end;
+    const d0 = (h.a0 * 180) / Math.PI;
+    const d1 = (h.a1 * 180) / Math.PI;
+    line(ctx, join[0], join[1], h.startInner[0], h.startInner[1], Math.max(0.45, stroke * 0.85));
+    line(ctx, join[0], join[1], h.startOuter[0], h.startOuter[1], Math.max(0.45, stroke * 0.85));
+    arcDeg(ctx, h.bar.x, h.bar.y, h.innerR, d0, d1, Math.max(0.45, stroke * 0.85), 18);
+    arcDeg(ctx, h.bar.x, h.bar.y, h.outerR, d0, d1, Math.max(0.45, stroke * 0.85), 18);
+    drawBarEndFlower(ctx, h.flower.x, h.flower.y, Math.max(1.35, h.flower.r));
   });
   return geom;
 }
@@ -565,14 +590,14 @@ function drawScheduleRoundStirrup(
       y: cy,
       r: barR,
     },
-    hookLen: Math.max(6, r * 0.55),
+    hookThick: Math.max(2.8, barR * 1.1),
   });
   circle(ctx, geom.bar.x, geom.bar.y, geom.bar.r, true);
-  const [, , lowerTip] = geom.hooks[0];
-  const [, , upperTip] = geom.hooks[1];
+  const upper = geom.hooks[0].flower.y <= geom.hooks[1].flower.y ? geom.hooks[0] : geom.hooks[1];
+  const lower = upper === geom.hooks[0] ? geom.hooks[1] : geom.hooks[0];
   textVCenter(ctx, String(Math.round(dia)), cx - r * 0.12, cy, size, false, "center");
-  textVCenter(ctx, String(Math.round(hook)), upperTip[0] + 2.8, upperTip[1] - 0.6, size, false, "left");
-  textVCenter(ctx, String(Math.round(hook)), lowerTip[0] + 2.8, lowerTip[1] + 3.4, size, false, "left");
+  textVCenter(ctx, String(Math.round(hook)), upper.flower.x + upper.flower.r + 2.4, upper.flower.y - 0.4, size, false, "left");
+  textVCenter(ctx, String(Math.round(hook)), lower.flower.x + lower.flower.r + 2.4, lower.flower.y + 3.2, size, false, "left");
   if (mainDia > 0) {
     textVCenter(ctx, `Ø${Math.round(mainDia)}`, geom.bar.x + barR + 5.4, geom.bar.y, 4.8, false, "left");
   }
@@ -621,6 +646,14 @@ function drawCStirrup(
           `L ${L(w - ret, hook)}`,
         ].join(" ");
   strokeSvg(ctx, path, left, ty(ctx, top), stroke);
+  const fr = Math.max(1.4, hook * 0.22);
+  if (open === "right") {
+    drawBarEndFlower(ctx, left + hook, top + ret, fr);
+    drawBarEndFlower(ctx, left + hook, top + h - ret, fr);
+  } else {
+    drawBarEndFlower(ctx, left + ret, top + hook, fr);
+    drawBarEndFlower(ctx, left + w - ret, top + hook, fr);
+  }
 }
 
 function elevMark(ctx: Ctx, x: number, yLine: number, label: string) {
@@ -1043,6 +1076,7 @@ function drawSectionDetail(
         gapCenter: Math.atan2(wrapBar[1] - cy, wrapBar[0] - cx),
         gapChord: 2 * barR,
         bar: { x: wrapBar[0], y: wrapBar[1], r: barR },
+        hookThick: Math.max(3.2, barR * 1.05),
       });
     }
     pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));

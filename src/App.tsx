@@ -45,8 +45,11 @@ import {
   ringBarCenters,
   circularStirrupDiaMm,
   circularStirrupLengthMm,
+  circularTieGeom,
   columnDiameterMm,
+  svgBarEndFlowerPetals,
   svgCircularTie,
+  svgRoundedStirrup,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
 import { BAR_COUNT_MAX, BAR_COUNT_MIN, BAR_DIAMETERS, CIRCULAR_STIRRUP_HOOK_MM, clampBarCount, clampMainDia, clampTieDia, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
@@ -1368,27 +1371,36 @@ function NestedWrapNote({
   );
 }
 
-function svgRoundedStirrup(x: number, y: number, w: number, h: number) {
-  const r = Math.max(8, Math.min(w, h) * 0.12);
-  const hook = Math.max(16, Math.min(w, h) * 0.14);
-  const d = hook * 0.7071;
-  const gap = Math.max(5, hook * 0.28);
-  const k = 0.5522847498;
-  const rk = r * k;
-  const X = (px: number) => +(x + px).toFixed(2);
-  const Y = (pyUp: number) => +(y + h - pyUp).toFixed(2);
-  return [
-    `M ${X(gap + d)} ${Y(h - d)}`,
-    `L ${X(gap)} ${Y(h)}`,
-    `L ${X(w - r)} ${Y(h)}`,
-    `C ${X(w - r + rk)} ${Y(h)} ${X(w)} ${Y(h - r + rk)} ${X(w)} ${Y(h - r)}`,
-    `L ${X(w)} ${Y(r)}`,
-    `C ${X(w)} ${Y(r - rk)} ${X(w - r + rk)} ${Y(0)} ${X(w - r)} ${Y(0)}`,
-    `L ${X(r)} ${Y(0)}`,
-    `C ${X(r - rk)} ${Y(0)} ${X(0)} ${Y(r - rk)} ${X(0)} ${Y(r)}`,
-    `L ${X(0)} ${Y(h - gap)}`,
-    `L ${X(d)} ${Y(h - gap - d)}`,
-  ].join(" ");
+function BarEndFlower({
+  x,
+  y,
+  r,
+  fill = "#b0db34",
+}: {
+  x: number;
+  y: number;
+  r: number;
+  fill?: string;
+}) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r={r} fill="none" stroke={fill} strokeWidth={Math.max(1.2, r * 0.18)} />
+      <path d={svgBarEndFlowerPetals(x, y, r)} fill={fill} stroke="none" />
+      <circle cx={x} cy={y} r={r * 0.16} fill="#1a1d16" stroke={fill} strokeWidth={Math.max(0.8, r * 0.1)} />
+    </g>
+  );
+}
+
+function previewStirrup(key: string, x: number, y: number, w: number, h: number, color: string, stroke: number) {
+  const s = svgRoundedStirrup(x, y, w, h);
+  return (
+    <g key={key}>
+      <path d={s.d} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />
+      {s.flowers.map((f, i) => (
+        <BarEndFlower key={i} x={f.x} y={f.y} r={f.r} fill={color} />
+      ))}
+    </g>
+  );
 }
 
 function ExtraTiesPreview({
@@ -1423,31 +1435,11 @@ function ExtraTiesPreview({
 
   if (nestedAlongX(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x");
-    nodes.push(
-      <path
-        key="nested-x"
-        d={svgRoundedStirrup(box.x, box.y, box.w, box.h)}
-        fill="none"
-        stroke="#4dabf7"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />,
-    );
+    nodes.push(previewStirrup("nested-x", box.x, box.y, box.w, box.h, "#4dabf7", 5));
   }
   if (nestedAlongY(section) && !section.tieDouble.enabled) {
     const box = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y");
-    nodes.push(
-      <path
-        key="nested-y"
-        d={svgRoundedStirrup(box.x, box.y, box.w, box.h)}
-        fill="none"
-        stroke="#74c0fc"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />,
-    );
+    nodes.push(previewStirrup("nested-y", box.x, box.y, box.w, box.h, "#74c0fc", 5));
   }
 
   if (doubleAlongX(section) && !section.tieNested.enabled) {
@@ -1455,8 +1447,8 @@ function ExtraTiesPreview({
     const leftBox = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x", wrap, "start");
     const rightBox = nestedTieRect(section.barsX, xs, pad, outerY, outerH, "x", wrap, "end");
     nodes.push(
-      <path key="double-x-a" d={svgRoundedStirrup(leftBox.x, leftBox.y, leftBox.w, leftBox.h)} fill="none" stroke="#ff6b6b" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />,
-      <path key="double-x-b" d={svgRoundedStirrup(rightBox.x, rightBox.y, rightBox.w, rightBox.h)} fill="none" stroke="#4dabf7" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />,
+      previewStirrup("double-x-a", leftBox.x, leftBox.y, leftBox.w, leftBox.h, "#ff6b6b", 4),
+      previewStirrup("double-x-b", rightBox.x, rightBox.y, rightBox.w, rightBox.h, "#4dabf7", 4),
     );
   }
   if (doubleAlongY(section) && !section.tieNested.enabled) {
@@ -1464,8 +1456,8 @@ function ExtraTiesPreview({
     const topBox = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y", wrap, "start");
     const botBox = nestedTieRect(section.barsY, ys, pad, outerX, outerW, "y", wrap, "end");
     nodes.push(
-      <path key="double-y-a" d={svgRoundedStirrup(topBox.x, topBox.y, topBox.w, topBox.h)} fill="none" stroke="#ff6b6b" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />,
-      <path key="double-y-b" d={svgRoundedStirrup(botBox.x, botBox.y, botBox.w, botBox.h)} fill="none" stroke="#74c0fc" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />,
+      previewStirrup("double-y-a", topBox.x, topBox.y, topBox.w, topBox.h, "#ff6b6b", 4),
+      previewStirrup("double-y-b", botBox.x, botBox.y, botBox.w, botBox.h, "#74c0fc", 4),
     );
   }
 
@@ -1480,30 +1472,38 @@ function ExtraTiesPreview({
     const sBottom = outerY + outerH;
     if (cTieAlongX(section)) {
       const x = sLeft + outerW / 2;
+      const fr = 7;
       nodes.push(
-        <path
-          key="c-x"
-          d={`M ${x + hook} ${sTop + ret} L ${x + hook} ${sTop} L ${x} ${sTop} L ${x} ${sBottom} L ${x + hook} ${sBottom} L ${x + hook} ${sBottom - ret}`}
-          fill="none"
-          stroke="#ffa94d"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />,
+        <g key="c-x">
+          <path
+            d={`M ${x + hook} ${sTop + ret} L ${x + hook} ${sTop} L ${x} ${sTop} L ${x} ${sBottom} L ${x + hook} ${sBottom} L ${x + hook} ${sBottom - ret}`}
+            fill="none"
+            stroke="#ffa94d"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <BarEndFlower x={x + hook} y={sTop + ret} r={fr} fill="#ffa94d" />
+          <BarEndFlower x={x + hook} y={sBottom - ret} r={fr} fill="#ffa94d" />
+        </g>,
       );
     }
     if (cTieAlongY(section)) {
       const y = sTop + outerH / 2;
+      const fr = 7;
       nodes.push(
-        <path
-          key="c-y"
-          d={`M ${sLeft + ret} ${y + hook} L ${sLeft} ${y + hook} L ${sLeft} ${y} L ${sRight} ${y} L ${sRight} ${y + hook} L ${sRight - ret} ${y + hook}`}
-          fill="none"
-          stroke="#ffa94d"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />,
+        <g key="c-y">
+          <path
+            d={`M ${sLeft + ret} ${y + hook} L ${sLeft} ${y + hook} L ${sLeft} ${y} L ${sRight} ${y} L ${sRight} ${y + hook} L ${sRight - ret} ${y + hook}`}
+            fill="none"
+            stroke="#ffa94d"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <BarEndFlower x={sLeft + ret} y={y + hook} r={fr} fill="#ffa94d" />
+          <BarEndFlower x={sRight - ret} y={y + hook} r={fr} fill="#ffa94d" />
+        </g>,
       );
     }
   }
@@ -1612,26 +1612,41 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
   }
 
   const wrapBar = points.length ? points.reduce((best, p) => (p.x > best.x ? p : best), points[0]) : null;
+  const circularOpts = wrapBar
+    ? {
+        gapCenter: Math.atan2(wrapBar.y - roundCy, wrapBar.x - roundCx),
+        gapChord: 2 * barR,
+        bar: { x: wrapBar.x, y: wrapBar.y, r: barR },
+        hookThick: Math.max(14, barR * 1.15),
+      }
+    : null;
+  const circularGeom = circularOpts ? circularTieGeom(roundCx, roundCy, stirrupR, circularOpts) : null;
+  const rectStirrup = svgRoundedStirrup(
+    originX + stirrupOffset,
+    originY + stirrupOffset,
+    innerW - stirrupOffset * 2,
+    innerH - stirrupOffset * 2,
+  );
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="column-preview" role="img" aria-label="Mặt cắt cột">
       {shape === "TRON" ? (
         <>
           <circle cx={roundCx} cy={roundCy} r={outerR} fill="none" stroke="#f5f5f5" strokeWidth="3" />
-          {hasMainStirrup(section, shape) && wrapBar ? (
-            <path
-              d={svgCircularTie(roundCx, roundCy, stirrupR, {
-                gapCenter: Math.atan2(wrapBar.y - roundCy, wrapBar.x - roundCx),
-                gapChord: 2 * barR,
-                bar: { x: wrapBar.x, y: wrapBar.y, r: barR },
-                hookLen: Math.max(barR * 2.8, stirrupR * 0.2),
-              })}
-              fill="none"
-              stroke="#b0db34"
-              strokeWidth={stirrupStroke}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+          {hasMainStirrup(section, shape) && circularOpts && circularGeom ? (
+            <>
+              <path
+                d={svgCircularTie(roundCx, roundCy, stirrupR, circularOpts)}
+                fill="none"
+                stroke="#b0db34"
+                strokeWidth={stirrupStroke}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {circularGeom.hooks.map((h, i) => (
+                <BarEndFlower key={i} x={h.flower.x} y={h.flower.y} r={h.flower.r} fill="#b0db34" />
+              ))}
+            </>
           ) : null}
           <PreviewDims x={roundX} y={roundY} w={roundSide} h={roundSide} cx={section.cx} cy={section.cy} round />
         </>
@@ -1639,19 +1654,19 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
         <>
           <rect x={originX} y={originY} width={innerW} height={innerH} fill="none" stroke="#f5f5f5" strokeWidth="3" />
           {hasMainStirrup(section) ? (
-            <path
-              d={svgRoundedStirrup(
-                originX + stirrupOffset,
-                originY + stirrupOffset,
-                innerW - stirrupOffset * 2,
-                innerH - stirrupOffset * 2,
-              )}
-              fill="none"
-              stroke="#b0db34"
-              strokeWidth={stirrupStroke}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <>
+              <path
+                d={rectStirrup.d}
+                fill="none"
+                stroke="#b0db34"
+                strokeWidth={stirrupStroke}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {rectStirrup.flowers.map((f, i) => (
+                <BarEndFlower key={i} x={f.x} y={f.y} r={f.r} fill="#b0db34" />
+              ))}
+            </>
           ) : null}
           <ExtraTiesPreview
             section={section}

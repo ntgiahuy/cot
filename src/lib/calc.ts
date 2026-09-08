@@ -22,8 +22,36 @@ export function circularStirrupLengthMm(section: FloorSection) {
 
 type Pt = [number, number];
 
+export type BarEndMark = { x: number; y: number; r: number };
+
+/** Ký hiệu đầu cắt cốt thép: vòng tròn + hoa 8 cánh. */
+export function barEndFlower(cx: number, cy: number, r: number, petals = 8) {
+  const inner = Math.max(0.12, r * 0.2);
+  const hole = Math.max(0.1, r * 0.16);
+  const half = Math.PI / petals * 0.52;
+  const tris: [Pt, Pt, Pt][] = [];
+  for (let i = 0; i < petals; i += 1) {
+    const a = (i * 2 * Math.PI) / petals - Math.PI / 2;
+    const tip: Pt = [cx + r * 0.9 * Math.cos(a), cy + r * 0.9 * Math.sin(a)];
+    const left: Pt = [cx + inner * Math.cos(a - half), cy + inner * Math.sin(a - half)];
+    const right: Pt = [cx + inner * Math.cos(a + half), cy + inner * Math.sin(a + half)];
+    tris.push([left, tip, right]);
+  }
+  return { cx, cy, r, hole, tris };
+}
+
+export function svgBarEndFlowerPetals(cx: number, cy: number, r: number) {
+  const f = barEndFlower(cx, cy, r);
+  const n = (v: number) => v.toFixed(2);
+  return f.tris
+    .map(([a, b, c]) => `M ${n(a[0])} ${n(a[1])} L ${n(b[0])} ${n(b[1])} L ${n(c[0])} ${n(c[1])} Z`)
+    .join(" ");
+}
+
 export type CircularTieOpts = {
   hookLen?: number;
+  /** Bề dày nét móc (hai nét song song). */
+  hookThick?: number;
   /** Góc tâm khe (rad). Mặc định 0 — thanh bên phải. */
   gapCenter?: number;
   /** Khoảng hở (dây cung) = đường kính thép chủ, đơn vị vẽ. */
@@ -32,13 +60,21 @@ export type CircularTieOpts = {
   bar?: { x: number; y: number; r: number };
 };
 
-function rot2(vx: number, vy: number, ang: number): Pt {
-  const c = Math.cos(ang);
-  const s = Math.sin(ang);
-  return [vx * c - vy * s, vx * s + vy * c];
-}
+export type CircularTieHook = {
+  innerR: number;
+  outerR: number;
+  a0: number;
+  a1: number;
+  bar: { x: number; y: number; r: number };
+  flower: BarEndMark;
+  startInner: Pt;
+  startOuter: Pt;
+  endInner: Pt;
+  endOuter: Pt;
+  sweep: 0 | 1;
+};
 
-/** Đai vòng: khe = Ø thép chủ, ôm đúng một thanh, móc 135° quanh thanh đó. */
+/** Đai vòng: khe = Ø thép chủ, ôm đúng một thanh; móc = hai nét + đầu hoa. */
 export function circularTieGeom(cx: number, cy: number, r: number, opts: CircularTieOpts = {}) {
   const gapCenter = opts.gapCenter ?? 0;
   const chord = Math.max(1.2, opts.gapChord ?? r * 0.12);
@@ -48,29 +84,46 @@ export function circularTieGeom(cx: number, cy: number, r: number, opts: Circula
     y: cy + Math.max(r - chord / 2, r * 0.55) * Math.sin(gapCenter),
     r: chord / 2,
   };
-  const hook = opts.hookLen ?? Math.max(bar.r * 2.6, r * 0.22);
+  const thick = opts.hookThick ?? Math.max(bar.r * 0.58, r * 0.05, 1.2);
+  const innerR = bar.r * 1.05;
+  const outerR = innerR + thick;
+  const wrap = 2.12;
   const startA = gapCenter + half;
   const endA = gapCenter - half;
   const onRing = (a: number): Pt => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
   const start = onRing(startA);
   const end = onRing(endA);
   const toward: Pt = [cx - bar.x, cy - bar.y];
-  const wrap = (P: Pt): [Pt, Pt] => {
+
+  const makeHook = (P: Pt): CircularTieHook => {
     const vx = P[0] - bar.x;
     const vy = P[1] - bar.y;
     const cross = vx * toward[1] - vy * toward[0];
     const sign = cross >= 0 ? 1 : -1;
-    const v1 = rot2(vx, vy, sign * 0.95);
-    const v2 = rot2(vx, vy, sign * 2.2);
-    const n1 = Math.hypot(v1[0], v1[1]) || 1;
-    const n2 = Math.hypot(v2[0], v2[1]) || 1;
-    const len = Math.hypot(vx, vy) || 1;
-    const mid: Pt = [bar.x + (v1[0] / n1) * len, bar.y + (v1[1] / n1) * len];
-    const tip: Pt = [bar.x + (v2[0] / n2) * (bar.r + hook * 0.42), bar.y + (v2[1] / n2) * (bar.r + hook * 0.42)];
-    return [mid, tip];
+    const a0 = Math.atan2(vy, vx);
+    const a1 = a0 + sign * wrap;
+    const at = (rad: number, ang: number): Pt => [bar.x + rad * Math.cos(ang), bar.y + rad * Math.sin(ang)];
+    const midR = (innerR + outerR) / 2;
+    const flowerR = thick / 2;
+    return {
+      innerR,
+      outerR,
+      a0,
+      a1,
+      bar,
+      flower: {
+        x: bar.x + midR * Math.cos(a1),
+        y: bar.y + midR * Math.sin(a1),
+        r: flowerR,
+      },
+      startInner: at(innerR, a0),
+      startOuter: at(outerR, a0),
+      endInner: at(innerR, a1),
+      endOuter: at(outerR, a1),
+      sweep: sign > 0 ? 1 : 0,
+    };
   };
-  const [s1, s2] = wrap(start);
-  const [e1, e2] = wrap(end);
+
   return {
     r,
     startDeg: (startA * 180) / Math.PI,
@@ -80,28 +133,65 @@ export function circularTieGeom(cx: number, cy: number, r: number, opts: Circula
     start,
     end,
     bar,
-    hooks: [
-      [start, s1, s2],
-      [end, e1, e2],
-    ] as [Pt, Pt, Pt][],
+    hooks: [makeHook(start), makeHook(end)],
   };
+}
+
+function fmtPt(p: Pt) {
+  return `${p[0].toFixed(2)} ${p[1].toFixed(2)}`;
 }
 
 export function svgCircularTie(cx: number, cy: number, r: number, opts: CircularTieOpts = {}) {
   const p = circularTieGeom(cx, cy, r, opts);
   const n = (v: number) => v.toFixed(2);
-  const [ls, l1, l2] = p.hooks[0];
-  const [us, u1, u2] = p.hooks[1];
-  return [
-    `M ${n(ls[0])} ${n(ls[1])}`,
-    `A ${n(r)} ${n(r)} 0 1 1 ${n(us[0])} ${n(us[1])}`,
-    `M ${n(ls[0])} ${n(ls[1])}`,
-    `L ${n(l1[0])} ${n(l1[1])}`,
-    `L ${n(l2[0])} ${n(l2[1])}`,
-    `M ${n(us[0])} ${n(us[1])}`,
-    `L ${n(u1[0])} ${n(u1[1])}`,
-    `L ${n(u2[0])} ${n(u2[1])}`,
+  const parts = [
+    `M ${n(p.start[0])} ${n(p.start[1])}`,
+    `A ${n(r)} ${n(r)} 0 1 1 ${n(p.end[0])} ${n(p.end[1])}`,
+  ];
+  p.hooks.forEach((h, i) => {
+    const join = i === 0 ? p.start : p.end;
+    parts.push(`M ${fmtPt(join)} L ${fmtPt(h.startInner)}`);
+    parts.push(`M ${fmtPt(join)} L ${fmtPt(h.startOuter)}`);
+    parts.push(`M ${fmtPt(h.startInner)} A ${n(h.innerR)} ${n(h.innerR)} 0 0 ${h.sweep} ${fmtPt(h.endInner)}`);
+    parts.push(`M ${fmtPt(h.startOuter)} A ${n(h.outerR)} ${n(h.outerR)} 0 0 ${h.sweep} ${fmtPt(h.endOuter)}`);
+  });
+  return parts.join(" ");
+}
+
+/** Đai chữ nhật: góc móc = hai nét song song + đầu hoa, ôm cạnh trái. */
+export function rectStirrupHook(x: number, y: number, w: number, h: number, stroke = 1) {
+  const fr = Math.max(1.7, Math.min(w, h) * 0.075, Math.min(8, stroke * 2.6));
+  const flower: BarEndMark = { x: x + fr, y: y + fr, r: fr };
+  const innerY = y + 2 * fr;
+  const innerEnd = x + Math.min(w * 0.38, Math.max(fr * 6.5, 16));
+  return {
+    flower,
+    innerTop: { x1: flower.x + fr * 0.88, y1: innerY, x2: innerEnd, y2: innerY },
+    open: fr * 2,
+  };
+}
+
+export function svgRoundedStirrup(x: number, y: number, w: number, h: number) {
+  const r = Math.max(8, Math.min(w, h) * 0.12);
+  const hook = rectStirrupHook(x, y, w, h, Math.max(4, Math.min(w, h) * 0.04));
+  const k = 0.5522847498;
+  const rk = r * k;
+  const X = (px: number) => +(x + px).toFixed(2);
+  const Y = (py: number) => +(y + py).toFixed(2);
+  const open = hook.open;
+  const d = [
+    `M ${X(open)} ${Y(0)}`,
+    `L ${X(w - r)} ${Y(0)}`,
+    `C ${X(w - r + rk)} ${Y(0)} ${X(w)} ${Y(rk)} ${X(w)} ${Y(r)}`,
+    `L ${X(w)} ${Y(h - r)}`,
+    `C ${X(w)} ${Y(h - r + rk)} ${X(w - r + rk)} ${Y(h)} ${X(w - r)} ${Y(h)}`,
+    `L ${X(r)} ${Y(h)}`,
+    `C ${X(r - rk)} ${Y(h)} ${X(0)} ${Y(h - r + rk)} ${X(0)} ${Y(h - r)}`,
+    `L ${X(0)} ${Y(open)}`,
+    `M ${hook.innerTop.x1.toFixed(2)} ${hook.innerTop.y1.toFixed(2)}`,
+    `L ${hook.innerTop.x2.toFixed(2)} ${hook.innerTop.y2.toFixed(2)}`,
   ].join(" ");
+  return { d, flowers: [hook.flower] };
 }
 
 export function ringBarCenters(n: number, cx: number, cy: number, r: number): Array<[number, number]> {
