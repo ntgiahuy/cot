@@ -636,11 +636,12 @@ function beamEndBreak(ctx: Ctx, x: number, yTop: number, yBot: number, dir: 1 | 
   const mid = (yTop + yBot) / 2;
   const z = 4.6 * dir;
   const g = Math.max(4.2, Math.min(7.2, Math.abs(yBot - yTop) * 0.22));
-  line(ctx, x, yTop, x, mid - g, 0.8);
-  line(ctx, x, mid - g, x + z, mid - g * 0.2, 0.8);
-  line(ctx, x + z, mid - g * 0.2, x - z, mid + g * 0.2, 0.8);
-  line(ctx, x - z, mid + g * 0.2, x, mid + g, 0.8);
-  line(ctx, x, mid + g, x, yBot, 0.8);
+  const w = 0.35;
+  line(ctx, x, yTop, x, mid - g, w);
+  line(ctx, x, mid - g, x + z, mid - g * 0.2, w);
+  line(ctx, x + z, mid - g * 0.2, x - z, mid + g * 0.2, w);
+  line(ctx, x - z, mid + g * 0.2, x, mid + g, w);
+  line(ctx, x, mid + g, x, yBot, w);
 }
 
 /** Dầm mặt đứng: đỉnh cột (hình 1) hoặc dầm xuyên tầng dưới (hình 2). */
