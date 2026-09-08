@@ -847,9 +847,8 @@ function drawSectionDetail(
   const topAnno = 32;
   const botDim = 44;
   const dimGap = 28;
-  const isoCol = 132;
   const availH = Math.max(58, maxH - topAnno - botDim - tableH - 14);
-  const availW = Math.max(52, maxW - leftAnno - dimGap - isoCol - 8);
+  const availW = Math.max(52, maxW - leftAnno - dimGap - 8);
   const aspect = section.cy / Math.max(section.cx, 1);
   let w = Math.min(108, availW);
   let h = w * aspect;
@@ -922,23 +921,6 @@ function drawSectionDetail(
       occupiedYs.push(balloonY);
       leaderCalloutL(ctx, leadX, balloonY, tip.tx, tip.ty, row.mark, tieSpec(section, row.kind), 7.4, 8, specX);
     });
-  });
-
-  const isoMarks = tableRows.filter((row) => row.kind !== "long");
-  const isoW = 24;
-  const isoGap = 8;
-  const isoX = x + w + dimGap + 10;
-  const isoY = y + 6;
-  const maxIsoX = Math.max(1, ...isoMarks.map((row) => row.xMm || 1));
-  isoMarks.forEach((row, i) => {
-    const ar = row.xMm && row.yMm && row.xMm > 0 ? row.yMm / row.xMm : 1;
-    const iw = isoW * (row.kind === "c" ? 0.7 : Math.max(0.42, Math.min(1, (row.xMm || maxIsoX) / maxIsoX)));
-    const ih = Math.max(16, Math.min(48, iw * Math.min(Math.max(ar || 1, 0.35), 2.2)));
-    const dx = isoX + i * (isoW + isoGap);
-    const dy = isoY + (48 - ih) / 2;
-    if (row.kind === "c") drawCStirrup(ctx, dx, dy, dx + iw, dy + ih, "right", 1.05);
-    else drawStirrupFrame(ctx, dx, dy, iw, ih, 1.05);
-    balloon(ctx, dx + iw / 2, dy + ih + 12, row.mark, 6.6);
   });
 
   const tx = x;
