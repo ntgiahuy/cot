@@ -439,6 +439,95 @@ export function columnLongBarSpecs(column: Column, floors: Floor[]): LongBarSpec
   return out;
 }
 
+function longSpecKey(spec: LongBarSpec) {
+  return `${spec.kind}|${spec.lengthMm}|${spec.segs.join("×")}`;
+}
+
+/** Thép dọc đã gộp số hiệu (cùng hình, dài, Ø) — khớp bảng thống kê. */
+export function uniqueLongBarMarks(column: Column, floors: Floor[]): LongBarSpec[] {
+  const specs = columnLongBarSpecs(column, floors).filter((spec) => spec.qty > 0 && spec.lengthMm > 0);
+  const grouped = new Map<string, LongBarSpec>();
+  const order: string[] = [];
+  for (const spec of specs) {
+    const key = longSpecKey(spec);
+    const prev = grouped.get(key);
+    if (!prev) {
+      grouped.set(key, { ...spec });
+      order.push(key);
+    } else {
+      prev.qty += spec.qty;
+    }
+  }
+  return order.map((key, i) => ({
+    ...grouped.get(key)!,
+    mark: order.length === 1 ? "1" : barMarkLabel(i),
+  }));
+}
+
+function resolvedLongMark(spec: LongBarSpec | undefined, unique: LongBarSpec[], fallback = "1") {
+  if (!spec) return unique[0]?.mark ?? fallback;
+  const key = longSpecKey(spec);
+  return unique.find((row) => longSpecKey(row) === key)?.mark ?? spec.mark;
+}
+
+export type ExplodedMarkPair = {
+  lower: [string, string];
+  upper: [string, string];
+};
+
+/** Số hiệu 1a/1b… trên hai cây nổ (trái/phải, đoạn dưới/trên) của một tầng. */
+export function explodedMarksForFloor(column: Column, floors: Floor[], floorId: number): ExplodedMarkPair {
+  const col = normalizeColumn(column);
+  const active = columnFloors(col, floors);
+  const unique = uniqueLongBarMarks(col, floors);
+  const raw = columnLongBarSpecs(col, floors).filter((spec) => spec.qty > 0 && spec.lengthMm > 0);
+  const mark = (spec?: LongBarSpec) => resolvedLongMark(spec, unique);
+  const none: ExplodedMarkPair = { lower: ["1", "1"], upper: ["1", "1"] };
+  if (!raw.length || !active.length) return none;
+  const i = Math.max(0, active.findIndex((floor) => floor.id === floorId));
+  const n = active.length;
+
+  if (col.midSplice) {
+    const baseA = raw[0];
+    const baseB = raw[1] ?? raw[0];
+    const hookB = raw[raw.length - 1];
+    const hookA = raw[raw.length - 2] ?? hookB;
+    const spans = n > 1 ? raw.slice(2, 2 + (n - 1)) : [];
+    if (n === 1) {
+      return { lower: [mark(baseA), mark(baseB)], upper: [mark(hookA), mark(hookB)] };
+    }
+    if (i === 0) {
+      const span = spans[0];
+      return {
+        lower: [mark(baseA), mark(baseB)],
+        upper: [mark(span ?? hookA), mark(span ?? hookB)],
+      };
+    }
+    if (i === n - 1) {
+      const prev = spans[i - 1];
+      return {
+        lower: [mark(prev ?? baseA), mark(prev ?? baseB)],
+        upper: [mark(hookA), mark(hookB)],
+      };
+    }
+    return {
+      lower: [mark(spans[i - 1]), mark(spans[i - 1])],
+      upper: [mark(spans[i]), mark(spans[i])],
+    };
+  }
+
+  if (!col.baseSplice) {
+    const m = unique[0]?.mark ?? "1";
+    return { lower: [m, m], upper: [m, m] };
+  }
+
+  const a = raw[i * 2];
+  const b = raw[i * 2 + 1] ?? a;
+  const left = mark(a);
+  const right = mark(b);
+  return { lower: [left, right], upper: [left, right] };
+}
+
 export function stirrupInner(section: FloorSection) {
   return {
     a: Math.max(section.cx - 2 * COVER_MM, 40),
@@ -782,7 +871,7 @@ export function buildSchedule(project: Project): {
     const active = columnFloors(column, project.floors);
     const member = column.name;
     const firstSection = active.length ? normalizeSection(sectionFor(column, active[0].id)) : null;
-    columnLongBarSpecs(column, project.floors).forEach((spec) => {
+    uniqueLongBarMarks(column, project.floors).forEach((spec) => {
       if (!firstSection || spec.qty <= 0) return;
       const dia = spec.kind === "long-hook"
         ? normalizeSection(sectionFor(column, active[active.length - 1].id)).mainDia
@@ -880,66 +969,29 @@ export function buildSchedule(project: Project): {
     });
   }
 
-  return { rows: collapseScheduleRows(rows), byDia, stirrupCounts };
+  return { rows: mergeIdenticalStirrups(rows), byDia, stirrupCounts };
 }
 
-function longBarShapeKey(row: ScheduleRow) {
-  return [row.member, row.kind, row.dia, row.lengthMm, row.segs.join("×")].join("|");
-}
-
-function collapseScheduleRows(rows: ScheduleRow[]): ScheduleRow[] {
+function mergeIdenticalStirrups(rows: ScheduleRow[]): ScheduleRow[] {
   const longs: ScheduleRow[] = [];
   const stirrupMap = new Map<string, ScheduleRow>();
   for (const row of rows) {
-    if (row.kind === "stirrup") {
-      const key = [row.member, row.stt, row.dia, row.lengthMm, row.segs.join("×")].join("|");
-      const prev = stirrupMap.get(key);
-      if (!prev) {
-        stirrupMap.set(key, { ...row, floorName: "" });
-        continue;
-      }
-      prev.perMember += row.perMember;
-      prev.totalBars += row.totalBars;
-      prev.totalLengthM += row.totalLengthM;
-      prev.weightKg += row.weightKg;
+    if (row.kind !== "stirrup") {
+      longs.push(row);
       continue;
     }
-    longs.push(row);
-  }
-
-  const byMember = new Map<string, ScheduleRow[]>();
-  for (const row of longs) {
-    const list = byMember.get(row.member) ?? [];
-    list.push(row);
-    byMember.set(row.member, list);
-  }
-
-  const mergedLongs: ScheduleRow[] = [];
-  byMember.forEach((list) => {
-    const grouped = new Map<string, ScheduleRow>();
-    const order: string[] = [];
-    for (const row of list) {
-      const key = longBarShapeKey(row);
-      const prev = grouped.get(key);
-      if (!prev) {
-        grouped.set(key, { ...row, floorName: "" });
-        order.push(key);
-        continue;
-      }
-      prev.perMember += row.perMember;
-      prev.totalBars += row.totalBars;
-      prev.totalLengthM += row.totalLengthM;
-      prev.weightKg += row.weightKg;
+    const key = [row.member, row.stt, row.dia, row.lengthMm, row.segs.join("×")].join("|");
+    const prev = stirrupMap.get(key);
+    if (!prev) {
+      stirrupMap.set(key, { ...row, floorName: "" });
+      continue;
     }
-    order.forEach((key, i) => {
-      const row = grouped.get(key);
-      if (!row) return;
-      const mark = order.length === 1 ? "1" : barMarkLabel(i);
-      mergedLongs.push({ ...row, stt: mark, shapeLabel: mark });
-    });
-  });
-
-  return [...mergedLongs, ...stirrupMap.values()];
+    prev.perMember += row.perMember;
+    prev.totalBars += row.totalBars;
+    prev.totalLengthM += row.totalLengthM;
+    prev.weightKg += row.weightKg;
+  }
+  return [...longs, ...stirrupMap.values()];
 }
 
 export function stockBars(lengthM: number) {
