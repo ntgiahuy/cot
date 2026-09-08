@@ -1,4 +1,4 @@
-import { COVER_MM, EMBED_MM, MIN_BAR_CLEAR_MM, STOCK_M, STIRRUP_HOOK_MM, clampMainDia, clampTieDia, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
+import { COVER_MM, EMBED_MM, MIN_BAR_CLEAR_MM, STOCK_M, STIRRUP_HOOK_MM, TOP_COVER_MM, clampMainDia, clampTieDia, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
 
 export function barCount(section: FloorSection) {
   const edge = section.barsX * 2 + section.barsY * 2 - 4;
@@ -312,7 +312,7 @@ export function longBarSpecs(
   const dia = section.mainDia;
   const { shortQty, longQty } = staggerQty(nBars);
   const hookMm = isTop ? 10 * dia : 0;
-  const coverTrim = isTop ? COVER_MM : 0;
+  const coverTrim = isTop ? TOP_COVER_MM : 0;
   const nD = column.baseSplice ? lapMm(dia, column.baseSpliceD) : 0;
   const nDNext =
     column.baseSplice && !isTop && nextSection ? lapMm(nextSection.mainDia, column.baseSpliceD) : 0;
@@ -402,14 +402,26 @@ export function columnLongBarSpecs(column: Column, floors: Floor[]): LongBarSpec
       out.push(makeLongBar(barMarkLabel(k++), nBars, len, 0, nD[i + 1], pos[i + 1] + nD[i + 1]));
     }
     const top = active.length - 1;
-    out.push(makeLongBar(barMarkLabel(k++), shortQty, H[top] - pos[top] + nD[top], hookMm, nD[top], pos[top]));
-    out.push(makeLongBar(barMarkLabel(k++), longQty, H[top] - pos[top], hookMm, 0, pos[top] + nD[top]));
+    const topCover = TOP_COVER_MM;
+    out.push(
+      makeLongBar(
+        barMarkLabel(k++),
+        shortQty,
+        H[top] - topCover - pos[top] + nD[top],
+        hookMm,
+        nD[top],
+        pos[top],
+      ),
+    );
+    out.push(
+      makeLongBar(barMarkLabel(k++), longQty, H[top] - topCover - pos[top], hookMm, 0, pos[top] + nD[top]),
+    );
     return out.filter((spec) => spec.qty > 0 && spec.lengthMm > 0);
   }
 
   if (!col.baseSplice) {
     const height = active.reduce((sum, floor) => sum + floor.heightMm, 0);
-    return [makeLongBar("1", nBars, height - COVER_MM, hookMm)].filter((spec) => spec.qty > 0);
+    return [makeLongBar("1", nBars, height - TOP_COVER_MM, hookMm)].filter((spec) => spec.qty > 0);
   }
 
   let k = 0;

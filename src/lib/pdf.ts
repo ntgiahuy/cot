@@ -27,7 +27,7 @@ import {
   summaryBuckets,
   type SectionMark,
 } from "./calc";
-import { COVER_MM, EMBED_MM, STOCK_M, type Column, type Floor, type FloorSection, type Project } from "./types";
+import { EMBED_MM, STOCK_M, TOP_COVER_MM, type Column, type Floor, type FloorSection, type Project } from "./types";
 
 /** A1 ngang — 841 × 594 mm (2384 × 1684 pt). Nhiều cột / trang. */
 const PAGE_W = 2384;
@@ -684,7 +684,7 @@ function drawElevationBeam(
 
 /** Cao độ bẻ móc khoá đầu (dưới lớp bọc, mm → pt). */
 function headLockY(yTop: number, scale: number) {
-  return yTop + Math.max(2.4, COVER_MM * scale);
+  return yTop + Math.max(2.4, TOP_COVER_MM * scale);
 }
 
 /** Chiều dài móc 10d trên bản vẽ, kẹp để khỏi đè dầm / DIM. */
