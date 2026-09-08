@@ -637,7 +637,11 @@ h1 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-top: 12px;
+  margin: 14px 0;
+}
+
+.form-row:has(+ .shape-switch) {
+  margin-bottom: 0;
 }
 
 .shape-option {
