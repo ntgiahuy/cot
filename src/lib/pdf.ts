@@ -600,8 +600,8 @@ function lowerSteelTopsMm(
     const pos = midSplicePosMm(floor);
     return [pos, pos + nD];
   }
-  if (column.baseSplice && !isColumnBase) {
-    const dia = prevSection ? prevSection.mainDia : section.mainDia;
+  if (column.baseSplice) {
+    const dia = !isColumnBase && prevSection ? prevSection.mainDia : section.mainDia;
     const nD = lapMm(dia, column.baseSpliceD);
     return [nD, 2 * nD];
   }
