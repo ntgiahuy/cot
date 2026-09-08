@@ -880,29 +880,66 @@ export function buildSchedule(project: Project): {
     });
   }
 
-  return { rows: mergeIdenticalStirrups(rows), byDia, stirrupCounts };
+  return { rows: collapseScheduleRows(rows), byDia, stirrupCounts };
 }
 
-function mergeIdenticalStirrups(rows: ScheduleRow[]): ScheduleRow[] {
+function longBarShapeKey(row: ScheduleRow) {
+  return [row.member, row.kind, row.dia, row.lengthMm, row.segs.join("×")].join("|");
+}
+
+function collapseScheduleRows(rows: ScheduleRow[]): ScheduleRow[] {
   const longs: ScheduleRow[] = [];
-  const merged = new Map<string, ScheduleRow>();
+  const stirrupMap = new Map<string, ScheduleRow>();
   for (const row of rows) {
-    if (row.kind !== "stirrup") {
-      longs.push(row);
+    if (row.kind === "stirrup") {
+      const key = [row.member, row.stt, row.dia, row.lengthMm, row.segs.join("×")].join("|");
+      const prev = stirrupMap.get(key);
+      if (!prev) {
+        stirrupMap.set(key, { ...row, floorName: "" });
+        continue;
+      }
+      prev.perMember += row.perMember;
+      prev.totalBars += row.totalBars;
+      prev.totalLengthM += row.totalLengthM;
+      prev.weightKg += row.weightKg;
       continue;
     }
-    const key = [row.member, row.stt, row.dia, row.lengthMm, row.segs.join("×")].join("|");
-    const prev = merged.get(key);
-    if (!prev) {
-      merged.set(key, { ...row, floorName: "" });
-      continue;
-    }
-    prev.perMember += row.perMember;
-    prev.totalBars += row.totalBars;
-    prev.totalLengthM += row.totalLengthM;
-    prev.weightKg += row.weightKg;
+    longs.push(row);
   }
-  return [...longs, ...merged.values()];
+
+  const byMember = new Map<string, ScheduleRow[]>();
+  for (const row of longs) {
+    const list = byMember.get(row.member) ?? [];
+    list.push(row);
+    byMember.set(row.member, list);
+  }
+
+  const mergedLongs: ScheduleRow[] = [];
+  byMember.forEach((list) => {
+    const grouped = new Map<string, ScheduleRow>();
+    const order: string[] = [];
+    for (const row of list) {
+      const key = longBarShapeKey(row);
+      const prev = grouped.get(key);
+      if (!prev) {
+        grouped.set(key, { ...row, floorName: "" });
+        order.push(key);
+        continue;
+      }
+      prev.perMember += row.perMember;
+      prev.totalBars += row.totalBars;
+      prev.totalLengthM += row.totalLengthM;
+      prev.weightKg += row.weightKg;
+    }
+    order.forEach((key, i) => {
+      const row = grouped.get(key);
+      if (!row) return;
+      const mark = order.length === 1 ? "1" : barMarkLabel(i);
+      mergedLongs.push({ ...row, stt: mark, shapeLabel: mark });
+    });
+  });
+
+  return [...mergedLongs, ...stirrupMap.values()];
 }
 
 export function stockBars(lengthM: number) {
