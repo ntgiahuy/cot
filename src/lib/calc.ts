@@ -279,13 +279,16 @@ export function longBarSpecs(
   floor: Floor,
   section: FloorSection,
   isTop: boolean,
+  nextSection: FloorSection | null = null,
 ): LongBarSpec[] {
   const nBars = barCount(section);
   const dia = section.mainDia;
   const { shortQty, longQty } = staggerQty(nBars);
   const hookMm = isTop ? 10 * dia : 0;
   const coverTrim = isTop ? COVER_MM : 0;
-  const baseOne = column.baseSplice ? lapMm(dia, column.baseSpliceD) : 0;
+  const nD = column.baseSplice ? lapMm(dia, column.baseSpliceD) : 0;
+  const nDNext =
+    column.baseSplice && !isTop && nextSection ? lapMm(nextSection.mainDia, column.baseSpliceD) : 0;
   const midPos = column.midSplice ? midSplicePosMm(floor) : null;
   const midOffset = column.midSplice ? lapMm(dia, column.midSpliceD) : 0;
   const split = column.baseSplice || column.midSplice;
@@ -293,28 +296,40 @@ export function longBarSpecs(
   const make = (
     mark: string,
     qty: number,
-    baseExtra: number,
-    midExtra: number,
+    straightMm: number,
+    extraMm: number,
     splicePos: number | null,
   ): LongBarSpec => {
-    const straightMm = Math.max(0, floor.heightMm - coverTrim + baseExtra + midExtra);
+    const shaft = Math.max(0, straightMm);
     return {
       mark,
       qty,
-      straightMm,
+      straightMm: shaft,
       hookMm,
-      lengthMm: straightMm + hookMm,
+      lengthMm: shaft + hookMm,
       kind: isTop ? "long-hook" : "long",
-      segs: isTop ? [hookMm, straightMm] : [straightMm + hookMm],
-      baseExtraMm: baseExtra,
+      segs: isTop ? [hookMm, shaft] : [shaft + hookMm],
+      baseExtraMm: extraMm,
       midPosMm: splicePos,
     };
   };
 
-  if (!split) return [make("1", nBars, 0, 0, null)].filter((spec) => spec.qty > 0);
+  if (!split) return [make("1", nBars, floor.heightMm - coverTrim, 0, null)].filter((spec) => spec.qty > 0);
+
+  if (column.midSplice) {
+    return [
+      make("1", shortQty, floor.heightMm - coverTrim, 0, midPos),
+      make("1*", longQty, floor.heightMm - coverTrim + midOffset, midOffset, midPos == null ? null : midPos + midOffset),
+    ].filter((spec) => spec.qty > 0);
+  }
+
+  /* 1a starts at floor bottom, extends nD into the floor above (exploded left).
+     1b starts at nD (top of 1a splice) and extends 2nD into the floor above (exploded right). */
+  const runA = floor.heightMm - coverTrim + nDNext;
+  const runB = floor.heightMm - coverTrim - nD + 2 * nDNext;
   return [
-    make("1", shortQty, baseOne, 0, midPos),
-    make("1*", longQty, baseOne * 2, midOffset, midPos == null ? null : midPos + midOffset),
+    make("1", shortQty, runA, nDNext, null),
+    make("1*", longQty, runB, nDNext - nD, null),
   ].filter((spec) => spec.qty > 0);
 }
 
@@ -656,16 +671,17 @@ export function buildSchedule(project: Project): {
   const rows: ScheduleRow[] = [];
   const byDia = new Map<number, { length: number; weight: number }>();
   const stirrupCounts = new Map<string, number>();
-  const lastFloorId = project.floors[project.floors.length - 1]?.id;
 
   for (const column of project.columns.map(normalizeColumn)) {
     const active = columnFloors(column, project.floors);
     active.forEach((floor, floorIndex) => {
       const section = normalizeSection(sectionFor(column, floor.id));
-      const isTop = floor.id === lastFloorId;
+      const isTop = floor.id === column.endFloor;
+      const nextFloor = !isTop ? active[floorIndex + 1] : undefined;
+      const nextSection = nextFloor ? normalizeSection(sectionFor(column, nextFloor.id)) : null;
       const member = `${column.name} (TẦNG ${floor.name})`;
 
-      const longSpecs = longBarSpecs(column, floor, section, isTop).filter((spec) => spec.qty > 0);
+      const longSpecs = longBarSpecs(column, floor, section, isTop, nextSection).filter((spec) => spec.qty > 0);
       const staggeredLong = longSpecs.some((spec) => spec.mark === "1*");
       longSpecs.forEach((spec) => {
         const totalBars = spec.qty * column.quantity;
