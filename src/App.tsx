@@ -1634,19 +1634,14 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
         <>
           <circle cx={roundCx} cy={roundCy} r={outerR} fill="none" stroke="#f5f5f5" strokeWidth="3" />
           {hasMainStirrup(section, shape) && circularOpts && circularGeom ? (
-            <>
-              <path
-                d={svgCircularTie(roundCx, roundCy, stirrupR, circularOpts)}
-                fill="none"
-                stroke="#b0db34"
-                strokeWidth={stirrupStroke}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {circularGeom.hooks.map((h, i) => (
-                <BarEndFlower key={i} x={h.flower.x} y={h.flower.y} r={h.flower.r} fill="#b0db34" />
-              ))}
-            </>
+            <path
+              d={svgCircularTie(roundCx, roundCy, stirrupR, circularOpts)}
+              fill="none"
+              stroke="#b0db34"
+              strokeWidth={stirrupStroke}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           ) : null}
           <PreviewDims x={roundX} y={roundY} w={roundSide} h={roundSide} cx={section.cx} cy={section.cy} round />
         </>
@@ -1654,19 +1649,14 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
         <>
           <rect x={originX} y={originY} width={innerW} height={innerH} fill="none" stroke="#f5f5f5" strokeWidth="3" />
           {hasMainStirrup(section) ? (
-            <>
-              <path
-                d={rectStirrup.d}
-                fill="none"
-                stroke="#b0db34"
-                strokeWidth={stirrupStroke}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {rectStirrup.flowers.map((f, i) => (
-                <BarEndFlower key={i} x={f.x} y={f.y} r={f.r} fill="#b0db34" />
-              ))}
-            </>
+            <path
+              d={rectStirrup.d}
+              fill="none"
+              stroke="#b0db34"
+              strokeWidth={stirrupStroke}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           ) : null}
           <ExtraTiesPreview
             section={section}
@@ -1683,6 +1673,16 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
       {points.map((point, index) => (
         <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r={barR} fill="#ff2f2f" />
       ))}
+      {shape === "TRON" && circularGeom
+        ? circularGeom.hooks.map((h, i) => (
+            <BarEndFlower key={`cf-${i}`} x={h.flower.x} y={h.flower.y} r={h.flower.r} fill="#b0db34" />
+          ))
+        : null}
+      {shape !== "TRON" && hasMainStirrup(section)
+        ? rectStirrup.flowers.map((f, i) => (
+            <BarEndFlower key={`rf-${i}`} x={f.x} y={f.y} r={f.r} fill="#b0db34" />
+          ))
+        : null}
     </svg>
   );
 }

@@ -593,6 +593,7 @@ function drawScheduleRoundStirrup(
     hookThick: Math.max(2.8, barR * 1.1),
   });
   circle(ctx, geom.bar.x, geom.bar.y, geom.bar.r, true);
+  geom.hooks.forEach((h) => drawBarEndFlower(ctx, h.flower.x, h.flower.y, Math.max(1.35, h.flower.r)));
   const upper = geom.hooks[0].flower.y <= geom.hooks[1].flower.y ? geom.hooks[0] : geom.hooks[1];
   const lower = upper === geom.hooks[0] ? geom.hooks[1] : geom.hooks[0];
   textVCenter(ctx, String(Math.round(dia)), cx - r * 0.12, cy, size, false, "center");
@@ -1072,14 +1073,17 @@ function drawSectionDetail(
     const wrapBar = pts.reduce((best, p) => (p[0] > best[0] ? p : best), pts[0] ?? [cx, cy]);
     circle(ctx, cx, cy, outerR, false);
     if (hasMainStirrup(section, shape)) {
-      drawCircularTie(ctx, cx, cy, stirrupR, stroke, {
+      const tie = drawCircularTie(ctx, cx, cy, stirrupR, stroke, {
         gapCenter: Math.atan2(wrapBar[1] - cy, wrapBar[0] - cx),
         gapChord: 2 * barR,
         bar: { x: wrapBar[0], y: wrapBar[1], r: barR },
         hookThick: Math.max(3.2, barR * 1.05),
       });
+      pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
+      tie.hooks.forEach((h) => drawBarEndFlower(ctx, h.flower.x, h.flower.y, Math.max(1.35, h.flower.r)));
+    } else {
+      pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
     }
-    pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
 
     const dMm = columnDiameterMm(section);
     dimH(ctx, x, x + w, y + h + 18, `D${dMm}`, 8);
@@ -1129,6 +1133,10 @@ function drawSectionDetail(
   dashV(ctx, x + w / 2, y - 2, y + h + 6, 2.6, 1.9, 0.28);
 
   pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
+  if (hasMainStirrup(section)) {
+    const hook = rectStirrupHook(geom.sLeft, geom.sTop, geom.sW, geom.sH, geom.stroke);
+    drawBarEndFlower(ctx, hook.flower.x, hook.flower.y, hook.flower.r);
+  }
 
   dimH(ctx, x, x + w, y + h + 18, String(section.cx), 8);
   dimChainV(ctx, x + w + 18, [y, y + h], [String(section.cy)], 8, "right", 13);
