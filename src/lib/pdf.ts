@@ -450,7 +450,7 @@ function drawScheduleBarSketch(
     text(ctx, String(right), x1 + 4, midY - 2, size);
     return;
   }
-  const lineW = Math.min(148, w * 0.62);
+  const lineW = Math.min(96, w * 0.76);
   const x0 = x + (w - lineW) / 2;
   const x1 = x0 + lineW;
   line(ctx, x0, midY, x1, midY, 0.7);
@@ -482,7 +482,7 @@ function drawScheduleStirrup(
   const hookLabel = String(Math.round(hook));
   const leftW = ctx.font.widthOfTextAtSize(heightLabel, size);
   const rightW = ctx.font.widthOfTextAtSize(hookLabel, size);
-  const bw = Math.min(46, Math.max(22, w * 0.4));
+  const bw = Math.min(38, Math.max(20, w * 0.32));
   const bh = Math.min(h - 4, 12.5);
   const leftPad = leftW + 5;
   const rightPad = rightW + 5.2;
@@ -1128,12 +1128,12 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   const cols: { w: number; label: string; stack?: string[] }[] = [
     { w: floorColW + memberColW, label: "TÊN CẤU KIỆN", stack: ["TÊN", "CẤU KIỆN"] },
     { w: 36, label: "STT" },
-    { w: 224, label: "HÌNH DẠNG, KT (mm)" },
+    { w: 132, label: "HÌNH DẠNG, KT (mm)", stack: ["HÌNH DẠNG", "KT (mm)"] },
     { w: 32, label: "Ø" },
-    { w: 52, label: "DÀI" },
-    { w: 40, label: "1 CK" },
-    { w: 44, label: "T.BỘ" },
-    { w: 58, label: "T.L (m)" },
+    { w: 34, label: "DÀI" },
+    { w: 28, label: "1 CK" },
+    { w: 32, label: "T.BỘ" },
+    { w: 40, label: "T.L (m)" },
     { w: 54, label: "KL (kg)" },
   ];
   const tableW = cols.reduce((s, c) => s + c.w, 0);
