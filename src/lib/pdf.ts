@@ -633,7 +633,11 @@ function spliceLens(
   if (column.midSplice) {
     const nD = lapMm(section.mainDia, column.midSpliceD);
     const pos = midSplicePosMm(floor);
-    return [pos, nD, Math.max(floor.heightMm - pos - nD, 0)];
+    const below = Math.max(pos - nD, 0);
+    const lowerLap = Math.min(nD, pos);
+    const upperLap = nD;
+    const above = Math.max(floor.heightMm - pos - nD, 0);
+    return [below, lowerLap, upperLap, above].filter((len) => len > 0.5);
   }
   if (column.baseSplice) {
     const dia = !isColumnBase && prevSection ? prevSection.mainDia : section.mainDia;
