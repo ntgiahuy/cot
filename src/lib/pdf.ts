@@ -1473,7 +1473,6 @@ export async function generateColumnPdf(
       drawSchedulePanel(ctx, mx + used + COLUMN_SHEET_GAP, innerY, rest, innerH, project);
       placedSched = true;
     }
-    text(ctx, `${slice.length} cột / trang — mặt đứng ép sát mặt cắt`, mx + 10, my + frameH - 6, 7);
     text(ctx, `${project.floors.length} tầng`, mx + frameW - 10, my + frameH - 6, 7, false, "right");
   }
 
