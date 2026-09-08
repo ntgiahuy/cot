@@ -625,22 +625,63 @@ function stirrupTicksH(
   }
 }
 
-function zigzagV(ctx: Ctx, x: number, y0: number, y1: number) {
-  const mid = (y0 + y1) / 2;
-  const z = 4.2;
-  const g = 7;
-  line(ctx, x, y0, x, mid - g, 0.7, [5, 3.2]);
-  line(ctx, x, mid - g, x - z, mid - g / 2, 0.7);
-  line(ctx, x - z, mid - g / 2, x + z, mid + g / 2, 0.7);
-  line(ctx, x + z, mid + g / 2, x, mid + g, 0.7);
-  line(ctx, x, mid + g, x, y1, 0.7, [5, 3.2]);
+function beamEndBreak(ctx: Ctx, x: number, yTop: number, yBot: number, dir: 1 | -1) {
+  const mid = (yTop + yBot) / 2;
+  const z = 4.6 * dir;
+  const g = Math.max(4.2, Math.min(7.2, Math.abs(yBot - yTop) * 0.22));
+  line(ctx, x, yTop, x, mid - g, 0.8);
+  line(ctx, x, mid - g, x + z, mid - g * 0.2, 0.8);
+  line(ctx, x + z, mid - g * 0.2, x - z, mid + g * 0.2, 0.8);
+  line(ctx, x - z, mid + g * 0.2, x, mid + g, 0.8);
+  line(ctx, x, mid + g, x, yBot, 0.8);
 }
 
-function drawBeamBoxV(ctx: Ctx, x: number, y: number, w: number, h: number) {
-  line(ctx, x, y, x + w, y, 0.7, [5, 3.2]);
-  line(ctx, x, y + h, x + w, y + h, 0.7, [5, 3.2]);
-  zigzagV(ctx, x, y, y + h);
-  zigzagV(ctx, x + w, y, y + h);
+/** Dầm mặt đứng: đỉnh cột (hình 1) hoặc dầm xuyên tầng dưới (hình 2). */
+function drawElevationBeam(
+  ctx: Ctx,
+  shaftX: number,
+  shaftW: number,
+  yTop: number,
+  yBot: number,
+  kind: "top" | "through",
+) {
+  const stub = 28;
+  const xL = shaftX - stub;
+  const xR = shaftX + shaftW + stub;
+  const x0 = shaftX;
+  const x1 = shaftX + shaftW;
+  const h = Math.abs(yBot - yTop);
+  const d = Math.max(3.2, Math.min(6.2, h * 0.16));
+  const dash = [3.4, 2.1];
+  const mid = shaftX + shaftW / 2;
+
+  if (kind === "top") {
+    const gap = Math.max(3.2, shaftW * 0.2);
+    fillRect(ctx, mid - gap, yTop - 0.9, gap * 2, 1.8, WHITE);
+    line(ctx, xL, yTop, mid - gap, yTop, 0.85);
+    line(ctx, mid + gap, yTop, xR, yTop, 0.85);
+    line(ctx, xL, yBot, xR, yBot, 0.85);
+    line(ctx, xL + 2, yTop + d, x0, yTop + d, 0.5, dash);
+    line(ctx, x1, yTop + d, xR - 2, yTop + d, 0.5, dash);
+  } else {
+    line(ctx, xL, yTop, xR, yTop, 0.85);
+    line(ctx, xL, yBot, xR, yBot, 0.85);
+    const tickS = 2.5;
+    for (const y of [yTop, yBot]) {
+      const toward = y === yTop ? 1 : -1;
+      for (const t of [0.32, 0.68]) {
+        const tx = x0 + shaftW * t;
+        line(ctx, tx - tickS, y, tx + tickS, y + toward * tickS, 0.55);
+      }
+    }
+    line(ctx, xL + 2, yTop + d, x0, yTop + d, 0.5, dash);
+    line(ctx, x0, yTop + d, x0, yBot - d, 0.5, dash);
+    line(ctx, x1, yTop + d, xR - 2, yTop + d, 0.5, dash);
+    line(ctx, x1, yTop + d, x1, yBot - d, 0.5, dash);
+  }
+
+  beamEndBreak(ctx, xL, yTop, yBot, -1);
+  beamEndBreak(ctx, xR, yTop, yBot, 1);
 }
 
 /** Bẻ cổ chai ngắn ngay đỉnh sắt dưới: đoạn lệch cao bằng sắt dưới, rồi bẻ gọn. */
@@ -965,7 +1006,7 @@ function drawColumnSheet(
   const shaftW = Math.max(22, Math.min(34, firstSec.cx * scale));
   const dimLeftX = xC + 18;
   const shaftX = xC + 88;
-  const explodedX = shaftX + shaftW + 12;
+  const explodedX = shaftX + shaftW + 34;
   const dimSpliceX = explodedX + 62;
   const dimTotalX = dimSpliceX + 20;
   const xD = Math.max(dimTotalX + 16, xE - SECTION_COL_W);
@@ -1000,6 +1041,7 @@ function drawColumnSheet(
     if (!active.has(floor.id)) return;
 
     const isColumnBase = floor.id === col.startFloor;
+    const isColumnTop = floor.id === col.endFloor;
     const prevFloor = index > 0 ? project.floors[index - 1] : undefined;
     const prevSection = prevFloor && !isColumnBase ? sectionFor(col, prevFloor.id) : null;
     const section = sectionFor(col, floor.id);
@@ -1009,7 +1051,7 @@ function drawColumnSheet(
     zones.forEach((zone) => {
       const zh = zone.len * scale;
       const zTop = zy - zh;
-      if (zone.dashed) drawBeamBoxV(ctx, shaftX, zTop, shaftW, zh);
+      if (zone.dashed) drawElevationBeam(ctx, shaftX, shaftW, zTop, zTop + zh, isColumnTop ? "top" : "through");
       else stirrupTicksH(ctx, shaftX, shaftX + shaftW, zTop, zy, zone.spacing, scale);
       if (zone.label) {
         const mid = (zTop + zy) / 2;
