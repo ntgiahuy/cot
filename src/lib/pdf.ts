@@ -1145,10 +1145,12 @@ function drawColumnSheet(
       drawHeadLockHook(ctx, x, explodeTop, dir, headLockLenPx(section.mainDia, scale, room), 1.15);
     };
     if (topsMm.length) {
+      const spliceDia = !isColumnBase && prevSection ? prevSection.mainDia : section.mainDia;
+      const baseLap = col.baseSplice ? lapMm(spliceDia, col.baseSpliceD) : 0;
       topsMm.forEach((topMm, i) => {
         const x = explodedX + i * 14;
         const crankY = yBot - topMm * scale;
-        const offsetH = col.midSplice ? midLap : topMm;
+        const offsetH = col.midSplice ? midLap : baseLap || topMm;
         const yOffsetBot = yBot - Math.max(topMm - offsetH, 0) * scale;
         line(ctx, x, yBot - 1, x, crankY, 1.05);
         crankBarV(ctx, x, explodeTop, yOffsetBot - 1, crankY, -amp, 1.15);
