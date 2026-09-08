@@ -644,14 +644,13 @@ function beamEndBreak(ctx: Ctx, x: number, yTop: number, yBot: number, dir: 1 | 
   line(ctx, x, mid + g, x, yBot, w);
 }
 
-/** Dầm mặt đứng: đỉnh cột (hình 1) hoặc dầm xuyên tầng dưới (hình 2). */
+/** Dầm mặt đứng: nét đỉnh/đáy liền, Z-break hai đầu. */
 function drawElevationBeam(
   ctx: Ctx,
   shaftX: number,
   shaftW: number,
   yTop: number,
   yBot: number,
-  kind: "top" | "through",
 ) {
   const stub = 28;
   const xL = shaftX - stub;
@@ -661,22 +660,11 @@ function drawElevationBeam(
   const h = Math.abs(yBot - yTop);
   const d = beamDashInset(h);
   const dash = [3.4, 2.1];
-  const mid = shaftX + shaftW / 2;
 
-  if (kind === "top") {
-    const gap = Math.max(3.2, shaftW * 0.2);
-    fillRect(ctx, mid - gap, yTop - 0.9, gap * 2, 1.8, WHITE);
-    line(ctx, xL, yTop, mid - gap, yTop, 0.85);
-    line(ctx, mid + gap, yTop, xR, yTop, 0.85);
-    line(ctx, xL, yBot, xR, yBot, 0.85);
-    line(ctx, xL + 2, yTop + d, x0, yTop + d, 0.5, dash);
-    line(ctx, x1, yTop + d, xR - 2, yTop + d, 0.5, dash);
-  } else {
-    line(ctx, xL, yTop, xR, yTop, 0.85);
-    line(ctx, xL, yBot, xR, yBot, 0.85);
-    line(ctx, xL + 2, yTop + d, x0, yTop + d, 0.5, dash);
-    line(ctx, x1, yTop + d, xR - 2, yTop + d, 0.5, dash);
-  }
+  line(ctx, xL, yTop, xR, yTop, 0.85);
+  line(ctx, xL, yBot, xR, yBot, 0.85);
+  line(ctx, xL + 2, yTop + d, x0, yTop + d, 0.5, dash);
+  line(ctx, x1, yTop + d, xR - 2, yTop + d, 0.5, dash);
 
   beamEndBreak(ctx, xL, yTop, yBot, -1);
   beamEndBreak(ctx, xR, yTop, yBot, 1);
@@ -1065,7 +1053,7 @@ function drawColumnSheet(
     zones.forEach((zone) => {
       const zh = zone.len * scale;
       const zTop = zy - zh;
-      if (zone.dashed) drawElevationBeam(ctx, shaftX, shaftW, zTop, zTop + zh, isColumnTop ? "top" : "through");
+      if (zone.dashed) drawElevationBeam(ctx, shaftX, shaftW, zTop, zTop + zh);
       else stirrupTicksH(ctx, shaftX, shaftX + shaftW, zTop, zy, zone.spacing, scale);
       if (zone.label) {
         const mid = (zTop + zy) / 2;
