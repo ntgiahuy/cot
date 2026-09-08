@@ -384,6 +384,100 @@ function drawStirrupFrame(ctx: Ctx, x: number, y: number, w: number, h: number, 
   line(ctx, x2, y2, x2 - hook * 0.78, y2 + hook * 0.78, t);
 }
 
+function vtextCentered(ctx: Ctx, str: string, cx: number, yMid: number, size = 9, bold = false) {
+  const font = bold ? ctx.fontBold : ctx.font;
+  const tw = font.widthOfTextAtSize(str, size);
+  ctx.page.drawText(str, {
+    x: cx + size * 0.28,
+    y: ty(ctx, yMid) - tw / 2,
+    size,
+    font,
+    color: BLACK,
+    rotate: degrees(90),
+  });
+}
+
+function fitVTextSize(ctx: Ctx, str: string, maxH: number, prefer = 9) {
+  const font = ctx.fontBold;
+  let size = prefer;
+  while (size > 5 && font.widthOfTextAtSize(str, size) > maxH - 6) size -= 0.3;
+  return size;
+}
+
+function headerStack(
+  ctx: Ctx,
+  cx: number,
+  y: number,
+  h: number,
+  lines: string[],
+  size = 5.8,
+) {
+  const lead = size + 2.2;
+  const block = size + lead * (lines.length - 1);
+  let cy = y + (h - block) / 2 + size / 2;
+  for (const line of lines) {
+    textVCenter(ctx, line, cx, cy, size, true, "center");
+    cy += lead;
+  }
+}
+
+/** Thanh thẳng / móc L / đai C — cụm hình + kích thước nằm giữa cột. */
+function drawScheduleBarSketch(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  kind: "straight" | "l-hook" | "u-bar",
+  segs: number[],
+  mark?: string,
+) {
+  const size = 5.5;
+  const midY = y + h * 0.58;
+  const hookH = Math.min(7.5, h * 0.38);
+  if (kind === "u-bar") {
+    const [left, mid, right] = segs;
+    const lineW = Math.min(56, w * 0.38);
+    const leftW = ctx.font.widthOfTextAtSize(String(left), size);
+    const rightW = ctx.font.widthOfTextAtSize(String(right), size);
+    const total = leftW + 6 + lineW + 6 + rightW;
+    const x0 = x + (w - total) / 2 + leftW + 6;
+    const x1 = x0 + lineW;
+    line(ctx, x0, midY, x1, midY, 0.7);
+    line(ctx, x0, midY, x0, midY - hookH, 0.7);
+    line(ctx, x1, midY, x1, midY - hookH, 0.7);
+    text(ctx, String(mid), (x0 + x1) / 2, midY - 10, size, false, "center");
+    text(ctx, String(left), x0 - 4, midY - 2, size, false, "right");
+    text(ctx, String(right), x1 + 4, midY - 2, size);
+    return;
+  }
+  if (kind === "l-hook") {
+    const hook = segs[0];
+    const len = segs[1];
+    const lineW = Math.min(110, w * 0.48);
+    const leftW = ctx.font.widthOfTextAtSize(String(hook), size);
+    const markW = mark ? ctx.font.widthOfTextAtSize(mark, 6) + 8 : 0;
+    const total = leftW + 6 + lineW + markW;
+    const x0 = x + (w - total) / 2 + leftW + 6;
+    const x1 = x0 + lineW;
+    line(ctx, x0, midY, x1, midY, 0.7);
+    line(ctx, x0, midY, x0, midY - hookH, 0.7);
+    text(ctx, String(hook), x0 - 4, midY - 8, size, false, "right");
+    text(ctx, String(len), (x0 + x1) / 2, midY - 10, size, false, "center");
+    if (mark) text(ctx, mark, x1 + 6, midY, 6);
+    return;
+  }
+  const lengthMm = segs[0];
+  const lineW = Math.min(140, w * 0.55);
+  const markW = mark ? ctx.font.widthOfTextAtSize(mark, 6) + 8 : 0;
+  const total = lineW + markW;
+  const x0 = x + (w - total) / 2;
+  const x1 = x0 + lineW;
+  line(ctx, x0, midY, x1, midY, 0.7);
+  text(ctx, String(lengthMm), (x0 + x1) / 2, midY - 10, size, false, "center");
+  if (mark) text(ctx, mark, x1 + 6, midY, 6);
+}
+
 /** Ô thống kê: cạnh ngang trong lòng, cạnh đứng bên trái, móc bên phải. */
 function drawScheduleStirrup(
   ctx: Ctx,
@@ -1060,10 +1154,10 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   const pad = 8;
   const tableX = x + pad;
   const tableY = y + titleH + 6;
-  const cols = [
-    { w: 122, label: "KIỆN CẤU" },
+  const cols: { w: number; label: string; stack?: string[] }[] = [
+    { w: 40, label: "TÊN CẤU KIỆN", stack: ["TÊN", "CẤU KIỆN"] },
     { w: 32, label: "STT" },
-    { w: 168, label: "HÌNH DẠNG, KT (mm)" },
+    { w: 250, label: "HÌNH DẠNG, KT (mm)" },
     { w: 32, label: "Ø" },
     { w: 52, label: "DÀI" },
     { w: 40, label: "1 CK" },
@@ -1072,12 +1166,13 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
     { w: 54, label: "KL (kg)" },
   ];
   const tableW = cols.reduce((s, c) => s + c.w, 0);
-  const headH = 20;
+  const headH = 26;
   let cx = tableX;
   fillRect(ctx, tableX, tableY, tableW, headH, GRAY);
   cols.forEach((col) => {
     rect(ctx, cx, tableY, col.w, headH, 0.55);
-    cellText(ctx, col.label, cx, tableY, col.w, headH, 6, "center", true);
+    if (col.stack) headerStack(ctx, cx + col.w / 2, tableY, headH, col.stack, 5.6);
+    else cellText(ctx, col.label, cx, tableY, col.w, headH, 6, "center", true);
     cx += col.w;
   });
 
@@ -1087,7 +1182,7 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   const sumH = 168;
   const bodyTop = tableY + headH;
   const bodyH = h - (bodyTop - y) - sumH - 10;
-  const rowH = Math.min(20, Math.max(14, bodyH / Math.max(rows.length, 1)));
+  const rowH = Math.min(30, Math.max(16, bodyH / Math.max(rows.length, 1)));
   const xs: number[] = [];
   let acc = tableX;
   cols.forEach((c) => {
@@ -1095,50 +1190,54 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
     acc += c.w;
   });
 
-  let rowY = bodyTop;
-  let lastMember = "";
-  let alt = false;
-  rows.forEach((row) => {
-    if (rowY + rowH > bodyTop + bodyH) return;
-    if (row.member !== lastMember) {
-      lastMember = row.member;
-      alt = !alt;
+  const visible = rows.filter((_, i) => bodyTop + (i + 1) * rowH <= bodyTop + bodyH);
+  type NameGroup = { start: number; end: number; label: string; y: number; h: number };
+  const groups: NameGroup[] = [];
+  visible.forEach((row, i) => {
+    const name = row.member.split(" (")[0];
+    const label = `TẦNG ${row.floorName}: ${name}`;
+    const y = bodyTop + i * rowH;
+    const prev = groups[groups.length - 1];
+    if (prev && prev.label === label) {
+      prev.end = i;
+      prev.h += rowH;
+    } else {
+      groups.push({ start: i, end: i, label, y, h: rowH });
     }
-    if (alt) fillRect(ctx, tableX, rowY, tableW, rowH, GRAY2);
-    rect(ctx, tableX, rowY, tableW, rowH, 0.35);
-    cx = tableX;
-    cols.forEach((c) => {
-      line(ctx, cx, rowY, cx, rowY + rowH, 0.35);
-      cx += c.w;
-    });
+  });
 
-    cellText(ctx, `${row.member.split(" (")[0]} T${row.floorName}`, xs[0], rowY, cols[0].w, rowH, 5.5, "left", true);
+  groups.forEach((g, gi) => {
+    if (gi % 2 === 1) fillRect(ctx, xs[1], g.y, tableW - cols[0].w, g.h, GRAY2);
+  });
+
+  const bodyUsed = visible.length * rowH;
+  for (let c = 1; c < cols.length; c += 1) {
+    line(ctx, xs[c], bodyTop, xs[c], bodyTop + bodyUsed, 0.35);
+  }
+
+  visible.forEach((row, i) => {
+    const rowY = bodyTop + i * rowH;
+    const yBot = rowY + rowH;
+    const lastInGroup = groups.some((g) => g.end === i);
+    const lastOverall = i === visible.length - 1;
+    if (!lastOverall) {
+      if (lastInGroup) line(ctx, tableX, yBot, tableX + tableW, yBot, 0.45);
+      else line(ctx, xs[1], yBot, tableX + tableW, yBot, 0.3);
+    }
+
     cellText(ctx, String(row.stt), xs[1], rowY, cols[1].w, rowH, 6.5, "center");
 
-    const shapeX = xs[2] + 10;
-    const midY = rowY + rowH * 0.55;
     if (row.kind === "stirrup") {
       const [hook, a, b] = row.segs;
       if (b === hook) {
-        line(ctx, shapeX + 18, midY, shapeX + 62, midY, 0.7);
-        line(ctx, shapeX + 18, midY, shapeX + 18, midY - 8, 0.7);
-        line(ctx, shapeX + 62, midY, shapeX + 62, midY - 8, 0.7);
-        text(ctx, String(a), shapeX + 40, midY - 10, 5.5, false, "center");
-        text(ctx, String(hook), shapeX + 14, midY - 2, 5.5, false, "right");
-        text(ctx, String(b), shapeX + 66, midY - 2, 5.5);
+        drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "u-bar", [hook, a, b]);
       } else {
         drawScheduleStirrup(ctx, xs[2], rowY, cols[2].w, rowH, hook, a, b);
       }
     } else if (row.kind === "long-hook") {
-      line(ctx, shapeX + 18, midY, shapeX + 78, midY, 0.7);
-      line(ctx, shapeX + 18, midY, shapeX + 18, midY - 8, 0.7);
-      text(ctx, String(row.segs[0]), shapeX + 14, midY - 8, 5.5, false, "right");
-      text(ctx, String(row.segs[1]), shapeX + 48, midY - 10, 5.5, false, "center");
-      text(ctx, row.shapeLabel, shapeX + 84, midY, 6);
+      drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "l-hook", row.segs, row.shapeLabel);
     } else {
-      line(ctx, shapeX + 12, midY, shapeX + 88, midY, 0.7);
-      text(ctx, String(row.lengthMm), shapeX + 50, midY - 10, 5.5, false, "center");
-      text(ctx, row.shapeLabel, shapeX + 94, midY, 6);
+      drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "straight", [row.lengthMm], row.shapeLabel);
     }
 
     cellText(ctx, String(row.dia), xs[3], rowY, cols[3].w, rowH, 6.5, "center");
@@ -1147,9 +1246,13 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
     cellText(ctx, String(row.totalBars), xs[6], rowY, cols[6].w, rowH, 6.5, "center");
     cellText(ctx, row.totalLengthM.toFixed(1), xs[7], rowY, cols[7].w, rowH, 6.5, "right");
     cellText(ctx, row.weightKg.toFixed(1), xs[8], rowY, cols[8].w, rowH, 6.5, "right");
-    rowY += rowH;
   });
-  rect(ctx, tableX, bodyTop, tableW, Math.max(rowY - bodyTop, 1), 0.7);
+
+  groups.forEach((g) => {
+    const size = fitVTextSize(ctx, g.label, g.h, 9);
+    vtextCentered(ctx, g.label, xs[0] + cols[0].w / 2, g.y + g.h / 2, size, true);
+  });
+  rect(ctx, tableX, bodyTop, tableW, Math.max(bodyUsed, 1), 0.7);
 
   const sumY = y + h - sumH;
   line(ctx, x, sumY, x + w, sumY, 0.8);
