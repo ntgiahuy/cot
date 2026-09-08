@@ -625,6 +625,10 @@ function stirrupTicksH(
   }
 }
 
+function beamDashInset(h: number) {
+  return Math.max(3.2, Math.min(6.2, Math.abs(h) * 0.16));
+}
+
 function beamEndBreak(ctx: Ctx, x: number, yTop: number, yBot: number, dir: 1 | -1) {
   const mid = (yTop + yBot) / 2;
   const z = 4.6 * dir;
@@ -651,7 +655,7 @@ function drawElevationBeam(
   const x0 = shaftX;
   const x1 = shaftX + shaftW;
   const h = Math.abs(yBot - yTop);
-  const d = Math.max(3.2, Math.min(6.2, h * 0.16));
+  const d = beamDashInset(h);
   const dash = [3.4, 2.1];
   const mid = shaftX + shaftW / 2;
 
@@ -675,9 +679,7 @@ function drawElevationBeam(
       }
     }
     line(ctx, xL + 2, yTop + d, x0, yTop + d, 0.5, dash);
-    line(ctx, x0, yTop + d, x0, yBot - d, 0.5, dash);
     line(ctx, x1, yTop + d, xR - 2, yTop + d, 0.5, dash);
-    line(ctx, x1, yTop + d, x1, yBot - d, 0.5, dash);
   }
 
   beamEndBreak(ctx, xL, yTop, yBot, -1);
@@ -1070,8 +1072,21 @@ function drawColumnSheet(
       7.5,
     );
 
-    line(ctx, shaftX, yTop, shaftX, yBot, 1.15);
-    line(ctx, shaftX + shaftW, yTop, shaftX + shaftW, yBot, 1.15);
+    /* Da bê tông cột: trong dầm là nét đứt; từ nét đứt ngang lên tới phân tầng thì bỏ. */
+    {
+      const beamH = Math.max(0, floor.beamHeightMm) * scale;
+      const dashY = yTop + beamDashInset(beamH);
+      const beamBot = yTop + beamH;
+      const skinDash = [3.4, 2.1];
+      for (const x of [shaftX, shaftX + shaftW]) {
+        if (beamH < 1) {
+          line(ctx, x, yTop, x, yBot, 1.15);
+          continue;
+        }
+        line(ctx, x, dashY, x, beamBot, 1.15, skinDash);
+        if (beamBot < yBot - 0.4) line(ctx, x, beamBot, x, yBot, 1.15);
+      }
+    }
 
     const inset = 5;
     const xL = shaftX + inset;
