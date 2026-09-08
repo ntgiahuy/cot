@@ -35,3 +35,10 @@ npm run build
 ```
 
 Thư mục `docs/` là site tĩnh cho GitHub Pages: [https://ntgiahuy.github.io/cot/](https://ntgiahuy.github.io/cot/).
+
+Khi copy lên repo Pages, **phải** đưa cả `docs/assets/` (file JS/CSS có hash). Đừng dùng `tar --exclude=assets` — cờ đó cũng bỏ `docs/assets`, HTML vẫn trỏ hash mới nhưng file 404 nên trang trắng. Dùng:
+
+```bash
+npm run build
+scripts/sync-pages-docs.sh /path/to/ntgiahuy/cot
+```

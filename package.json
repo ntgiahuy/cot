@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && touch docs/.nojekyll",
+    "build": "tsc -b && vite build && touch docs/.nojekyll && node scripts/check-docs-assets.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
