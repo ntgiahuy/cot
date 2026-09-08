@@ -585,7 +585,7 @@ function drawScheduleRoundStirrup(
 ) {
   const size = 5.2;
   const r = Math.min(h * 0.32, w * 0.15);
-  const cx = x + w * 0.42;
+  const cx = x + w * 0.38;
   const cy = y + h / 2 + 0.6;
   const barR = Math.max(1.5, r * (mainDia / Math.max(dia, 1)));
   const geom = drawCircularTie(ctx, cx, cy, r, 0.7, {
@@ -601,12 +601,10 @@ function drawScheduleRoundStirrup(
   circle(ctx, geom.bar.x, geom.bar.y, geom.bar.r, true);
   const upper = geom.hooks[0].tip[1] <= geom.hooks[1].tip[1] ? geom.hooks[0] : geom.hooks[1];
   const lower = upper === geom.hooks[0] ? geom.hooks[1] : geom.hooks[0];
-  textVCenter(ctx, String(Math.round(dia)), cx - r * 0.12, cy, size, false, "center");
-  textVCenter(ctx, String(Math.round(hook)), upper.tip[0] - 2.2, upper.tip[1] - 0.4, size, false, "right");
-  textVCenter(ctx, String(Math.round(hook)), lower.tip[0] - 2.2, lower.tip[1] + 3.2, size, false, "right");
-  if (mainDia > 0) {
-    textVCenter(ctx, `Ø${Math.round(mainDia)}`, geom.bar.x + barR + 5.4, geom.bar.y, 4.8, false, "left");
-  }
+  textVCenter(ctx, String(Math.round(dia)), cx, cy, size, false, "center");
+  const hookX = cx + r + 4.2;
+  textVCenter(ctx, String(Math.round(hook)), hookX, upper.tanLine[1] - 0.2, size, false, "left");
+  textVCenter(ctx, String(Math.round(hook)), hookX, lower.tanLine[1] + 0.2, size, false, "left");
 }
 
 /** Đai C / U: thân bo góc, hai đầu móc. */
