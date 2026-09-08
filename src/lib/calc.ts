@@ -289,8 +289,6 @@ export function longBarSpecs(
   const nD = column.baseSplice ? lapMm(dia, column.baseSpliceD) : 0;
   const nDNext =
     column.baseSplice && !isTop && nextSection ? lapMm(nextSection.mainDia, column.baseSpliceD) : 0;
-  const midPos = column.midSplice ? midSplicePosMm(floor) : null;
-  const midOffset = column.midSplice ? lapMm(dia, column.midSpliceD) : 0;
   const split = column.baseSplice || column.midSplice;
 
   const make = (
@@ -317,9 +315,28 @@ export function longBarSpecs(
   if (!split) return [make("1", nBars, floor.heightMm - coverTrim, 0, null)].filter((spec) => spec.qty > 0);
 
   if (column.midSplice) {
+    const pos = midSplicePosMm(floor);
+    const nDmid = lapMm(dia, column.midSpliceD);
+    const makeMid = (
+      mark: string,
+      qty: number,
+      straight: number,
+      extra: number,
+      splicePos: number,
+    ): LongBarSpec => ({
+      mark,
+      qty,
+      straightMm: Math.max(0, straight),
+      hookMm: 0,
+      lengthMm: Math.max(0, straight),
+      kind: "long",
+      segs: [Math.max(0, Math.round(straight))],
+      baseExtraMm: extra,
+      midPosMm: splicePos,
+    });
     return [
-      make("1", shortQty, floor.heightMm - coverTrim, 0, midPos),
-      make("1*", longQty, floor.heightMm - coverTrim + midOffset, midOffset, midPos == null ? null : midPos + midOffset),
+      makeMid("1", shortQty, pos, 0, pos),
+      makeMid("1*", longQty, pos + nDmid, nDmid, pos + nDmid),
     ].filter((spec) => spec.qty > 0);
   }
 
