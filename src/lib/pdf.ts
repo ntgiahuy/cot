@@ -233,31 +233,6 @@ function balloon(ctx: Ctx, x: number, y: number, n: number | string, r = 7.4) {
   });
 }
 
-function specInLine(
-  ctx: Ctx,
-  label: string,
-  x0: number,
-  x1: number,
-  y: number,
-  size = 6.1,
-) {
-  const a = Math.min(x0, x1);
-  const b = Math.max(x0, x1);
-  const font = ctx.fontBold;
-  const tw = font.widthOfTextAtSize(label, size);
-  const pad = 1.4;
-  const gap = tw + pad * 2;
-  const mid = (a + b) / 2;
-  if (b - a > gap + 2.5) {
-    line(ctx, a, y, mid - gap / 2, y, 0.45);
-    line(ctx, mid + gap / 2, y, b, y, 0.45);
-    textVCenter(ctx, label, mid, y, size, true, "center");
-    return;
-  }
-  line(ctx, a, y, b, y, 0.45);
-  specAbove(ctx, label, mid, y, size, "center");
-}
-
 function drawExplodedBarMarks(
   ctx: Ctx,
   bars: Array<{ x: number; y0: number; y1: number; mark: string }>,
@@ -275,6 +250,7 @@ function drawExplodedBarMarks(
     }
   });
   const r = 7.6;
+  const labelSize = 6.8;
   const minGap = r * 2 + 6;
   const items = [...grouped.values()].sort((a, b) => a.yMid - b.yMid);
   items.forEach((item, i) => {
@@ -283,9 +259,12 @@ function drawExplodedBarMarks(
     }
   });
   items.forEach((item) => {
-    const xEdge = item.xBar < balloonX ? balloonX - r - 0.55 : balloonX + r + 0.55;
-    specInLine(ctx, specOf(item.mark), item.xBar, xEdge, item.yMid, 6.1);
-    balloon(ctx, balloonX, item.yMid, item.mark, r);
+    const spec = specOf(item.mark);
+    const tw = ctx.fontBold.widthOfTextAtSize(spec, labelSize);
+    const left = balloonX - r - 0.55;
+    const right = balloonX + r + 0.55;
+    if (item.xBar < left - 0.8) line(ctx, item.xBar, item.yMid, left, item.yMid, 0.45);
+    leaderCallout(ctx, balloonX, item.yMid, right + tw + 4.2, item.yMid, item.mark, spec, r, labelSize, right + 0.5);
   });
 }
 
@@ -1067,8 +1046,8 @@ function drawColumnSheet(
   const dimLeftX = xC + 18;
   const shaftX = xC + 88;
   const explodedX = shaftX + shaftW + 16;
-  const explodeMarkX = explodedX + 70;
-  const dimSpliceX = explodeMarkX + 36;
+  const explodeMarkX = explodedX + 26;
+  const dimSpliceX = explodeMarkX + 50;
   const longMarks = uniqueLongBarMarks(col, project.floors);
   const dimTotalX = dimSpliceX + 20;
   const xD = Math.max(dimTotalX + 16, xE - SECTION_COL_W);
