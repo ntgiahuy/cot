@@ -27,7 +27,7 @@ import {
   summaryBuckets,
   type SectionMark,
 } from "./calc";
-import { EMBED_MM, STOCK_M, type Column, type Floor, type FloorSection, type Project } from "./types";
+import { COVER_MM, EMBED_MM, STOCK_M, type Column, type Floor, type FloorSection, type Project } from "./types";
 
 /** A1 ngang — 841 × 594 mm (2384 × 1684 pt). Nhiều cột / trang. */
 const PAGE_W = 2384;
@@ -678,6 +678,22 @@ function drawElevationBeam(
   beamEndBreak(ctx, xR, yTop, yBot, 1);
 }
 
+/** Cao độ bẻ móc khoá đầu (dưới lớp bọc, mm → pt). */
+function headLockY(yTop: number, scale: number) {
+  return yTop + Math.max(2.4, COVER_MM * scale);
+}
+
+/** Chiều dài móc 10d trên bản vẽ, kẹp để khỏi đè dầm / DIM. */
+function headLockLenPx(dia: number, scale: number, maxLen?: number) {
+  const len = Math.max(7.5, Math.min(26, 10 * dia * scale));
+  return maxLen == null ? len : Math.min(len, Math.max(5.5, maxLen));
+}
+
+function drawHeadLockHook(ctx: Ctx, x: number, y: number, dir: 1 | -1, len: number, w = 1.15) {
+  if (len < 2) return;
+  line(ctx, x, y, x + dir * len, y, w);
+}
+
 /** Bẻ cổ chai ngắn ngay đỉnh sắt dưới: đoạn lệch cao bằng sắt dưới, rồi bẻ gọn. */
 function crankBarV(
   ctx: Ctx,
@@ -1091,13 +1107,39 @@ function drawColumnSheet(
         : nShow === 3
           ? [xL, xM, xR]
           : [xL, (xL + xM) / 2, (xR + xM) / 2, xR];
+    const barTop = isColumnTop ? headLockY(yTop, scale) : yTop + 1;
+    const hookPx = headLockLenPx(section.mainDia, scale);
     xs.forEach((x) => {
-      line(ctx, x, yTop + 1, x, yBot - 1, 1.0);
+      line(ctx, x, barTop, x, yBot - 1, 1.0);
     });
+    if (isColumnTop && xs.length) {
+      const left = xs[0];
+      const right = xs[xs.length - 1];
+      const midX = (left + right) / 2;
+      const gap = 2.4;
+      const inward = Math.max(5.5, (right - left) / 2 - gap / 2);
+      xs.forEach((x) => {
+        if (x <= left + 0.2) drawHeadLockHook(ctx, x, barTop, 1, Math.min(hookPx, inward), 1.15);
+        else if (x >= right - 0.2) drawHeadLockHook(ctx, x, barTop, -1, Math.min(hookPx, inward), 1.15);
+        else {
+          const dir: 1 | -1 = x < midX ? 1 : -1;
+          const room = Math.abs(midX - x) - gap / 2;
+          drawHeadLockHook(ctx, x, barTop, dir, headLockLenPx(section.mainDia, scale, room), 1.0);
+        }
+      });
+    }
 
     const topsMm = lowerSteelTopsMm(floor, section, col, prevSection, isColumnBase);
     const amp = 5;
     const midLap = col.midSplice ? lapMm(section.mainDia, col.midSpliceD) : 0;
+    const explodeTop = isColumnTop ? barTop : yTop + 2;
+    const explodeHook = (x: number, i: number) => {
+      if (!isColumnTop) return;
+      const dir: 1 | -1 = i % 2 === 0 ? -1 : 1;
+      const room =
+        dir < 0 ? x - (shaftX + shaftW + 6) : dimSpliceX - x - 8;
+      drawHeadLockHook(ctx, x, explodeTop, dir, headLockLenPx(section.mainDia, scale, room), 1.15);
+    };
     if (topsMm.length) {
       topsMm.forEach((topMm, i) => {
         const x = explodedX + i * 14;
@@ -1105,13 +1147,16 @@ function drawColumnSheet(
         const offsetH = col.midSplice ? midLap : topMm;
         const yOffsetBot = yBot - Math.max(topMm - offsetH, 0) * scale;
         line(ctx, x, yBot - 1, x, crankY, 1.05);
-        crankBarV(ctx, x, yTop + 2, yOffsetBot - 1, crankY, -amp, 1.15);
+        crankBarV(ctx, x, explodeTop, yOffsetBot - 1, crankY, -amp, 1.15);
+        explodeHook(x, i);
       });
       const calloutY = yTop + (yBot - yTop) * 0.28;
       leaderCallout(ctx, explodedX + 44, calloutY, explodedX + 14, calloutY, 1, formatBarLabel(section), 6.2, 7.5);
     } else {
-      line(ctx, explodedX, yTop + 2, explodedX, yBot - 2, 1.15);
-      line(ctx, explodedX + 14, yTop + 2, explodedX + 14, yBot - 2, 1.15);
+      line(ctx, explodedX, explodeTop, explodedX, yBot - 2, 1.15);
+      line(ctx, explodedX + 14, explodeTop, explodedX + 14, yBot - 2, 1.15);
+      explodeHook(explodedX, 0);
+      explodeHook(explodedX + 14, 1);
       const calloutY = yTop + (yBot - yTop) * 0.28;
       leaderCallout(ctx, explodedX + 44, calloutY, explodedX + 14, calloutY, 1, formatBarLabel(section), 6.2, 7.5);
     }
