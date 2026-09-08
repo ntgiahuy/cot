@@ -42,6 +42,9 @@ import {
   normalizeColumn,
   sectionFor,
   steelRatioPercent,
+  ringBarCenters,
+  circularStirrupDiaMm,
+  columnDiameterMm,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
 import { BAR_COUNT_MAX, BAR_COUNT_MIN, BAR_DIAMETERS, clampBarCount, clampMainDia, clampTieDia, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
@@ -131,6 +134,29 @@ export default function App() {
       columns: project.columns.map((column) =>
         column.id === selectedColumn.id ? { ...column, ...partial } : column,
       ),
+    });
+  }
+
+  function setColumnShape(shape: Column["shape"]) {
+    persist({
+      ...project,
+      columns: project.columns.map((column) => {
+        if (column.id !== selectedColumn.id) return column;
+        if (shape !== "TRON") return { ...column, shape };
+        const sections: Record<number, FloorSection> = {};
+        for (const [key, section] of Object.entries(column.sections)) {
+          const d = Math.max(section.cx, section.cy);
+          sections[Number(key)] = {
+            ...section,
+            cx: d,
+            cy: d,
+            tieC: { ...section.tieC, enabled: false },
+            tieNested: { ...section.tieNested, enabled: false },
+            tieDouble: { ...section.tieDouble, enabled: false },
+          };
+        }
+        return { ...column, shape, sections };
+      }),
     });
   }
 
@@ -319,7 +345,7 @@ export default function App() {
   }
 
   const steel = barCount(selectedSection) * barAreaCm2(selectedSection.mainDia);
-  const ratio = steelRatioPercent(selectedSection);
+  const ratio = steelRatioPercent(selectedSection, selectedColumn.shape);
 
   function newProject() {
     persist(createSampleProject());
@@ -665,30 +691,51 @@ export default function App() {
                   ))}
                 </select>
               </div>
-              <div className="form-row">
-                <label>Rộng cạnh Cx (mm):</label>
-                <div className="inline-pair">
-                  <input
-                    type="number"
-                    value={selectedSection.cx}
-                    onChange={(e) => patchSection({ cx: Number(e.target.value) }, true)}
-                  />
-                  <span />
+              {selectedColumn.shape === "TRON" ? (
+                <div className="form-row">
+                  <label>Đường kính D (mm):</label>
+                  <div className="inline-pair">
+                    <input
+                      type="number"
+                      value={selectedSection.cx}
+                      onChange={(e) => {
+                        const d = Number(e.target.value);
+                        patchSection({ cx: d, cy: d }, true);
+                      }}
+                    />
+                    <button type="button" className="icon-action" onClick={() => setDialog("rebar")}>
+                      <Play size={16} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="form-row">
-                <label>Rộng cạnh Cy (mm):</label>
-                <div className="inline-pair">
-                  <input
-                    type="number"
-                    value={selectedSection.cy}
-                    onChange={(e) => patchSection({ cy: Number(e.target.value) }, true)}
-                  />
-                  <button type="button" className="icon-action" onClick={() => setDialog("rebar")}>
-                    <Play size={16} />
-                  </button>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="form-row">
+                    <label>Rộng cạnh Cx (mm):</label>
+                    <div className="inline-pair">
+                      <input
+                        type="number"
+                        value={selectedSection.cx}
+                        onChange={(e) => patchSection({ cx: Number(e.target.value) }, true)}
+                      />
+                      <span />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <label>Rộng cạnh Cy (mm):</label>
+                    <div className="inline-pair">
+                      <input
+                        type="number"
+                        value={selectedSection.cy}
+                        onChange={(e) => patchSection({ cy: Number(e.target.value) }, true)}
+                      />
+                      <button type="button" className="icon-action" onClick={() => setDialog("rebar")}>
+                        <Play size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
               <fieldset>
                 <legend>Nối thép cột</legend>
                 <div className="form-row">
@@ -763,14 +810,14 @@ export default function App() {
                 <button
                   type="button"
                   className={selectedColumn.shape === "HCN" ? "shape-option active" : "shape-option"}
-                  onClick={() => patchColumn({ shape: "HCN" })}
+                  onClick={() => setColumnShape("HCN")}
                 >
                   Cột HCN
                 </button>
                 <button
                   type="button"
                   className={selectedColumn.shape === "TRON" ? "shape-option active" : "shape-option"}
-                  onClick={() => patchColumn({ shape: "TRON" })}
+                  onClick={() => setColumnShape("TRON")}
                 >
                   Cột tròn
                 </button>
@@ -780,8 +827,17 @@ export default function App() {
               <div className="table-head table-four">
                 <span>STT</span>
                 <span>Tầng</span>
-                <span>Cạnh Cx (mm)</span>
-                <span>Cạnh Cy (mm)</span>
+                {selectedColumn.shape === "TRON" ? (
+                  <>
+                    <span>Đường kính D (mm)</span>
+                    <span />
+                  </>
+                ) : (
+                  <>
+                    <span>Cạnh Cx (mm)</span>
+                    <span>Cạnh Cy (mm)</span>
+                  </>
+                )}
               </div>
               {columnFloors(selectedColumn, project.floors).map((floor, index) => {
                 const section = sectionFor(selectedColumn, floor.id);
@@ -794,8 +850,8 @@ export default function App() {
                   >
                     <span>{index + 1}</span>
                     <span>Tầng {floor.name}</span>
-                    <span>{section.cx}</span>
-                    <span>{section.cy}</span>
+                    <span>{selectedColumn.shape === "TRON" ? Math.max(section.cx, section.cy) : section.cx}</span>
+                    <span>{selectedColumn.shape === "TRON" ? "" : section.cy}</span>
                   </button>
                 );
               })}
@@ -964,6 +1020,7 @@ export default function App() {
                   </select>
                 </div>
               </fieldset>
+              {selectedColumn.shape !== "TRON" ? (
               <fieldset>
                 <legend>Đai bổ sung</legend>
                 <TieOptionFields
@@ -1012,6 +1069,9 @@ export default function App() {
                   }
                 />
               </fieldset>
+              ) : (
+                <p className="splice-hint">Cột tròn dùng một đai vòng; thép chủ nằm trong lòng đai. Không bố trí đai C / lồng / kép.</p>
+              )}
             </div>
             <div className="preview-panel">
               <ColumnPreview section={selectedSection} shape={selectedColumn.shape} />
@@ -1021,6 +1081,11 @@ export default function App() {
             <p>Tiết diện cột sử dụng: {formatBarLabel(selectedSection)}</p>
             <p>Diện tích cốt thép (cm2): {steel.toFixed(2)}</p>
             <p>Hàm lượng cốt thép: {ratio.toFixed(2)} %</p>
+            {selectedColumn.shape === "TRON" ? (
+              <p>
+                Đường kính D = {columnDiameterMm(selectedSection)} mm · đai vòng D = {circularStirrupDiaMm(selectedSection)} mm
+              </p>
+            ) : null}
           </div>
           <label className="checkbox-row highlight">
             <input
@@ -1441,6 +1506,7 @@ function PreviewDims({
   h,
   cx,
   cy,
+  round,
 }: {
   x: number;
   y: number;
@@ -1448,11 +1514,14 @@ function PreviewDims({
   h: number;
   cx: number;
   cy: number;
+  round?: boolean;
 }) {
   const gap = 22;
   const tick = 6;
   const cxY = y + h + gap;
   const cyX = x - gap;
+  const dLabel = round ? `D ${Math.max(cx, cy)}` : `Cx ${cx}`;
+  const hLabel = round ? `D ${Math.max(cx, cy)}` : `Cy ${cy}`;
   return (
     <g stroke="#fff12d" fill="#fff12d" strokeWidth="1.5">
       <line x1={x} y1={y + h} x2={x} y2={cxY} />
@@ -1461,7 +1530,7 @@ function PreviewDims({
       <line x1={x} y1={cxY - tick} x2={x} y2={cxY + tick} />
       <line x1={x + w} y1={cxY - tick} x2={x + w} y2={cxY + tick} />
       <text x={x + w / 2} y={cxY + 18} textAnchor="middle" stroke="none" fontSize="15" fontWeight="700">
-        Cx {cx}
+        {dLabel}
       </text>
       <line x1={x} y1={y} x2={cyX} y2={y} />
       <line x1={x} y1={y + h} x2={cyX} y2={y + h} />
@@ -1477,7 +1546,7 @@ function PreviewDims({
         fontWeight="700"
         transform={`rotate(-90 ${cyX - 12} ${y + h / 2})`}
       >
-        Cy {cy}
+        {hLabel}
       </text>
     </g>
   );
@@ -1496,17 +1565,17 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
   const cover = 5;
   const inset = stirrupOffset + stirrupStroke / 2 + barR + cover;
   const points: Array<{ x: number; y: number }> = [];
+  const roundSide = Math.min(innerW, innerH);
+  const roundX = originX + (innerW - roundSide) / 2;
+  const roundY = originY + (innerH - roundSide) / 2;
+  const roundCx = roundX + roundSide / 2;
+  const roundCy = roundY + roundSide / 2;
+  const outerR = roundSide / 2;
+  const stirrupR = Math.max(barR * 3, outerR - 28);
 
   if (shape === "TRON") {
-    const cx = originX + innerW / 2;
-    const cy = originY + innerH / 2;
-    const stirrupR = Math.min(innerW, innerH) / 2 - 28;
     const ringR = Math.max(barR * 2, stirrupR - stirrupStroke / 2 - barR - cover);
-    const n = Math.max(4, section.barsX * 2 + section.barsY * 2 - 4);
-    for (let i = 0; i < n; i += 1) {
-      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / n;
-      points.push({ x: cx + ringR * Math.cos(angle), y: cy + ringR * Math.sin(angle) });
-    }
+    ringBarCenters(barCount(section), roundCx, roundCy, ringR).forEach(([px, py]) => points.push({ x: px, y: py }));
   } else {
     const left = originX + inset;
     const right = originX + innerW - inset;
@@ -1530,18 +1599,11 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
     <svg viewBox={`0 0 ${width} ${height}`} className="column-preview" role="img" aria-label="Mặt cắt cột">
       {shape === "TRON" ? (
         <>
-          <circle cx={originX + innerW / 2} cy={originY + innerH / 2} r={Math.min(innerW, innerH) / 2} fill="none" stroke="#f5f5f5" strokeWidth="3" />
-          {hasMainStirrup(section) ? (
-            <circle
-              cx={originX + innerW / 2}
-              cy={originY + innerH / 2}
-              r={Math.min(innerW, innerH) / 2 - 28}
-              fill="none"
-              stroke="#b0db34"
-              strokeWidth={stirrupStroke}
-            />
+          <circle cx={roundCx} cy={roundCy} r={outerR} fill="none" stroke="#f5f5f5" strokeWidth="3" />
+          {hasMainStirrup(section, shape) ? (
+            <circle cx={roundCx} cy={roundCy} r={stirrupR} fill="none" stroke="#b0db34" strokeWidth={stirrupStroke} />
           ) : null}
-          <PreviewDims x={originX} y={originY} w={innerW} h={innerH} cx={section.cx} cy={section.cy} />
+          <PreviewDims x={roundX} y={roundY} w={roundSide} h={roundSide} cx={section.cx} cy={section.cy} round />
         </>
       ) : (
         <>

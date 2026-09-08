@@ -7,6 +7,10 @@ import {
   explodedMarksForFloor,
   floorElevations,
   formatBarLabel,
+  barCount,
+  ringBarCenters,
+  circularTieCalloutAngle,
+  columnDiameterMm,
   cTieAlongX,
   cTieAlongY,
   doubleAlongX,
@@ -526,6 +530,27 @@ function drawScheduleStirrup(
   textVCenter(ctx, hookLabel, sx + bw + 4.6, sy + Math.min(3.8, bh * 0.28), size, false, "left");
 }
 
+function drawScheduleRoundStirrup(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  hook: number,
+  dia: number,
+) {
+  const size = 5.4;
+  const r = Math.min(h * 0.38, w * 0.18);
+  const cx = x + w * 0.46;
+  const cy = y + h / 2;
+  circle(ctx, cx, cy, r, false);
+  const hookW = Math.max(5.5, Math.min(11, w * 0.12));
+  line(ctx, cx + r, cy - 0.8, cx + r + hookW, cy - 0.8, 0.65);
+  line(ctx, cx + r + hookW, cy - 0.8, cx + r + hookW - 1.6, cy + Math.min(4.2, r * 0.55), 0.65);
+  textVCenter(ctx, String(Math.round(dia)), cx, cy, size, false, "center");
+  textVCenter(ctx, String(Math.round(hook)), cx + r + hookW + 3.2, cy - 1.2, size, false, "left");
+}
+
 /** Đai C / U: thân bo góc, hai đầu móc. */
 function drawCStirrup(
   ctx: Ctx,
@@ -945,8 +970,8 @@ function drawSectionDetail(
   section: FloorSection,
   shape: Column["shape"],
 ) {
-  const marks = sectionMarks(section);
-  const tableRows = uniqueSectionMarks(section);
+  const marks = sectionMarks(section, shape);
+  const tableRows = uniqueSectionMarks(section, shape);
   const tableH = tableRows.length * 19;
   const leftAnno = 76;
   const topAnno = 32;
@@ -963,21 +988,78 @@ function drawSectionDetail(
   }
   w = Math.max(52, w);
   h = Math.max(52, h);
+  if (shape === "TRON") {
+    const side = Math.min(w, h);
+    w = side;
+    h = side;
+  }
   const x = boxX + leftAnno;
   const y = boxY + topAnno;
+
+  if (shape === "TRON") {
+    const nBars = barCount(section);
+    const barR = Math.max(2.2, Math.min(3.6, Math.min(w, h) / 14));
+    const stroke = 0.85;
+    const cover = Math.max(6.2, Math.min(w, h) * 0.105);
+    const gap = 0.9;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const outerR = Math.min(w, h) / 2 - 1;
+    const stirrupR = Math.max(barR * 2.4, outerR - cover);
+    const barRingR = Math.max(barR * 1.5, stirrupR - stroke / 2 - gap - barR);
+    const pts = ringBarCenters(nBars, cx, cy, barRingR);
+
+    circle(ctx, cx, cy, outerR, false);
+    if (hasMainStirrup(section, shape)) circle(ctx, cx, cy, stirrupR, false);
+    pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
+
+    const dMm = columnDiameterMm(section);
+    dimH(ctx, x, x + w, y + h + 18, String(dMm), 8);
+    dimChainV(ctx, x + w + 18, [y, y + h], [String(dMm)], 8, "right", 13);
+
+    const leadX = x - 64;
+    const specX = leadX + 7.4 + 5;
+    const leftBar = pts.reduce((best, p) => (p[0] < best[0] ? p : best), pts[0] ?? [cx, cy]);
+    const occupiedYs: number[] = [];
+    const longMark = marks.find((row) => row.kind === "long")?.mark ?? 1;
+    if (leftBar) {
+      occupiedYs.push(leftBar[1]);
+      leaderCallout(ctx, leadX, leftBar[1], leftBar[0] - barR - 0.5, leftBar[1], longMark, formatBarLabel(section), 7.4, 9, specX);
+    }
+    const mainMark = markOf(section, "main", undefined, shape);
+    if (mainMark != null && hasMainStirrup(section, shape)) {
+      const ang = circularTieCalloutAngle(nBars);
+      const tieTx = cx + stirrupR * Math.cos(ang);
+      const tieTy = cy + stirrupR * Math.sin(ang);
+      const balloonY = placeBalloonY(Math.min(tieTy, y + 6), occupiedYs, y - 18, y + h + 6, 22);
+      occupiedYs.push(balloonY);
+      leaderCallout(
+        ctx,
+        leadX,
+        balloonY,
+        tieTx,
+        tieTy,
+        mainMark,
+        marks.find((row) => row.kind === "main")?.spec ?? tieSpec(section, "main"),
+        7.4,
+        8,
+        specX,
+      );
+    }
+
+    const tx = boxX;
+    const ty0 = y + h + botDim;
+    drawMarkTable(ctx, tx, Math.min(ty0, boxY + maxH - tableH - 2), tableRows);
+    return;
+  }
+
   const geom = sectionGeom(section, x, y, w, h);
   const pad = geom.cover;
   const { pts, barR } = geom;
 
-  if (shape === "TRON") {
-    const r = Math.min(w, h) / 2 - 1;
-    circle(ctx, x + w / 2, y + h / 2, r, false);
-    if (hasMainStirrup(section)) circle(ctx, x + w / 2, y + h / 2, r - pad, false);
-  } else {
-    rect(ctx, x, y, w, h, 1.15);
-    drawSectionTies(ctx, section, x, y, w, h);
-    dashV(ctx, x + w / 2, y - 2, y + h + 6, 2.6, 1.9, 0.28);
-  }
+  rect(ctx, x, y, w, h, 1.15);
+  drawSectionTies(ctx, section, x, y, w, h);
+  dashV(ctx, x + w / 2, y - 2, y + h + 6, 2.6, 1.9, 0.28);
 
   pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
 
@@ -994,8 +1076,8 @@ function drawSectionDetail(
     leaderCallout(ctx, leadX, yL, longBar[0] - barR - 0.5, yL, 1, formatBarLabel(section), 7.4, 9, specX);
   }
 
-  const mainMark = markOf(section, "main");
-  if (mainMark != null && hasMainStirrup(section)) {
+  const mainMark = markOf(section, "main", undefined, shape);
+  if (mainMark != null && hasMainStirrup(section, shape)) {
     leaderCalloutInvL(
       ctx,
       leadX,
@@ -1015,7 +1097,7 @@ function drawSectionDetail(
       row.kind !== "long" && row.kind !== "main",
   );
   const occupiedYs = [mark1Y];
-  if (mainMark != null && hasMainStirrup(section)) occupiedYs.push(y - 14);
+  if (mainMark != null && hasMainStirrup(section, shape)) occupiedYs.push(y - 14);
   const labeled = new Set<number>();
   extraMarks.forEach((row) => {
     if (labeled.has(row.mark)) return;
@@ -1122,7 +1204,7 @@ function drawColumnSheet(
       else stirrupTicksH(ctx, shaftX, shaftX + shaftW, zTop, zy, zone.spacing, scale);
       if (zone.label) {
         const mid = (zTop + zy) / 2;
-        const mark = markOf(section, "main") ?? 2;
+        const mark = markOf(section, "main", undefined, col.shape) ?? 2;
         const tag = `Ø${section.tieDia}${zone.label}`;
         leaderCallout(ctx, dimLeftX + 22, mid, shaftX - 2, mid, mark, tag, 6.4, 7.5);
       }
@@ -1394,7 +1476,9 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
 
     if (row.kind === "stirrup") {
       const [hook, a, b] = row.segs;
-      if (b === hook) {
+      if (row.circular) {
+        drawScheduleRoundStirrup(ctx, xs[2], rowY, cols[2].w, rowH, hook, a);
+      } else if (b === hook) {
         drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "u-bar", [hook, a, b]);
       } else {
         drawScheduleStirrup(ctx, xs[2], rowY, cols[2].w, rowH, hook, a, b);

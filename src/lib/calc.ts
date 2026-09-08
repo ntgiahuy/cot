@@ -5,6 +5,30 @@ export function barCount(section: FloorSection) {
   return Math.max(edge, 0);
 }
 
+export function columnDiameterMm(section: FloorSection) {
+  return Math.max(section.cx, section.cy);
+}
+
+export function circularStirrupDiaMm(section: FloorSection) {
+  return Math.max(40, columnDiameterMm(section) - 2 * COVER_MM);
+}
+
+export function ringBarCenters(n: number, cx: number, cy: number, r: number): Array<[number, number]> {
+  const count = Math.max(2, n);
+  const pts: Array<[number, number]> = [];
+  for (let i = 0; i < count; i += 1) {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / count;
+    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return pts;
+}
+
+/** Góc trên đai (rad), nằm giữa hai thanh chủ — leader chỉ vào đai chứ không vào thép. */
+export function circularTieCalloutAngle(n: number) {
+  const count = Math.max(2, n);
+  return Math.PI + Math.PI / count;
+}
+
 export function barAreaCm2(dia: number) {
   return (Math.PI * dia * dia) / 400;
 }
@@ -17,9 +41,10 @@ export function formatBarLabel(section: FloorSection) {
   return `${barCount(section)}Ø${section.mainDia}`;
 }
 
-export function steelRatioPercent(section: FloorSection) {
+export function steelRatioPercent(section: FloorSection, shape?: Column["shape"]) {
   const steel = barCount(section) * barAreaCm2(section.mainDia);
-  const concrete = (section.cx * section.cy) / 100;
+  const d = columnDiameterMm(section);
+  const concrete = shape === "TRON" ? (Math.PI * d * d) / 4 / 100 : (section.cx * section.cy) / 100;
   return concrete > 0 ? (steel / concrete) * 100 : 0;
 }
 
@@ -60,7 +85,8 @@ export function normalizeSection(section: FloorSection): FloorSection {
   };
 }
 
-export function hasMainStirrup(section: FloorSection) {
+export function hasMainStirrup(section: FloorSection, shape?: Column["shape"]) {
+  if (shape === "TRON") return true;
   return !section.tieDouble.enabled;
 }
 
@@ -100,22 +126,35 @@ export function tieSpec(section: FloorSection, kind: Exclude<SectionMarkKind, "l
  * Mỗi Ø hoặc mỗi kích thước đai khác nhau = một số hiệu.
  * Đai lồng/kép/C hai phương cùng kích thước thì dùng chung số hiệu.
  */
-export function sectionMarks(section: FloorSection): SectionMark[] {
+export function sectionMarks(section: FloorSection, shape?: Column["shape"]): SectionMark[] {
+  const circular = shape === "TRON";
   const draft: Array<Omit<SectionMark, "mark">> = [
     { kind: "long", name: "THÉP DỌC", spec: formatBarLabel(section), sizeKey: `long:${formatBarLabel(section)}` },
   ];
-  if (hasMainStirrup(section)) {
-    const { a, b } = stirrupInner(section);
-    draft.push({
-      kind: "main",
-      name: "THÉP ĐAI CHÍNH",
-      spec: tieSpec(section, "main"),
-      sizeKey: closedSizeKey(section.tieDia, a, b),
-      xMm: a,
-      yMm: b,
-    });
+  if (hasMainStirrup(section, shape)) {
+    if (circular) {
+      const d = circularStirrupDiaMm(section);
+      draft.push({
+        kind: "main",
+        name: "THÉP ĐAI CHÍNH",
+        spec: tieSpec(section, "main"),
+        sizeKey: `Ø${section.tieDia}:D${Math.round(d)}`,
+        xMm: d,
+        yMm: d,
+      });
+    } else {
+      const { a, b } = stirrupInner(section);
+      draft.push({
+        kind: "main",
+        name: "THÉP ĐAI CHÍNH",
+        spec: tieSpec(section, "main"),
+        sizeKey: closedSizeKey(section.tieDia, a, b),
+        xMm: a,
+        yMm: b,
+      });
+    }
   }
-  if (nestedAlongX(section) && !section.tieDouble.enabled) {
+  if (!circular && nestedAlongX(section) && !section.tieDouble.enabled) {
     const box = nestedBoxX(section);
     draft.push({
       kind: "nested",
@@ -127,7 +166,7 @@ export function sectionMarks(section: FloorSection): SectionMark[] {
       yMm: box.yMm,
     });
   }
-  if (nestedAlongY(section) && !section.tieDouble.enabled) {
+  if (!circular && nestedAlongY(section) && !section.tieDouble.enabled) {
     const box = nestedBoxY(section);
     draft.push({
       kind: "nested",
@@ -139,7 +178,7 @@ export function sectionMarks(section: FloorSection): SectionMark[] {
       yMm: box.yMm,
     });
   }
-  if (doubleAlongX(section) && !section.tieNested.enabled) {
+  if (!circular && doubleAlongX(section) && !section.tieNested.enabled) {
     const box = doubleBoxX(section);
     draft.push({
       kind: "double",
@@ -151,7 +190,7 @@ export function sectionMarks(section: FloorSection): SectionMark[] {
       yMm: box.yMm,
     });
   }
-  if (doubleAlongY(section) && !section.tieNested.enabled) {
+  if (!circular && doubleAlongY(section) && !section.tieNested.enabled) {
     const box = doubleBoxY(section);
     draft.push({
       kind: "double",
@@ -163,7 +202,7 @@ export function sectionMarks(section: FloorSection): SectionMark[] {
       yMm: box.yMm,
     });
   }
-  if (cTieAlongX(section)) {
+  if (!circular && cTieAlongX(section)) {
     const { b } = stirrupInner(section);
     const len = cTieLengthMm(b);
     draft.push({
@@ -176,7 +215,7 @@ export function sectionMarks(section: FloorSection): SectionMark[] {
       yMm: b,
     });
   }
-  if (cTieAlongY(section)) {
+  if (!circular && cTieAlongY(section)) {
     const { a } = stirrupInner(section);
     const len = cTieLengthMm(a);
     draft.push({
@@ -203,17 +242,17 @@ export function sectionMarks(section: FloorSection): SectionMark[] {
   });
 }
 
-export function uniqueSectionMarks(section: FloorSection): SectionMark[] {
+export function uniqueSectionMarks(section: FloorSection, shape?: Column["shape"]): SectionMark[] {
   const seen = new Set<number>();
-  return sectionMarks(section).filter((row) => {
+  return sectionMarks(section, shape).filter((row) => {
     if (seen.has(row.mark)) return false;
     seen.add(row.mark);
     return true;
   });
 }
 
-export function markOf(section: FloorSection, kind: SectionMarkKind, axis?: SectionMarkAxis): number | undefined {
-  const rows = sectionMarks(section);
+export function markOf(section: FloorSection, kind: SectionMarkKind, axis?: SectionMarkAxis, shape?: Column["shape"]): number | undefined {
+  const rows = sectionMarks(section, shape);
   if (axis) {
     return rows.find((row) => row.kind === kind && row.axis === axis)?.mark ?? rows.find((row) => row.kind === kind)?.mark;
   }
@@ -535,7 +574,8 @@ export function stirrupInner(section: FloorSection) {
   };
 }
 
-export function stirrupLengthMm(section: FloorSection) {
+export function stirrupLengthMm(section: FloorSection, circular = false) {
+  if (circular) return Math.round(Math.PI * circularStirrupDiaMm(section) + 2 * STIRRUP_HOOK_MM);
   const { a, b } = stirrupInner(section);
   return 2 * (a + b) + 2 * STIRRUP_HOOK_MM;
 }
@@ -900,25 +940,31 @@ export function buildSchedule(project: Project): {
     active.forEach((floor, floorIndex) => {
       const section = normalizeSection(sectionFor(column, floor.id));
 
+      const circular = column.shape === "TRON";
       const { a, b } = stirrupInner(section);
-      if (hasMainStirrup(section)) {
-        const tieLen = stirrupLengthMm(section);
+      if (hasMainStirrup(section, column.shape)) {
+        const d = circularStirrupDiaMm(section);
+        const tieLen = stirrupLengthMm(section, circular);
         const nTie = stirrupCount(floor, floorIndex);
         const totalBars = nTie * column.quantity;
         const totalLengthM = (tieLen / 1000) * totalBars;
         const weightKg = totalLengthM * kgPerMeter(section.tieDia);
         pushTotal(byDia, section.tieDia, totalLengthM, weightKg);
-        const key = `Ø${section.tieDia} ${Math.max(a, b)} x ${Math.min(a, b)}`;
+        const key = circular
+          ? `Ø${section.tieDia} D${Math.round(d)}`
+          : `Ø${section.tieDia} ${Math.max(a, b)} x ${Math.min(a, b)}`;
         stirrupCounts.set(key, (stirrupCounts.get(key) ?? 0) + totalBars);
+        const mainMark = markOf(section, "main", undefined, column.shape) ?? 2;
         rows.push({
           member,
           floorName: floor.name,
           quantity: column.quantity,
-          stt: String(markOf(section, "main") ?? 2),
+          stt: String(mainMark),
           dia: section.tieDia,
           kind: "stirrup",
-          shapeLabel: String(markOf(section, "main") ?? 2),
-          segs: [STIRRUP_HOOK_MM, a, b],
+          shapeLabel: String(mainMark),
+          segs: circular ? [STIRRUP_HOOK_MM, d] : [STIRRUP_HOOK_MM, a, b],
+          circular,
           lengthMm: tieLen,
           perMember: nTie,
           totalBars,
@@ -926,6 +972,8 @@ export function buildSchedule(project: Project): {
           weightKg,
         });
       }
+
+      if (circular) return;
 
       extraTieSpecs(section).forEach((spec, specIndex) => {
         if (!spec.tie.enabled) return;
@@ -980,7 +1028,7 @@ function mergeIdenticalStirrups(rows: ScheduleRow[]): ScheduleRow[] {
       longs.push(row);
       continue;
     }
-    const key = [row.member, row.stt, row.dia, row.lengthMm, row.segs.join("×")].join("|");
+    const key = [row.member, row.stt, row.dia, row.lengthMm, row.circular ? "circ" : "rect", row.segs.join("×")].join("|");
     const prev = stirrupMap.get(key);
     if (!prev) {
       stirrupMap.set(key, { ...row, floorName: "" });

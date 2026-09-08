@@ -23,4 +23,3 @@ click_button.mjs
 *.njsproj
 *.sln
 *.sw?
-docs-debug/

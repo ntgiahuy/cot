@@ -65,6 +65,7 @@ export type ScheduleRow = {
   kind: "long" | "long-hook" | "stirrup";
   shapeLabel: string;
   segs: number[];
+  circular?: boolean;
   lengthMm: number;
   perMember: number;
   totalBars: number;
