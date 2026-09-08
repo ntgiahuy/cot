@@ -26,7 +26,7 @@ Mặc định: [http://127.0.0.1:43123/cot/](http://127.0.0.1:43123/cot/)
 
 Dữ liệu lưu tự động trên trình duyệt (`localStorage`). **Mới** khôi phục mặc định: 3 tầng (4150 / 3900 / 3650), một cột **C1 (HCN · SL:1)** nối so le giữa cột 35D.
 
-Trọng lượng tính theo `d² / 162.2` (kg/m). **Nối so le** chỉ chọn một: chân cột (50% nD / 50% 2nD) hoặc giữa cột (vị trí (H tầng − H dầm)/2; 50% tại đó, 50% lệch thêm nD). Bảng thống kê thép dọc một cây cột từ dưới lên — cùng kích thước, Ø và hình gộp một số hiệu (1 hoặc 1a, 1b…), số hiệu đó cũng ghi trên thép nổ; tầng mái bẻ móc 10d, trừ da bảo vệ đỉnh cột 50 mm.
+Trọng lượng tính theo `d² / 162.2` (kg/m). **Nối so le** chỉ chọn một: chân cột (50% nD / 50% 2nD) hoặc giữa cột (vị trí (H tầng − H dầm)/2; 50% tại đó, 50% lệch thêm nD). Bảng thống kê thép dọc một cây cột từ dưới lên — cùng kích thước, Ø và hình gộp một số hiệu (1 hoặc 1a, 1b…). Thép nổ ghi số hiệu đó trong vòng tròn thẳng cột, đặt tại trung điểm thanh, line chỉ vào thanh kèm số lượng và Ø (ví dụ 4Ø16); tầng mái bẻ móc 10d, trừ da bảo vệ đỉnh cột 50 mm.
 
 ## Xuất GitHub Pages
 

@@ -7,6 +7,8 @@ import {
   explodedMarksForFloor,
   floorElevations,
   formatBarLabel,
+  uniqueLongBarMarks,
+  barCount,
   cTieAlongX,
   cTieAlongY,
   doubleAlongX,
@@ -211,19 +213,15 @@ function textVCenter(
 
 function balloon(ctx: Ctx, x: number, y: number, n: number | string, r = 7.4) {
   const str = String(n);
-  const wide = str.length > 1;
-  const xScale = wide ? r * 1.18 : r;
-  ctx.page.drawEllipse({
+  ctx.page.drawCircle({
     x,
     y: ty(ctx, y),
-    xScale,
-    yScale: r,
+    size: r,
     color: WHITE,
     borderColor: BLACK,
     borderWidth: 0.8,
-    rotate: degrees(0),
   });
-  const size = wide ? Math.min(6.2, r * 0.9) : Math.min(8.0, r * 1.02);
+  const size = str.length > 2 ? Math.min(5.6, r * 0.72) : str.length > 1 ? Math.min(6.2, r * 0.84) : Math.min(8.0, r * 1.02);
   const font = ctx.fontBold;
   const tw = font.widthOfTextAtSize(str, size);
   ctx.page.drawText(str, {
@@ -237,30 +235,34 @@ function balloon(ctx: Ctx, x: number, y: number, n: number | string, r = 7.4) {
 
 function drawExplodedBarMarks(
   ctx: Ctx,
-  x0: number,
-  x1: number,
-  yLower: number,
-  yUpper: number,
-  marks: { lower: [string, string]; upper: [string, string] },
+  bars: Array<{ x: number; y0: number; y1: number; mark: string }>,
+  balloonX: number,
+  specOf: (mark: string) => string,
 ) {
-  const r = 6.15;
-  const place = (x: number, y: number, mark: string) => balloon(ctx, x, y, mark, r);
-  const pair = (y: number, pairMarks: [string, string]) => {
-    if (pairMarks[0] === pairMarks[1]) place((x0 + x1) / 2 + 10, y, pairMarks[0]);
+  const grouped = new Map<string, { mark: string; xBar: number; yMid: number; n: number }>();
+  bars.forEach((bar) => {
+    const yMid = (bar.y0 + bar.y1) / 2;
+    const prev = grouped.get(bar.mark);
+    if (!prev) grouped.set(bar.mark, { mark: bar.mark, xBar: bar.x, yMid, n: 1 });
     else {
-      place(x0 + 9.2, y, pairMarks[0]);
-      place(x1 + 9.2, y, pairMarks[1]);
+      prev.yMid = (prev.yMid * prev.n + yMid) / (prev.n + 1);
+      prev.n += 1;
     }
-  };
-  const split = Math.abs(yUpper - yLower) > 10;
-  const same =
-    marks.lower[0] === marks.upper[0] && marks.lower[1] === marks.upper[1];
-  if (!split || same) {
-    pair((yLower + yUpper) / 2, marks.lower);
-    return;
-  }
-  pair(yLower, marks.lower);
-  pair(yUpper, marks.upper);
+  });
+  const r = 7.6;
+  const minGap = r * 2 + 6;
+  const items = [...grouped.values()].sort((a, b) => a.yMid - b.yMid);
+  items.forEach((item, i) => {
+    if (i > 0 && item.yMid - items[i - 1].yMid < minGap) {
+      item.yMid = items[i - 1].yMid + minGap;
+    }
+  });
+  items.forEach((item) => {
+    const xEdge = item.xBar < balloonX ? balloonX - r - 0.55 : balloonX + r + 0.55;
+    line(ctx, item.xBar, item.yMid, xEdge, item.yMid, 0.45);
+    balloon(ctx, balloonX, item.yMid, item.mark, r);
+    textVCenter(ctx, specOf(item.mark), balloonX + r + 3.6, item.yMid, 6.1, true, "left");
+  });
 }
 
 function specAbove(
@@ -1040,8 +1042,10 @@ function drawColumnSheet(
   const shaftW = Math.max(22, Math.min(34, firstSec.cx * scale));
   const dimLeftX = xC + 18;
   const shaftX = xC + 88;
-  const explodedX = shaftX + shaftW + 34;
-  const dimSpliceX = explodedX + 62;
+  const explodedX = shaftX + shaftW + 30;
+  const explodeMarkX = explodedX + 40;
+  const dimSpliceX = explodedX + 88;
+  const longMarks = uniqueLongBarMarks(col, project.floors);
   const dimTotalX = dimSpliceX + 20;
   const xD = Math.max(dimTotalX + 16, xE - SECTION_COL_W);
 
@@ -1166,6 +1170,12 @@ function drawColumnSheet(
       drawHeadLockHook(ctx, x, explodeTop, dir, headLockLenPx(section.mainDia, scale, room), 1.15);
     };
     const explodeMarks = explodedMarksForFloor(col, project.floors, floor.id);
+    const specOf = (mark: string) => {
+      const row = longMarks.find((item) => item.mark === mark);
+      return `${row?.qty ?? barCount(section)}Ø${section.mainDia}`;
+    };
+    const xLeft = explodedX;
+    const xRight = explodedX + 14;
     if (topsMm.length) {
       const spliceDia = !isColumnBase && prevSection ? prevSection.mainDia : section.mainDia;
       const baseLap = col.baseSplice ? lapMm(spliceDia, col.baseSpliceD) : 0;
@@ -1180,14 +1190,19 @@ function drawColumnSheet(
         crankBarV(ctx, x, explodeTop, yOffsetBot - 1, crankY, -amp, 1.15);
         explodeHook(x, i);
       });
-      const x0 = explodedX;
-      const x1 = explodedX + 14;
-      const crankMid = crankYs.length ? crankYs.reduce((s, y) => s + y, 0) / crankYs.length : (explodeTop + yBot) / 2;
-      const yLower = (yBot + crankMid) / 2;
-      const yUpper = (explodeTop + crankMid) / 2;
-      drawExplodedBarMarks(ctx, x0, x1, yLower, yUpper, explodeMarks);
-      const calloutY = yTop + (yBot - yTop) * 0.28;
-      specAbove(ctx, formatBarLabel(section), explodedX + 44, calloutY, 6.2, "left");
+      const cL = crankYs[0];
+      const cR = crankYs[1] ?? crankYs[0];
+      drawExplodedBarMarks(
+        ctx,
+        [
+          { x: xLeft, y0: yBot, y1: cL, mark: explodeMarks.lower[0] },
+          { x: xRight, y0: yBot, y1: cR, mark: explodeMarks.lower[1] },
+          { x: xLeft, y0: cL, y1: explodeTop, mark: explodeMarks.upper[0] },
+          { x: xRight, y0: cR, y1: explodeTop, mark: explodeMarks.upper[1] },
+        ],
+        explodeMarkX,
+        specOf,
+      );
     } else {
       line(ctx, explodedX, explodeTop, explodedX, yBot - 2, 1.15);
       line(ctx, explodedX + 14, explodeTop, explodedX + 14, yBot - 2, 1.15);
@@ -1195,14 +1210,13 @@ function drawColumnSheet(
       explodeHook(explodedX + 14, 1);
       drawExplodedBarMarks(
         ctx,
-        explodedX,
-        explodedX + 14,
-        yBot - (yBot - explodeTop) * 0.28,
-        explodeTop + (yBot - explodeTop) * 0.28,
-        explodeMarks,
+        [
+          { x: xLeft, y0: yBot, y1: explodeTop, mark: explodeMarks.lower[0] },
+          { x: xRight, y0: yBot, y1: explodeTop, mark: explodeMarks.lower[1] },
+        ],
+        explodeMarkX,
+        specOf,
       );
-      const calloutY = yTop + (yBot - yTop) * 0.28;
-      specAbove(ctx, formatBarLabel(section), explodedX + 44, calloutY, 6.2, "left");
     }
 
     const segs = spliceLens(floor, section, col, prevSection, isColumnBase);
