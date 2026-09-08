@@ -2,7 +2,7 @@
 
 Tiện ích web nhập số liệu **cột bê tông cốt thép** (tầng, tiết diện, bố trí thép dọc/đai) rồi xuất **PDF shop drawing** khổ **A1 ngang**, gồm:
 
-- **A1 ngang, nhiều cột / trang**: CAO ĐỘ · MẶT ĐỨNG (đai a100/a200, dầm nét đứt, bẻ cổ chai, DIM nối nD) sát **MẶT CẮT** (bóng thép, bảng THÉP DỌC / THÉP ĐAI) để chừa chỗ cột kế bên.
+- **A1 ngang, nhiều cột / trang**: CAO ĐỘ (mũi tên tam giác nửa đen nửa trắng, mũi chạm đường phân tầng) · MẶT ĐỨNG (đai a100/a200, dầm nét đứt, bẻ cổ chai, DIM nối nD) sát **MẶT CẮT** (bóng thép, bảng THÉP DỌC / THÉP ĐAI) để chừa chỗ cột kế bên.
 - Bảng thống kê cốt thép của cột đó bên phải + tổng hợp Ø cả dự án, cây 11.7 m và số đai
 
 Giao diện bám theo tiện ích desktop shop drawing cột / dầm (nền tối, hộp thoại tầng – cột – thép).
@@ -26,7 +26,7 @@ Mặc định: [http://127.0.0.1:43123/cot/](http://127.0.0.1:43123/cot/)
 
 Dữ liệu lưu tự động trên trình duyệt (`localStorage`). **Mới** khôi phục mặc định: 3 tầng (4150 / 3900 / 3650), một cột **C1 (HCN · SL:1)** nối so le giữa cột 35D.
 
-Trọng lượng tính theo `d² / 162.2` (kg/m). **Nối so le** chỉ chọn một: chân cột (50% nD / 50% 2nD) hoặc giữa cột (vị trí (H tầng − H dầm)/2; 50% tại đó, 50% lệch thêm nD). Bảng thống kê thép dọc một cây cột từ dưới lên — cùng kích thước, Ø và hình gộp một số hiệu (1 hoặc 1a, 1b…). Thép nổ ghi số hiệu trong vòng tròn thẳng cột tại trung điểm thanh; từ vòng kẻ line sang phải, số lượng và Ø (ví dụ 4Ø16) nằm trên line như ghi chú đai; tầng mái bẻ móc 10d, trừ da bảo vệ đỉnh cột 50 mm.
+Trọng lượng tính theo `d² / 162.2` (kg/m). **Nối so le** chỉ chọn một: chân cột (50% nD / 50% 2nD) hoặc giữa cột (vị trí (H tầng − H dầm)/2; 50% tại đó, 50% lệch thêm nD). Bảng thống kê thép dọc một cây cột từ dưới lên — cùng kích thước, Ø và hình gộp một số hiệu (1 hoặc 1a, 1b…). Thép nổ đặt cách mặt đứng cột; số hiệu trong vòng tròn bên phải line ngắn, số lượng và Ø nằm trên line; tầng mái bẻ móc 10d, trừ da bảo vệ đỉnh cột 50 mm.
 
 ## Xuất GitHub Pages
 

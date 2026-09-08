@@ -233,6 +233,17 @@ function balloon(ctx: Ctx, x: number, y: number, n: number | string, r = 7.4) {
   });
 }
 
+function specAbove(
+  ctx: Ctx,
+  label: string,
+  x: number,
+  lineY: number,
+  size: number,
+  align: "left" | "center" | "right" = "center",
+) {
+  textVCenter(ctx, label, x, lineY - size * 0.88, size, true, align);
+}
+
 function drawExplodedBarMarks(
   ctx: Ctx,
   bars: Array<{ x: number; y0: number; y1: number; mark: string }>,
@@ -249,8 +260,8 @@ function drawExplodedBarMarks(
       prev.n += 1;
     }
   });
-  const r = 7.6;
-  const labelSize = 6.8;
+  const r = 7.4;
+  const labelSize = 6.5;
   const minGap = r * 2 + 6;
   const items = [...grouped.values()].sort((a, b) => a.yMid - b.yMid);
   items.forEach((item, i) => {
@@ -260,23 +271,11 @@ function drawExplodedBarMarks(
   });
   items.forEach((item) => {
     const spec = specOf(item.mark);
-    const tw = ctx.fontBold.widthOfTextAtSize(spec, labelSize);
-    const left = balloonX - r - 0.55;
-    const right = balloonX + r + 0.55;
-    if (item.xBar < left - 0.8) line(ctx, item.xBar, item.yMid, left, item.yMid, 0.45);
-    leaderCallout(ctx, balloonX, item.yMid, right + tw + 4.2, item.yMid, item.mark, spec, r, labelSize, right + 0.5);
+    const sx = balloonX - r - 0.5;
+    line(ctx, item.xBar, item.yMid, sx, item.yMid, 0.45);
+    balloon(ctx, balloonX, item.yMid, item.mark, r);
+    specAbove(ctx, spec, sx - 0.4, item.yMid, labelSize, "right");
   });
-}
-
-function specAbove(
-  ctx: Ctx,
-  label: string,
-  x: number,
-  lineY: number,
-  size: number,
-  align: "left" | "center" = "center",
-) {
-  textVCenter(ctx, label, x, lineY - size * 0.88, size, true, align);
 }
 
 /** Số hiệu ở đầu line; chữ quy cách nằm trên line, line đi suốt không bị che. */
@@ -578,15 +577,42 @@ function drawCStirrup(
   strokeSvg(ctx, path, left, ty(ctx, top), stroke);
 }
 
-function elevTriangle(ctx: Ctx, x: number, y: number) {
-  const py = ty(ctx, y);
-  ctx.page.drawSvgPath("M 0 4 L 9 0 L 9 8 Z", { x, y: py - 4, color: BLACK });
-}
+function elevMark(ctx: Ctx, x: number, yLine: number, label: string) {
+  const h = 6.8;
+  const hw = 4.3;
+  const shelfY = yLine - h - 5.6;
+  const stemTop = shelfY - 2.0;
+  const size = 7.4;
+  const tw = ctx.font.widthOfTextAtSize(label, size);
+  const shelfLen = Math.max(tw + 5.5, 28);
+  const py = ty(ctx, yLine);
+  /* pdf-lib SVG y đi xuống: dùng y âm để tam giác nằm trên đường, mũi nhọn chạm đường phân tầng. */
+  const y = -h;
 
-/** Cao độ nằm trên đường phân tầng; tam giác vẫn ghim vào đường. */
-function elevMark(ctx: Ctx, xTri: number, yLine: number, label: string) {
-  elevTriangle(ctx, xTri, yLine);
-  textVCenter(ctx, label, xTri + 12, yLine - 12, 8);
+  ctx.page.drawSvgPath(`M 0 0 L ${hw} ${y} L 0 ${y} Z`, {
+    x,
+    y: py,
+    color: BLACK,
+    borderColor: BLACK,
+    borderWidth: 0.45,
+  });
+  ctx.page.drawSvgPath(`M 0 0 L ${-hw} ${y} L 0 ${y} Z`, {
+    x,
+    y: py,
+    color: WHITE,
+    borderColor: BLACK,
+    borderWidth: 0.45,
+  });
+  ctx.page.drawSvgPath(`M ${-hw} ${y} L 0 0 L ${hw} ${y} Z`, {
+    x,
+    y: py,
+    borderColor: BLACK,
+    borderWidth: 0.55,
+  });
+
+  line(ctx, x, stemTop, x, yLine, 0.65);
+  line(ctx, x, shelfY, x + shelfLen, shelfY, 0.65);
+  specAbove(ctx, label, x + 2.6, shelfY, size, "left");
 }
 
 function storyZones(floor: Floor, index: number, section: FloorSection, column: Column): Zone[] {
@@ -682,6 +708,7 @@ function beamEndBreak(ctx: Ctx, x: number, yTop: number, yBot: number, dir: 1 | 
 }
 
 /** Dầm mặt đứng: nét đỉnh/đáy liền, Z-break hai đầu. */
+const BEAM_STUB = 28;
 function drawElevationBeam(
   ctx: Ctx,
   shaftX: number,
@@ -690,7 +717,7 @@ function drawElevationBeam(
   yBot: number,
   hidePx: number,
 ) {
-  const stub = 28;
+  const stub = BEAM_STUB;
   const xL = shaftX - stub;
   const xR = shaftX + shaftW + stub;
   const x0 = shaftX;
@@ -1045,9 +1072,9 @@ function drawColumnSheet(
   const shaftW = Math.max(22, Math.min(34, firstSec.cx * scale));
   const dimLeftX = xC + 18;
   const shaftX = xC + 88;
-  const explodedX = shaftX + shaftW + 16;
-  const explodeMarkX = explodedX + 26;
-  const dimSpliceX = explodeMarkX + 50;
+  const explodedX = shaftX + shaftW + BEAM_STUB + 20;
+  const explodeMarkX = explodedX + 40;
+  const dimSpliceX = explodeMarkX + 15;
   const longMarks = uniqueLongBarMarks(col, project.floors);
   const dimTotalX = dimSpliceX + 20;
   const xD = Math.max(dimTotalX + 16, xE - SECTION_COL_W);
