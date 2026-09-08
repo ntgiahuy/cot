@@ -601,8 +601,8 @@ function drawScheduleRoundStirrup(
   circle(ctx, geom.bar.x, geom.bar.y, geom.bar.r, true);
   const upper = geom.hooks[0].tip[1] <= geom.hooks[1].tip[1] ? geom.hooks[0] : geom.hooks[1];
   const lower = upper === geom.hooks[0] ? geom.hooks[1] : geom.hooks[0];
-  textVCenter(ctx, String(Math.round(dia)), cx, cy, size, false, "center");
-  const hookX = cx + r + 4.2;
+  textVCenter(ctx, String(Math.round(dia)), cx - r * 0.38, cy, size, false, "center");
+  const hookX = cx + r + 5.8;
   textVCenter(ctx, String(Math.round(hook)), hookX, upper.tanLine[1] - 0.2, size, false, "left");
   textVCenter(ctx, String(Math.round(hook)), hookX, lower.tanLine[1] + 0.2, size, false, "left");
 }
