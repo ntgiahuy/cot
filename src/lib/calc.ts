@@ -28,7 +28,7 @@ export type BarEndMark = { x: number; y: number; r: number };
 export function barEndFlower(cx: number, cy: number, r: number, petals = 8) {
   const inner = Math.max(0.12, r * 0.2);
   const hole = Math.max(0.1, r * 0.16);
-  const half = Math.PI / petals * 0.52;
+  const half = (Math.PI / petals) * 0.52;
   const tris: [Pt, Pt, Pt][] = [];
   for (let i = 0; i < petals; i += 1) {
     const a = (i * 2 * Math.PI) / petals - Math.PI / 2;
@@ -65,7 +65,6 @@ export type CircularTieHook = {
   tanLine: Pt;
   tip: Pt;
   fillet: { x: number; y: number; r: number; a0: number; a1: number; sweep: 0 | 1 };
-  flower: BarEndMark;
 };
 
 function shortSweep(a0: number, a1: number): 0 | 1 {
@@ -123,7 +122,6 @@ export function circularTieGeom(cx: number, cy: number, r: number, opts: Circula
       tanLine,
       tip,
       fillet: { x: Fx, y: Fy, r: rf, a0, a1, sweep: shortSweep(a0, a1) },
-      flower: { x: tip[0], y: tip[1], r: Math.max(1.2, rf * 0.35) },
     };
   };
 
@@ -215,10 +213,19 @@ export function ringBarCenters(n: number, cx: number, cy: number, r: number): Ar
   return pts;
 }
 
-/** Góc trên đai (rad), nằm giữa hai thanh chủ — leader chỉ vào đai chứ không vào thép. */
+/** Gần đỉnh đai, lệch trái giữa hai thanh chủ — leader chữ L chỉ vào đai, không vào thép. */
 export function circularTieCalloutAngle(n: number) {
   const count = Math.max(2, n);
-  return Math.PI + Math.PI / count;
+  return -Math.PI / 2 - Math.PI / count;
+}
+
+/** Mũi leader chữ L: thanh dọc cắt đai tròn (không chỉ vào thép chủ). */
+export function circularTieLeaderTip(cx: number, cy: number, stirrupR: number, nBars: number) {
+  const ang = circularTieCalloutAngle(nBars);
+  return {
+    elbowX: cx + stirrupR * Math.cos(ang),
+    tipY: cy + stirrupR * Math.sin(ang),
+  };
 }
 
 export function barAreaCm2(dia: number) {
