@@ -670,14 +670,6 @@ function drawElevationBeam(
   } else {
     line(ctx, xL, yTop, xR, yTop, 0.85);
     line(ctx, xL, yBot, xR, yBot, 0.85);
-    const tickS = 2.5;
-    for (const y of [yTop, yBot]) {
-      const toward = y === yTop ? 1 : -1;
-      for (const t of [0.32, 0.68]) {
-        const tx = x0 + shaftW * t;
-        line(ctx, tx - tickS, y, tx + tickS, y + toward * tickS, 0.55);
-      }
-    }
     line(ctx, xL + 2, yTop + d, x0, yTop + d, 0.5, dash);
     line(ctx, x1, yTop + d, xR - 2, yTop + d, 0.5, dash);
   }
