@@ -60,7 +60,7 @@ export type ScheduleRow = {
   member: string;
   floorName: string;
   quantity: number;
-  stt: number;
+  stt: string;
   dia: number;
   kind: "long" | "long-hook" | "stirrup";
   shapeLabel: string;

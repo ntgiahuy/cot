@@ -430,7 +430,6 @@ function drawScheduleBarSketch(
   h: number,
   kind: "straight" | "l-hook" | "u-bar",
   segs: number[],
-  mark?: string,
 ) {
   const size = 5.5;
   const midY = y + h * 0.58;
@@ -451,31 +450,19 @@ function drawScheduleBarSketch(
     text(ctx, String(right), x1 + 4, midY - 2, size);
     return;
   }
+  const lineW = Math.min(148, w * 0.62);
+  const x0 = x + (w - lineW) / 2;
+  const x1 = x0 + lineW;
+  line(ctx, x0, midY, x1, midY, 0.7);
   if (kind === "l-hook") {
     const hook = segs[0];
     const len = segs[1];
-    const lineW = Math.min(110, w * 0.48);
-    const leftW = ctx.font.widthOfTextAtSize(String(hook), size);
-    const markW = mark ? ctx.font.widthOfTextAtSize(mark, 6) + 8 : 0;
-    const total = leftW + 6 + lineW + markW;
-    const x0 = x + (w - total) / 2 + leftW + 6;
-    const x1 = x0 + lineW;
-    line(ctx, x0, midY, x1, midY, 0.7);
     line(ctx, x0, midY, x0, midY - hookH, 0.7);
     text(ctx, String(hook), x0 - 4, midY - 8, size, false, "right");
     text(ctx, String(len), (x0 + x1) / 2, midY - 10, size, false, "center");
-    if (mark) text(ctx, mark, x1 + 6, midY, 6);
     return;
   }
-  const lengthMm = segs[0];
-  const lineW = Math.min(140, w * 0.55);
-  const markW = mark ? ctx.font.widthOfTextAtSize(mark, 6) + 8 : 0;
-  const total = lineW + markW;
-  const x0 = x + (w - total) / 2;
-  const x1 = x0 + lineW;
-  line(ctx, x0, midY, x1, midY, 0.7);
-  text(ctx, String(lengthMm), (x0 + x1) / 2, midY - 10, size, false, "center");
-  if (mark) text(ctx, mark, x1 + 6, midY, 6);
+  text(ctx, String(segs[0]), (x0 + x1) / 2, midY - 10, size, false, "center");
 }
 
 /** Ô thống kê: cạnh ngang trong lòng, cạnh đứng bên trái, móc bên phải. */
@@ -1156,8 +1143,8 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   const tableY = y + titleH + 6;
   const cols: { w: number; label: string; stack?: string[] }[] = [
     { w: 40, label: "TÊN CẤU KIỆN", stack: ["TÊN", "CẤU KIỆN"] },
-    { w: 32, label: "STT" },
-    { w: 250, label: "HÌNH DẠNG, KT (mm)" },
+    { w: 36, label: "STT" },
+    { w: 246, label: "HÌNH DẠNG, KT (mm)" },
     { w: 32, label: "Ø" },
     { w: 52, label: "DÀI" },
     { w: 40, label: "1 CK" },
@@ -1235,9 +1222,9 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
         drawScheduleStirrup(ctx, xs[2], rowY, cols[2].w, rowH, hook, a, b);
       }
     } else if (row.kind === "long-hook") {
-      drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "l-hook", row.segs, row.shapeLabel);
+      drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "l-hook", row.segs);
     } else {
-      drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "straight", [row.lengthMm], row.shapeLabel);
+      drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "straight", [row.lengthMm]);
     }
 
     cellText(ctx, String(row.dia), xs[3], rowY, cols[3].w, rowH, 6.5, "center");

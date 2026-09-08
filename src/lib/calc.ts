@@ -665,29 +665,31 @@ export function buildSchedule(project: Project): {
       const isTop = floor.id === lastFloorId;
       const member = `${column.name} (TẦNG ${floor.name})`;
 
-      longBarSpecs(column, floor, section, isTop)
-        .filter((spec) => spec.qty > 0)
-        .forEach((spec) => {
-          const totalBars = spec.qty * column.quantity;
-          const totalLengthM = (spec.lengthMm / 1000) * totalBars;
-          const weightKg = totalLengthM * kgPerMeter(section.mainDia);
-          pushTotal(byDia, section.mainDia, totalLengthM, weightKg);
-          rows.push({
-            member,
-            floorName: floor.name,
-            quantity: column.quantity,
-            stt: 1,
-            dia: section.mainDia,
-            kind: spec.kind,
-            shapeLabel: spec.mark,
-            segs: spec.segs,
-            lengthMm: spec.lengthMm,
-            perMember: spec.qty,
-            totalBars,
-            totalLengthM,
-            weightKg,
-          });
+      const longSpecs = longBarSpecs(column, floor, section, isTop).filter((spec) => spec.qty > 0);
+      const staggeredLong = longSpecs.some((spec) => spec.mark === "1*");
+      longSpecs.forEach((spec) => {
+        const totalBars = spec.qty * column.quantity;
+        const totalLengthM = (spec.lengthMm / 1000) * totalBars;
+        const weightKg = totalLengthM * kgPerMeter(section.mainDia);
+        pushTotal(byDia, section.mainDia, totalLengthM, weightKg);
+        const stt =
+          spec.mark === "1*" ? "1b" : spec.mark === "1" && staggeredLong ? "1a" : spec.mark;
+        rows.push({
+          member,
+          floorName: floor.name,
+          quantity: column.quantity,
+          stt,
+          dia: section.mainDia,
+          kind: spec.kind,
+          shapeLabel: spec.mark,
+          segs: spec.segs,
+          lengthMm: spec.lengthMm,
+          perMember: spec.qty,
+          totalBars,
+          totalLengthM,
+          weightKg,
         });
+      });
 
       const { a, b } = stirrupInner(section);
       if (hasMainStirrup(section)) {
@@ -703,7 +705,7 @@ export function buildSchedule(project: Project): {
           member,
           floorName: floor.name,
           quantity: column.quantity,
-          stt: markOf(section, "main") ?? 2,
+          stt: String(markOf(section, "main") ?? 2),
           dia: section.tieDia,
           kind: "stirrup",
           shapeLabel: String(markOf(section, "main") ?? 2),
@@ -743,7 +745,7 @@ export function buildSchedule(project: Project): {
           member,
           floorName: floor.name,
           quantity: column.quantity,
-          stt: extraMark,
+          stt: String(extraMark),
           dia: section.tieDia,
           kind: "stirrup",
           shapeLabel: String(extraMark),
