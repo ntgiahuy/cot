@@ -1447,7 +1447,7 @@ export async function generateColumnPdf(
   if (!columns.length) {
     const page = doc.addPage([PAGE_W, PAGE_H]);
     const ctx: Ctx = { page, font, fontBold, W: PAGE_W, H: PAGE_H };
-    drawPageFrame(ctx, "SHOP DRAWING CỘT", 1, 1);
+    drawPageFrame(ctx, "SHOP DRAWING CỘT (BY GIAHUY.NET)", 1, 1);
     text(ctx, "Chưa có cột.", mx + 20, innerY + 20, 14, true);
     return doc.save();
   }
@@ -1458,7 +1458,7 @@ export async function generateColumnPdf(
     const page = doc.addPage([PAGE_W, PAGE_H]);
     const ctx: Ctx = { page, font, fontBold, W: PAGE_W, H: PAGE_H };
     const names = slice.map((c) => c.name).join(", ");
-    drawPageFrame(ctx, `SHOP DRAWING CỘT  ·  ${names}`, pageIndex + 1, pages);
+    drawPageFrame(ctx, `SHOP DRAWING CỘT (BY GIAHUY.NET)  ·  ${names}`, pageIndex + 1, pages);
     slice.forEach((column, i) => {
       drawColumnSheet(
         ctx,
