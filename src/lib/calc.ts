@@ -274,6 +274,33 @@ export type LongBarSpec = {
   midPosMm: number | null;
 };
 
+export function barMarkLabel(index: number) {
+  return `1${String.fromCharCode(97 + (index % 26))}`;
+}
+
+function makeLongBar(
+  mark: string,
+  qty: number,
+  straightMm: number,
+  hookMm: number,
+  extraMm = 0,
+  splicePos: number | null = null,
+): LongBarSpec {
+  const shaft = Math.max(0, Math.round(straightMm));
+  const hook = Math.max(0, Math.round(hookMm));
+  return {
+    mark,
+    qty,
+    straightMm: shaft,
+    hookMm: hook,
+    lengthMm: shaft + hook,
+    kind: hook > 0 ? "long-hook" : "long",
+    segs: hook > 0 ? [hook, shaft] : [shaft],
+    baseExtraMm: extraMm,
+    midPosMm: splicePos,
+  };
+}
+
 export function longBarSpecs(
   column: Column,
   floor: Floor,
@@ -348,6 +375,56 @@ export function longBarSpecs(
     make("1", shortQty, runA, nDNext, null),
     make("1*", longQty, runB, nDNext - nD, null),
   ].filter((spec) => spec.qty > 0);
+}
+
+/** Thép dọc một cây cột, đánh số 1a, 1b, 1c… từ móng lên móc mái — không chia tầng. */
+export function columnLongBarSpecs(column: Column, floors: Floor[]): LongBarSpec[] {
+  const col = normalizeColumn(column);
+  const active = columnFloors(col, floors);
+  if (!active.length) return [];
+  const first = normalizeSection(sectionFor(col, active[0].id));
+  const nBars = barCount(first);
+  const { shortQty, longQty } = staggerQty(nBars);
+  const last = active[active.length - 1];
+  const lastSection = normalizeSection(sectionFor(col, last.id));
+  const hookMm = 10 * lastSection.mainDia;
+
+  if (col.midSplice) {
+    const H = active.map((floor) => floor.heightMm);
+    const pos = active.map((floor) => midSplicePosMm(floor));
+    const nD = active.map((floor) => lapMm(sectionFor(col, floor.id).mainDia, col.midSpliceD));
+    const out: LongBarSpec[] = [];
+    let k = 0;
+    out.push(makeLongBar(barMarkLabel(k++), shortQty, pos[0], 0, 0, pos[0]));
+    out.push(makeLongBar(barMarkLabel(k++), longQty, pos[0] + nD[0], 0, nD[0], pos[0] + nD[0]));
+    for (let i = 0; i < active.length - 1; i += 1) {
+      const len = H[i] - pos[i] + pos[i + 1] + nD[i + 1];
+      out.push(makeLongBar(barMarkLabel(k++), nBars, len, 0, nD[i + 1], pos[i + 1] + nD[i + 1]));
+    }
+    const top = active.length - 1;
+    out.push(makeLongBar(barMarkLabel(k++), shortQty, H[top] - pos[top] + nD[top], hookMm, nD[top], pos[top]));
+    out.push(makeLongBar(barMarkLabel(k++), longQty, H[top] - pos[top], hookMm, 0, pos[top] + nD[top]));
+    return out.filter((spec) => spec.qty > 0 && spec.lengthMm > 0);
+  }
+
+  if (!col.baseSplice) {
+    const height = active.reduce((sum, floor) => sum + floor.heightMm, 0);
+    return [makeLongBar("1", nBars, height - COVER_MM, hookMm)].filter((spec) => spec.qty > 0);
+  }
+
+  let k = 0;
+  const out: LongBarSpec[] = [];
+  active.forEach((floor, floorIndex) => {
+    const section = normalizeSection(sectionFor(col, floor.id));
+    const isTop = floorIndex === active.length - 1;
+    const nextFloor = !isTop ? active[floorIndex + 1] : undefined;
+    const nextSection = nextFloor ? normalizeSection(sectionFor(col, nextFloor.id)) : null;
+    longBarSpecs(col, floor, section, isTop, nextSection).forEach((spec) => {
+      if (spec.qty <= 0) return;
+      out.push({ ...spec, mark: barMarkLabel(k++) });
+    });
+  });
+  return out;
 }
 
 export function stirrupInner(section: FloorSection) {
@@ -691,38 +768,36 @@ export function buildSchedule(project: Project): {
 
   for (const column of project.columns.map(normalizeColumn)) {
     const active = columnFloors(column, project.floors);
+    const member = column.name;
+    const firstSection = active.length ? normalizeSection(sectionFor(column, active[0].id)) : null;
+    columnLongBarSpecs(column, project.floors).forEach((spec) => {
+      if (!firstSection || spec.qty <= 0) return;
+      const dia = spec.kind === "long-hook"
+        ? normalizeSection(sectionFor(column, active[active.length - 1].id)).mainDia
+        : firstSection.mainDia;
+      const totalBars = spec.qty * column.quantity;
+      const totalLengthM = (spec.lengthMm / 1000) * totalBars;
+      const weightKg = totalLengthM * kgPerMeter(dia);
+      pushTotal(byDia, dia, totalLengthM, weightKg);
+      rows.push({
+        member,
+        floorName: "",
+        quantity: column.quantity,
+        stt: spec.mark,
+        dia,
+        kind: spec.kind,
+        shapeLabel: spec.mark,
+        segs: spec.segs,
+        lengthMm: spec.lengthMm,
+        perMember: spec.qty,
+        totalBars,
+        totalLengthM,
+        weightKg,
+      });
+    });
+
     active.forEach((floor, floorIndex) => {
       const section = normalizeSection(sectionFor(column, floor.id));
-      const isTop = floor.id === column.endFloor;
-      const nextFloor = !isTop ? active[floorIndex + 1] : undefined;
-      const nextSection = nextFloor ? normalizeSection(sectionFor(column, nextFloor.id)) : null;
-      const member = `${column.name} (TẦNG ${floor.name})`;
-
-      const longSpecs = longBarSpecs(column, floor, section, isTop, nextSection).filter((spec) => spec.qty > 0);
-      const staggeredLong = longSpecs.some((spec) => spec.mark === "1*");
-      longSpecs.forEach((spec) => {
-        const totalBars = spec.qty * column.quantity;
-        const totalLengthM = (spec.lengthMm / 1000) * totalBars;
-        const weightKg = totalLengthM * kgPerMeter(section.mainDia);
-        pushTotal(byDia, section.mainDia, totalLengthM, weightKg);
-        const stt =
-          spec.mark === "1*" ? "1b" : spec.mark === "1" && staggeredLong ? "1a" : spec.mark;
-        rows.push({
-          member,
-          floorName: floor.name,
-          quantity: column.quantity,
-          stt,
-          dia: section.mainDia,
-          kind: spec.kind,
-          shapeLabel: spec.mark,
-          segs: spec.segs,
-          lengthMm: spec.lengthMm,
-          perMember: spec.qty,
-          totalBars,
-          totalLengthM,
-          weightKg,
-        });
-      });
 
       const { a, b } = stirrupInner(section);
       if (hasMainStirrup(section)) {
@@ -793,7 +868,29 @@ export function buildSchedule(project: Project): {
     });
   }
 
-  return { rows, byDia, stirrupCounts };
+  return { rows: mergeIdenticalStirrups(rows), byDia, stirrupCounts };
+}
+
+function mergeIdenticalStirrups(rows: ScheduleRow[]): ScheduleRow[] {
+  const longs: ScheduleRow[] = [];
+  const merged = new Map<string, ScheduleRow>();
+  for (const row of rows) {
+    if (row.kind !== "stirrup") {
+      longs.push(row);
+      continue;
+    }
+    const key = [row.member, row.stt, row.dia, row.lengthMm, row.segs.join("×")].join("|");
+    const prev = merged.get(key);
+    if (!prev) {
+      merged.set(key, { ...row, floorName: "" });
+      continue;
+    }
+    prev.perMember += row.perMember;
+    prev.totalBars += row.totalBars;
+    prev.totalLengthM += row.totalLengthM;
+    prev.weightKg += row.weightKg;
+  }
+  return [...longs, ...merged.values()];
 }
 
 export function stockBars(lengthM: number) {

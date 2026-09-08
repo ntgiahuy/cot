@@ -52,12 +52,22 @@ export function createSampleProject(): Project {
   const floors: Floor[] = [
     { id: 1, name: "1", heightMm: 4150, beamHeightMm: 500 },
     { id: 2, name: "2", heightMm: 3900, beamHeightMm: 500 },
-    { id: 3, name: "3", heightMm: 3600, beamHeightMm: 450 },
+    { id: 3, name: "3", heightMm: 3650, beamHeightMm: 450 },
   ];
 
   const columns: Column[] = [
     floorsFor(
-      col({ id: "C1", name: "C1", quantity: 1, startFloor: 1, endFloor: 3, shape: "HCN" }),
+      col({
+        id: "C1",
+        name: "C1",
+        quantity: 1,
+        startFloor: 1,
+        endFloor: 3,
+        shape: "HCN",
+        baseSplice: false,
+        midSplice: true,
+        midSpliceD: 35,
+      }),
       () => section({ cx: 300, cy: 400, barsX: 3, barsY: 3, mainDia: 16 }),
     ),
   ];
