@@ -606,6 +606,10 @@ h1 {
   grid-template-columns: 0.5fr 1fr 1.1fr 1.1fr;
 }
 
+.table-three {
+  grid-template-columns: 0.5fr 1fr 2.2fr;
+}
+
 .table-head {
   padding: 8px;
   color: #111;

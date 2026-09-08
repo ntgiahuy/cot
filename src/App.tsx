@@ -44,10 +44,12 @@ import {
   steelRatioPercent,
   ringBarCenters,
   circularStirrupDiaMm,
+  circularStirrupLengthMm,
   columnDiameterMm,
+  svgCircularTie,
 } from "./lib/calc";
 import { createSampleProject, emptySection } from "./lib/sample";
-import { BAR_COUNT_MAX, BAR_COUNT_MIN, BAR_DIAMETERS, clampBarCount, clampMainDia, clampTieDia, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
+import { BAR_COUNT_MAX, BAR_COUNT_MIN, BAR_DIAMETERS, CIRCULAR_STIRRUP_HOOK_MM, clampBarCount, clampMainDia, clampTieDia, MIN_BAR_CLEAR_MM, SPLICE_FACTORS, STIRRUP_HOOK_MM, type Column, type Floor, type FloorSection, type Project, type SpliceFactor, type TieOption } from "./lib/types";
 import "./App.css";
 
 const STORE_KEY = "thep-cot-project-v3";
@@ -691,13 +693,30 @@ export default function App() {
                   ))}
                 </select>
               </div>
+              <div className="shape-switch">
+                <button
+                  type="button"
+                  className={selectedColumn.shape === "HCN" ? "shape-option active" : "shape-option"}
+                  onClick={() => setColumnShape("HCN")}
+                >
+                  Cột HCN
+                </button>
+                <button
+                  type="button"
+                  className={selectedColumn.shape === "TRON" ? "shape-option active" : "shape-option"}
+                  onClick={() => setColumnShape("TRON")}
+                >
+                  Cột tròn
+                </button>
+              </div>
               {selectedColumn.shape === "TRON" ? (
                 <div className="form-row">
-                  <label>Đường kính D (mm):</label>
+                  <label>Đường kính (mm):</label>
                   <div className="inline-pair">
                     <input
                       type="number"
-                      value={selectedSection.cx}
+                      min={100}
+                      value={columnDiameterMm(selectedSection)}
                       onChange={(e) => {
                         const d = Number(e.target.value);
                         patchSection({ cx: d, cy: d }, true);
@@ -806,32 +825,13 @@ export default function App() {
                   </p>
                 ) : null}
               </fieldset>
-              <div className="shape-switch">
-                <button
-                  type="button"
-                  className={selectedColumn.shape === "HCN" ? "shape-option active" : "shape-option"}
-                  onClick={() => setColumnShape("HCN")}
-                >
-                  Cột HCN
-                </button>
-                <button
-                  type="button"
-                  className={selectedColumn.shape === "TRON" ? "shape-option active" : "shape-option"}
-                  onClick={() => setColumnShape("TRON")}
-                >
-                  Cột tròn
-                </button>
-              </div>
             </div>
             <div className="table-like">
-              <div className="table-head table-four">
+              <div className={selectedColumn.shape === "TRON" ? "table-head table-three" : "table-head table-four"}>
                 <span>STT</span>
                 <span>Tầng</span>
                 {selectedColumn.shape === "TRON" ? (
-                  <>
-                    <span>Đường kính D (mm)</span>
-                    <span />
-                  </>
+                  <span>Đường kính (mm)</span>
                 ) : (
                   <>
                     <span>Cạnh Cx (mm)</span>
@@ -841,17 +841,28 @@ export default function App() {
               </div>
               {columnFloors(selectedColumn, project.floors).map((floor, index) => {
                 const section = sectionFor(selectedColumn, floor.id);
+                const round = selectedColumn.shape === "TRON";
                 return (
                   <button
                     key={floor.id}
                     type="button"
-                    className={floor.id === selectedFloorId ? "table-row table-four active" : "table-row table-four"}
+                    className={
+                      floor.id === selectedFloorId
+                        ? `table-row ${round ? "table-three" : "table-four"} active`
+                        : `table-row ${round ? "table-three" : "table-four"}`
+                    }
                     onClick={() => setSelectedFloorId(floor.id)}
                   >
                     <span>{index + 1}</span>
                     <span>Tầng {floor.name}</span>
-                    <span>{selectedColumn.shape === "TRON" ? Math.max(section.cx, section.cy) : section.cx}</span>
-                    <span>{selectedColumn.shape === "TRON" ? "" : section.cy}</span>
+                    {round ? (
+                      <span>{columnDiameterMm(section)}</span>
+                    ) : (
+                      <>
+                        <span>{section.cx}</span>
+                        <span>{section.cy}</span>
+                      </>
+                    )}
                   </button>
                 );
               })}
@@ -1083,7 +1094,8 @@ export default function App() {
             <p>Hàm lượng cốt thép: {ratio.toFixed(2)} %</p>
             {selectedColumn.shape === "TRON" ? (
               <p>
-                Đường kính D = {columnDiameterMm(selectedSection)} mm · đai vòng D = {circularStirrupDiaMm(selectedSection)} mm
+                Đường kính D = {columnDiameterMm(selectedSection)} mm · đai vòng D = {circularStirrupDiaMm(selectedSection)}{" "}
+                mm · L = πD + 2Ø{selectedSection.mainDia} + 2×{CIRCULAR_STIRRUP_HOOK_MM} = {circularStirrupLengthMm(selectedSection)} mm
               </p>
             ) : null}
           </div>
@@ -1520,8 +1532,8 @@ function PreviewDims({
   const tick = 6;
   const cxY = y + h + gap;
   const cyX = x - gap;
-  const dLabel = round ? `D ${Math.max(cx, cy)}` : `Cx ${cx}`;
-  const hLabel = round ? `D ${Math.max(cx, cy)}` : `Cy ${cy}`;
+  const dLabel = round ? `D${Math.max(cx, cy)}` : `Cx ${cx}`;
+  const hLabel = `Cy ${cy}`;
   return (
     <g stroke="#fff12d" fill="#fff12d" strokeWidth="1.5">
       <line x1={x} y1={y + h} x2={x} y2={cxY} />
@@ -1532,22 +1544,26 @@ function PreviewDims({
       <text x={x + w / 2} y={cxY + 18} textAnchor="middle" stroke="none" fontSize="15" fontWeight="700">
         {dLabel}
       </text>
-      <line x1={x} y1={y} x2={cyX} y2={y} />
-      <line x1={x} y1={y + h} x2={cyX} y2={y + h} />
-      <line x1={cyX} y1={y} x2={cyX} y2={y + h} />
-      <line x1={cyX - tick} y1={y} x2={cyX + tick} y2={y} />
-      <line x1={cyX - tick} y1={y + h} x2={cyX + tick} y2={y + h} />
-      <text
-        x={cyX - 12}
-        y={y + h / 2}
-        textAnchor="middle"
-        stroke="none"
-        fontSize="15"
-        fontWeight="700"
-        transform={`rotate(-90 ${cyX - 12} ${y + h / 2})`}
-      >
-        {hLabel}
-      </text>
+      {round ? null : (
+        <>
+          <line x1={x} y1={y} x2={cyX} y2={y} />
+          <line x1={x} y1={y + h} x2={cyX} y2={y + h} />
+          <line x1={cyX} y1={y} x2={cyX} y2={y + h} />
+          <line x1={cyX - tick} y1={y} x2={cyX + tick} y2={y} />
+          <line x1={cyX - tick} y1={y + h} x2={cyX + tick} y2={y + h} />
+          <text
+            x={cyX - 12}
+            y={y + h / 2}
+            textAnchor="middle"
+            stroke="none"
+            fontSize="15"
+            fontWeight="700"
+            transform={`rotate(-90 ${cyX - 12} ${y + h / 2})`}
+          >
+            {hLabel}
+          </text>
+        </>
+      )}
     </g>
   );
 }
@@ -1601,7 +1617,14 @@ function ColumnPreview({ section, shape }: { section: FloorSection; shape: Colum
         <>
           <circle cx={roundCx} cy={roundCy} r={outerR} fill="none" stroke="#f5f5f5" strokeWidth="3" />
           {hasMainStirrup(section, shape) ? (
-            <circle cx={roundCx} cy={roundCy} r={stirrupR} fill="none" stroke="#b0db34" strokeWidth={stirrupStroke} />
+            <path
+              d={svgCircularTie(roundCx, roundCy, stirrupR, Math.max(18, stirrupR * 0.22))}
+              fill="none"
+              stroke="#b0db34"
+              strokeWidth={stirrupStroke}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           ) : null}
           <PreviewDims x={roundX} y={roundY} w={roundSide} h={roundSide} cx={section.cx} cy={section.cy} round />
         </>

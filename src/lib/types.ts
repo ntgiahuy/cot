@@ -115,6 +115,8 @@ export const TOP_COVER_MM = 50;
 /** Phần sàn/dầm che da cột trên mặt đứng — nét đứt ngang cách cao độ sàn. */
 export const SLAB_HIDE_MM = 120;
 export const STIRRUP_HOOK_MM = 50;
+/** Móc mỗi đầu đai vòng cột tròn. */
+export const CIRCULAR_STIRRUP_HOOK_MM = 75;
 export const STOCK_M = 11.7;
 export const EMBED_MM = 600;
 export const MIN_BAR_CLEAR_MM = 25;

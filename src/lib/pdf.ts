@@ -10,6 +10,7 @@ import {
   barCount,
   ringBarCenters,
   circularTieCalloutAngle,
+  circularTieGeom,
   columnDiameterMm,
   cTieAlongX,
   cTieAlongY,
@@ -365,14 +366,14 @@ function strokeSvg(ctx: Ctx, d: string, originX: number, originPdfY: number, w =
 }
 
 /** Cung tròn, 0° = +x, 90° = +y (xuống trang). */
-function arcDeg(ctx: Ctx, cx: number, cy: number, r: number, startDeg: number, endDeg: number, t: number) {
-  const steps = 14;
+function arcDeg(ctx: Ctx, cx: number, cy: number, r: number, startDeg: number, endDeg: number, t: number, steps = 14) {
+  const n = Math.max(8, steps);
   const s = (startDeg * Math.PI) / 180;
   const e = (endDeg * Math.PI) / 180;
   let px = cx + r * Math.cos(s);
   let py = cy + r * Math.sin(s);
-  for (let i = 1; i <= steps; i += 1) {
-    const a = s + ((e - s) * i) / steps;
+  for (let i = 1; i <= n; i += 1) {
+    const a = s + ((e - s) * i) / n;
     const x = cx + r * Math.cos(a);
     const y = cy + r * Math.sin(a);
     line(ctx, px, py, x, y, t);
@@ -530,6 +531,15 @@ function drawScheduleStirrup(
   textVCenter(ctx, hookLabel, sx + bw + 4.6, sy + Math.min(3.8, bh * 0.28), size, false, "left");
 }
 
+function drawCircularTie(ctx: Ctx, cx: number, cy: number, r: number, stroke: number) {
+  const geom = circularTieGeom(cx, cy, r);
+  arcDeg(ctx, cx, cy, r, geom.startDeg, geom.endDeg, stroke, 48);
+  geom.hooks.forEach(([a, b, c]) => {
+    line(ctx, a[0], a[1], b[0], b[1], stroke);
+    line(ctx, b[0], b[1], c[0], c[1], stroke);
+  });
+}
+
 function drawScheduleRoundStirrup(
   ctx: Ctx,
   x: number,
@@ -538,17 +548,22 @@ function drawScheduleRoundStirrup(
   h: number,
   hook: number,
   dia: number,
+  mainDia: number,
 ) {
-  const size = 5.4;
-  const r = Math.min(h * 0.38, w * 0.18);
-  const cx = x + w * 0.46;
-  const cy = y + h / 2;
-  circle(ctx, cx, cy, r, false);
-  const hookW = Math.max(5.5, Math.min(11, w * 0.12));
-  line(ctx, cx + r, cy - 0.8, cx + r + hookW, cy - 0.8, 0.65);
-  line(ctx, cx + r + hookW, cy - 0.8, cx + r + hookW - 1.6, cy + Math.min(4.2, r * 0.55), 0.65);
+  const size = 5.2;
+  const r = Math.min(h * 0.32, w * 0.15);
+  const cx = x + w * 0.42;
+  const cy = y + h / 2 + 0.6;
+  drawCircularTie(ctx, cx, cy, r, 0.7);
+  const geom = circularTieGeom(cx, cy, r);
+  const [, lowerMid] = geom.hooks[0];
+  const [, upperMid] = geom.hooks[1];
   textVCenter(ctx, String(Math.round(dia)), cx, cy, size, false, "center");
-  textVCenter(ctx, String(Math.round(hook)), cx + r + hookW + 3.2, cy - 1.2, size, false, "left");
+  textVCenter(ctx, String(Math.round(hook)), upperMid[0] + 3.4, upperMid[1] - 1.4, size, false, "left");
+  textVCenter(ctx, String(Math.round(hook)), lowerMid[0] + 3.4, lowerMid[1] + 3.2, size, false, "left");
+  if (mainDia > 0) {
+    textVCenter(ctx, `2Ø${Math.round(mainDia)}`, cx, y + h - 3.2, 4.8, false, "center");
+  }
 }
 
 /** Đai C / U: thân bo góc, hai đầu móc. */
@@ -1010,12 +1025,11 @@ function drawSectionDetail(
     const pts = ringBarCenters(nBars, cx, cy, barRingR);
 
     circle(ctx, cx, cy, outerR, false);
-    if (hasMainStirrup(section, shape)) circle(ctx, cx, cy, stirrupR, false);
+    if (hasMainStirrup(section, shape)) drawCircularTie(ctx, cx, cy, stirrupR, stroke);
     pts.forEach(([px, py]) => circle(ctx, px, py, barR, true));
 
     const dMm = columnDiameterMm(section);
-    dimH(ctx, x, x + w, y + h + 18, String(dMm), 8);
-    dimChainV(ctx, x + w + 18, [y, y + h], [String(dMm)], 8, "right", 13);
+    dimH(ctx, x, x + w, y + h + 18, `D${dMm}`, 8);
 
     const leadX = x - 64;
     const specX = leadX + 7.4 + 5;
@@ -1477,7 +1491,7 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
     if (row.kind === "stirrup") {
       const [hook, a, b] = row.segs;
       if (row.circular) {
-        drawScheduleRoundStirrup(ctx, xs[2], rowY, cols[2].w, rowH, hook, a);
+        drawScheduleRoundStirrup(ctx, xs[2], rowY, cols[2].w, rowH, hook, a, b ?? 0);
       } else if (b === hook) {
         drawScheduleBarSketch(ctx, xs[2], rowY, cols[2].w, rowH, "u-bar", [hook, a, b]);
       } else {

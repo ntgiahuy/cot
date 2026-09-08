@@ -1,4 +1,4 @@
-import { COVER_MM, EMBED_MM, MIN_BAR_CLEAR_MM, STOCK_M, STIRRUP_HOOK_MM, TOP_COVER_MM, clampMainDia, clampTieDia, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
+import { CIRCULAR_STIRRUP_HOOK_MM, COVER_MM, EMBED_MM, MIN_BAR_CLEAR_MM, STOCK_M, STIRRUP_HOOK_MM, TOP_COVER_MM, clampMainDia, clampTieDia, normalizeTie, type Column, type Floor, type FloorSection, type Project, type ScheduleRow, type SpliceFactor, type TieOption } from "./types";
 
 export function barCount(section: FloorSection) {
   const edge = section.barsX * 2 + section.barsY * 2 - 4;
@@ -11,6 +11,72 @@ export function columnDiameterMm(section: FloorSection) {
 
 export function circularStirrupDiaMm(section: FloorSection) {
   return Math.max(40, columnDiameterMm(section) - 2 * COVER_MM);
+}
+
+/** L = πD + 2Ø thép chủ + 75 mm móc mỗi đầu. */
+export function circularStirrupLengthMm(section: FloorSection) {
+  return Math.round(
+    Math.PI * circularStirrupDiaMm(section) + 2 * section.mainDia + 2 * CIRCULAR_STIRRUP_HOOK_MM,
+  );
+}
+
+type Pt = [number, number];
+
+/** Đai vòng mở giữa hai thanh (mặc định 22.5°), hai móc 135° hướng vào tâm. */
+export function circularTieGeom(cx: number, cy: number, r: number, hookLen?: number) {
+  const gapCenter = (22.5 * Math.PI) / 180;
+  const half = (16 * Math.PI) / 180;
+  const hook = hookLen ?? Math.max(6, r * 0.38);
+  const ret = hook * 0.72;
+  const startA = gapCenter + half;
+  const endA = gapCenter - half;
+  const pt = (a: number): Pt => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  const start = pt(startA);
+  const end = pt(endA);
+  const tStart: Pt = [Math.sin(startA), -Math.cos(startA)];
+  const inStart: Pt = [-Math.cos(startA), -Math.sin(startA)];
+  const s1: Pt = [start[0] + tStart[0] * hook, start[1] + tStart[1] * hook];
+  const s2: Pt = [
+    s1[0] + (-tStart[0] * 0.5 + inStart[0] * 0.87) * ret,
+    s1[1] + (-tStart[1] * 0.5 + inStart[1] * 0.87) * ret,
+  ];
+  const tEnd: Pt = [-Math.sin(endA), Math.cos(endA)];
+  const inEnd: Pt = [-Math.cos(endA), -Math.sin(endA)];
+  const e1: Pt = [end[0] + tEnd[0] * hook, end[1] + tEnd[1] * hook];
+  const e2: Pt = [
+    e1[0] + (-tEnd[0] * 0.5 + inEnd[0] * 0.87) * ret,
+    e1[1] + (-tEnd[1] * 0.5 + inEnd[1] * 0.87) * ret,
+  ];
+  return {
+    r,
+    startDeg: (startA * 180) / Math.PI,
+    endDeg: (endA * 180) / Math.PI + 360,
+    startA,
+    endA,
+    start,
+    end,
+    hooks: [
+      [start, s1, s2],
+      [end, e1, e2],
+    ] as [Pt, Pt, Pt][],
+  };
+}
+
+export function svgCircularTie(cx: number, cy: number, r: number, hookLen?: number) {
+  const p = circularTieGeom(cx, cy, r, hookLen);
+  const n = (v: number) => v.toFixed(2);
+  const [ls, l1, l2] = p.hooks[0];
+  const [us, u1, u2] = p.hooks[1];
+  return [
+    `M ${n(ls[0])} ${n(ls[1])}`,
+    `A ${n(r)} ${n(r)} 0 1 1 ${n(us[0])} ${n(us[1])}`,
+    `M ${n(ls[0])} ${n(ls[1])}`,
+    `L ${n(l1[0])} ${n(l1[1])}`,
+    `L ${n(l2[0])} ${n(l2[1])}`,
+    `M ${n(us[0])} ${n(us[1])}`,
+    `L ${n(u1[0])} ${n(u1[1])}`,
+    `L ${n(u2[0])} ${n(u2[1])}`,
+  ].join(" ");
 }
 
 export function ringBarCenters(n: number, cx: number, cy: number, r: number): Array<[number, number]> {
@@ -575,7 +641,7 @@ export function stirrupInner(section: FloorSection) {
 }
 
 export function stirrupLengthMm(section: FloorSection, circular = false) {
-  if (circular) return Math.round(Math.PI * circularStirrupDiaMm(section) + 2 * STIRRUP_HOOK_MM);
+  if (circular) return circularStirrupLengthMm(section);
   const { a, b } = stirrupInner(section);
   return 2 * (a + b) + 2 * STIRRUP_HOOK_MM;
 }
@@ -963,7 +1029,7 @@ export function buildSchedule(project: Project): {
           dia: section.tieDia,
           kind: "stirrup",
           shapeLabel: String(mainMark),
-          segs: circular ? [STIRRUP_HOOK_MM, d] : [STIRRUP_HOOK_MM, a, b],
+          segs: circular ? [CIRCULAR_STIRRUP_HOOK_MM, d, section.mainDia] : [STIRRUP_HOOK_MM, a, b],
           circular,
           lengthMm: tieLen,
           perMember: nTie,
