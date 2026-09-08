@@ -1141,10 +1141,12 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   const pad = 8;
   const tableX = x + pad;
   const tableY = y + titleH + 6;
+  const floorColW = 34;
+  const memberColW = 28;
   const cols: { w: number; label: string; stack?: string[] }[] = [
-    { w: 40, label: "TÊN CẤU KIỆN", stack: ["TÊN", "CẤU KIỆN"] },
+    { w: floorColW + memberColW, label: "TÊN CẤU KIỆN", stack: ["TÊN", "CẤU KIỆN"] },
     { w: 36, label: "STT" },
-    { w: 246, label: "HÌNH DẠNG, KT (mm)" },
+    { w: 224, label: "HÌNH DẠNG, KT (mm)" },
     { w: 32, label: "Ø" },
     { w: 52, label: "DÀI" },
     { w: 40, label: "1 CK" },
@@ -1164,7 +1166,20 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   });
 
   const built = buildSchedule(project);
-  const rows = focus ? built.rows.filter((r) => r.member.startsWith(`${focus.name} `) || r.member.startsWith(`${focus.name} (`)) : built.rows;
+  const rawRows = focus
+    ? built.rows.filter((r) => r.member.startsWith(`${focus.name} `) || r.member.startsWith(`${focus.name} (`))
+    : built.rows;
+  const floorOrder = new Map(project.floors.map((f, i) => [f.name, i]));
+  const colOrder = new Map(project.columns.map((c, i) => [c.name, i]));
+  const memberName = (row: (typeof rawRows)[number]) => row.member.split(" (")[0];
+  const rows = [...rawRows].sort((a, b) => {
+    const fa = floorOrder.get(a.floorName) ?? 0;
+    const fb = floorOrder.get(b.floorName) ?? 0;
+    if (fa !== fb) return fa - fb;
+    const ca = colOrder.get(memberName(a)) ?? 0;
+    const cb = colOrder.get(memberName(b)) ?? 0;
+    return ca - cb;
+  });
   const { byDia, stirrupCounts } = built;
   const sumH = 168;
   const bodyTop = tableY + headH;
@@ -1176,24 +1191,29 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
     xs.push(acc);
     acc += c.w;
   });
+  const splitX = tableX + floorColW;
 
   const visible = rows.filter((_, i) => bodyTop + (i + 1) * rowH <= bodyTop + bodyH);
-  type NameGroup = { start: number; end: number; label: string; y: number; h: number };
-  const groups: NameGroup[] = [];
-  visible.forEach((row, i) => {
-    const name = row.member.split(" (")[0];
-    const label = `TẦNG ${row.floorName}: ${name}`;
-    const y = bodyTop + i * rowH;
-    const prev = groups[groups.length - 1];
-    if (prev && prev.label === label) {
-      prev.end = i;
-      prev.h += rowH;
-    } else {
-      groups.push({ start: i, end: i, label, y, h: rowH });
-    }
-  });
+  type NameGroup = { start: number; end: number; key: string; y: number; h: number };
+  const collectGroups = (keyOf: (row: (typeof visible)[number]) => string) => {
+    const out: NameGroup[] = [];
+    visible.forEach((row, i) => {
+      const key = keyOf(row);
+      const y = bodyTop + i * rowH;
+      const prev = out[out.length - 1];
+      if (prev && prev.key === key) {
+        prev.end = i;
+        prev.h += rowH;
+      } else {
+        out.push({ start: i, end: i, key, y, h: rowH });
+      }
+    });
+    return out;
+  };
+  const floorGroups = collectGroups((row) => row.floorName);
+  const memberGroups = collectGroups((row) => `${row.floorName}::${memberName(row)}`);
 
-  groups.forEach((g, gi) => {
+  memberGroups.forEach((g, gi) => {
     if (gi % 2 === 1) fillRect(ctx, xs[1], g.y, tableW - cols[0].w, g.h, GRAY2);
   });
 
@@ -1201,14 +1221,17 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   for (let c = 1; c < cols.length; c += 1) {
     line(ctx, xs[c], bodyTop, xs[c], bodyTop + bodyUsed, 0.35);
   }
+  line(ctx, splitX, tableY, splitX, bodyTop + bodyUsed, 0.45);
 
   visible.forEach((row, i) => {
     const rowY = bodyTop + i * rowH;
     const yBot = rowY + rowH;
-    const lastInGroup = groups.some((g) => g.end === i);
+    const lastInMember = memberGroups.some((g) => g.end === i);
+    const lastInFloor = floorGroups.some((g) => g.end === i);
     const lastOverall = i === visible.length - 1;
     if (!lastOverall) {
-      if (lastInGroup) line(ctx, tableX, yBot, tableX + tableW, yBot, 0.45);
+      if (lastInFloor) line(ctx, tableX, yBot, tableX + tableW, yBot, 0.45);
+      else if (lastInMember) line(ctx, splitX, yBot, tableX + tableW, yBot, 0.4);
       else line(ctx, xs[1], yBot, tableX + tableW, yBot, 0.3);
     }
 
@@ -1235,9 +1258,15 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
     cellText(ctx, row.weightKg.toFixed(1), xs[8], rowY, cols[8].w, rowH, 6.5, "right");
   });
 
-  groups.forEach((g) => {
-    const size = fitVTextSize(ctx, g.label, g.h, 9);
-    vtextCentered(ctx, g.label, xs[0] + cols[0].w / 2, g.y + g.h / 2, size, true);
+  floorGroups.forEach((g) => {
+    const label = `TẦNG ${g.key}`;
+    const size = fitVTextSize(ctx, label, g.h, 9);
+    vtextCentered(ctx, label, tableX + floorColW / 2, g.y + g.h / 2, size, true);
+  });
+  memberGroups.forEach((g) => {
+    const label = g.key.split("::")[1] ?? g.key;
+    const size = fitVTextSize(ctx, label, g.h, 11);
+    vtextCentered(ctx, label, splitX + memberColW / 2, g.y + g.h / 2, size, true);
   });
   rect(ctx, tableX, bodyTop, tableW, Math.max(bodyUsed, 1), 0.7);
 
