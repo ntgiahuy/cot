@@ -1221,7 +1221,7 @@ function drawSchedulePanel(ctx: Ctx, x: number, y: number, w: number, h: number,
   for (let c = 1; c < cols.length; c += 1) {
     line(ctx, xs[c], bodyTop, xs[c], bodyTop + bodyUsed, 0.35);
   }
-  line(ctx, splitX, tableY, splitX, bodyTop + bodyUsed, 0.45);
+  line(ctx, splitX, bodyTop, splitX, bodyTop + bodyUsed, 0.45);
 
   visible.forEach((row, i) => {
     const rowY = bodyTop + i * rowH;
