@@ -22,32 +22,6 @@ export function circularStirrupLengthMm(section: FloorSection) {
 
 type Pt = [number, number];
 
-export type BarEndMark = { x: number; y: number; r: number };
-
-/** Ký hiệu đầu cắt cốt thép: vòng tròn + hoa 8 cánh. */
-export function barEndFlower(cx: number, cy: number, r: number, petals = 8) {
-  const inner = Math.max(0.12, r * 0.2);
-  const hole = Math.max(0.1, r * 0.16);
-  const half = (Math.PI / petals) * 0.52;
-  const tris: [Pt, Pt, Pt][] = [];
-  for (let i = 0; i < petals; i += 1) {
-    const a = (i * 2 * Math.PI) / petals - Math.PI / 2;
-    const tip: Pt = [cx + r * 0.9 * Math.cos(a), cy + r * 0.9 * Math.sin(a)];
-    const left: Pt = [cx + inner * Math.cos(a - half), cy + inner * Math.sin(a - half)];
-    const right: Pt = [cx + inner * Math.cos(a + half), cy + inner * Math.sin(a + half)];
-    tris.push([left, tip, right]);
-  }
-  return { cx, cy, r, hole, tris };
-}
-
-export function svgBarEndFlowerPetals(cx: number, cy: number, r: number) {
-  const f = barEndFlower(cx, cy, r);
-  const n = (v: number) => v.toFixed(2);
-  return f.tris
-    .map(([a, b, c]) => `M ${n(a[0])} ${n(a[1])} L ${n(b[0])} ${n(b[1])} L ${n(c[0])} ${n(c[1])} Z`)
-    .join(" ");
-}
-
 export type CircularTieOpts = {
   hookLen?: number;
   /** Bề dày nét móc (hai nét song song). */
@@ -165,42 +139,6 @@ export function svgCircularTie(cx: number, cy: number, r: number, opts: Circular
     );
   });
   return parts.join(" ");
-}
-
-/** Đai chữ nhật: góc móc = hai nét song song + đầu hoa, ôm cạnh trái. */
-export function rectStirrupHook(x: number, y: number, w: number, h: number, stroke = 1) {
-  const fr = Math.max(1.7, Math.min(w, h) * 0.075, Math.min(8, stroke * 2.6));
-  const flower: BarEndMark = { x: x + fr, y: y + fr, r: fr };
-  const innerY = y + 2 * fr;
-  const innerEnd = x + Math.min(w * 0.38, Math.max(fr * 6.5, 16));
-  return {
-    flower,
-    innerTop: { x1: flower.x + fr * 0.88, y1: innerY, x2: innerEnd, y2: innerY },
-    open: fr * 2,
-  };
-}
-
-export function svgRoundedStirrup(x: number, y: number, w: number, h: number) {
-  const r = Math.max(8, Math.min(w, h) * 0.12);
-  const hook = rectStirrupHook(x, y, w, h, Math.max(4, Math.min(w, h) * 0.04));
-  const k = 0.5522847498;
-  const rk = r * k;
-  const X = (px: number) => +(x + px).toFixed(2);
-  const Y = (py: number) => +(y + py).toFixed(2);
-  const open = hook.open;
-  const d = [
-    `M ${X(open)} ${Y(0)}`,
-    `L ${X(w - r)} ${Y(0)}`,
-    `C ${X(w - r + rk)} ${Y(0)} ${X(w)} ${Y(rk)} ${X(w)} ${Y(r)}`,
-    `L ${X(w)} ${Y(h - r)}`,
-    `C ${X(w)} ${Y(h - r + rk)} ${X(w - r + rk)} ${Y(h)} ${X(w - r)} ${Y(h)}`,
-    `L ${X(r)} ${Y(h)}`,
-    `C ${X(r - rk)} ${Y(h)} ${X(0)} ${Y(h - r + rk)} ${X(0)} ${Y(h - r)}`,
-    `L ${X(0)} ${Y(open)}`,
-    `M ${hook.innerTop.x1.toFixed(2)} ${hook.innerTop.y1.toFixed(2)}`,
-    `L ${hook.innerTop.x2.toFixed(2)} ${hook.innerTop.y2.toFixed(2)}`,
-  ].join(" ");
-  return { d, flowers: [hook.flower] };
 }
 
 export function ringBarCenters(n: number, cx: number, cy: number, r: number): Array<[number, number]> {
